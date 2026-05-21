@@ -1,0 +1,239 @@
+// gftd:kami-cine@1.0.0 — 8-stage neural cinematic pipeline contract.
+//
+// Consumed by mangaka.gftd.ai, animeka.gftd.ai, dogaka.gftd.ai.
+// Each stage produces an artifact CID; downstream stages reference upstream CIDs.
+// Pipeline stages run in K8s LangServer pods (ADR-2605111200); CF Workers only
+// dispatch jobs via XRPC and read back artifact references.
+//
+// Stage chain (forward-only):
+//   worldModel -> usdScene -> neuralGeom -> temporalField
+//             -> neuralRender -> diffusionPass -> exrSeq -> encode
+//
+// Float discipline: AT Lexicon disallows float; all real-valued quantities are
+// expressed as integers with explicit units (cm, permille, milliseconds, x10).
+
+package gftd:kami-cine@1.0.0;
+
+interface common {
+  // Content-addressed artifact reference (B2 / R2 blob CID).
+  record cid { hash: string }
+
+  // Axis-aligned bbox in cm.
+  record bbox3-cm {
+    min-x: s32, min-y: s32, min-z: s32,
+    max-x: s32, max-y: s32, max-z: s32,
+  }
+
+  record resolution { width: u32, height: u32 }
+
+  // Pipeline run grouping all 8 stage artifacts of one render.
+  record pipeline-run-id { value: string }
+
+  variant world-kind { three-d, two-d, two-point-five-d }
+  variant geom-format { gaussian-splat, nerf, sdf, mesh, hybrid }
+  variant temporal-format { gaussian-4d, dynamic-nerf, voxel-grid-4d, neural-flow }
+  variant codec { h264, h265, av1, prores, dnxhr }
+  variant container { mp4, mov, mkv, exr-seq }
+}
+
+interface world-model {
+  use common.{cid, bbox3-cm, world-kind, pipeline-run-id};
+
+  record input {
+    run-id: pipeline-run-id,
+    prompt: string,
+    style: option<string>,
+    reference-cids: list<cid>,
+    world-kind: world-kind,
+    extents-cm: option<bbox3-cm>,
+  }
+
+  record output {
+    model-cid: cid,
+    seed: u64,
+    token-count: u32,
+  }
+
+  generate: func(in: input) -> result<output, string>;
+}
+
+interface usd-scene {
+  use common.{cid, bbox3-cm, pipeline-run-id};
+
+  record input {
+    run-id: pipeline-run-id,
+    world-model-cid: cid,
+    layer-count: u32,
+  }
+
+  record output {
+    usda-cid: cid,           // Text USDA
+    usdc-cid: cid,           // Binary USDC
+    units-cm-per-unit: u32,  // Stage units in cm (default 100 = 1m)
+    bbox: bbox3-cm,
+    layer-count: u32,
+  }
+
+  compose: func(in: input) -> result<output, string>;
+}
+
+interface neural-geom {
+  use common.{cid, geom-format, bbox3-cm, pipeline-run-id};
+
+  record input {
+    run-id: pipeline-run-id,
+    usd-scene-cid: cid,
+    format: geom-format,
+    target-point-count: option<u64>,
+    target-grid-size: option<u32>,
+  }
+
+  record output {
+    asset-cid: cid,
+    format: geom-format,
+    point-count: option<u64>,
+    radiance-field-res: option<u32>,
+    bbox: bbox3-cm,
+  }
+
+  reconstruct: func(in: input) -> result<output, string>;
+}
+
+interface temporal-field {
+  use common.{cid, temporal-format, pipeline-run-id};
+
+  record input {
+    run-id: pipeline-run-id,
+    geom-cid: cid,
+    format: temporal-format,
+    frame-start: u32,
+    frame-end: u32,
+    fps: u32,
+  }
+
+  record output {
+    asset-cid: cid,
+    format: temporal-format,
+    frame-start: u32,
+    frame-end: u32,
+    fps: u32,
+  }
+
+  evolve: func(in: input) -> result<output, string>;
+}
+
+interface neural-render {
+  use common.{cid, resolution, pipeline-run-id};
+
+  // Subset of OpenEXR AOV channels. Producer MUST write each requested AOV.
+  variant aov {
+    beauty, diffuse, specular, normal, depth, motion, albedo, emission,
+    object-id, cryptomatte,
+  }
+
+  record input {
+    run-id: pipeline-run-id,
+    temporal-field-cid: cid,
+    camera-path-cid: cid,
+    resolution: resolution,
+    aovs: list<aov>,
+    frame-start: u32,
+    frame-end: u32,
+    samples-per-pixel: u32,
+  }
+
+  record output {
+    sequence-cid: cid,        // CID of EXR directory manifest
+    frame-pattern: string,    // e.g. "render.####.exr"
+    frame-count: u32,
+    aovs: list<aov>,
+  }
+
+  rasterize: func(in: input) -> result<output, string>;
+}
+
+interface diffusion-pass {
+  use common.{cid, pipeline-run-id};
+
+  record input {
+    run-id: pipeline-run-id,
+    input-sequence-cid: cid,
+    model: string,                 // e.g. "sdxl-refiner-1.0", "flux-1-dev"
+    sampler-steps: u32,
+    cfg-scale-x10: u32,            // CFG * 10 (e.g. 75 = 7.5)
+    denoise-permille: u32,         // 0..1000 (0.0..1.0 strength)
+    ref-image-cids: list<cid>,
+    seed: u64,
+  }
+
+  record output {
+    sequence-cid: cid,
+    frame-pattern: string,
+    frame-count: u32,
+  }
+
+  refine: func(in: input) -> result<output, string>;
+}
+
+interface exr-seq {
+  use common.{cid, pipeline-run-id};
+
+  variant compression { none, zip, piz, dwaa, dwab, zips }
+
+  record input {
+    run-id: pipeline-run-id,
+    rendered-sequence-cid: cid,
+    refined-sequence-cid: option<cid>,
+    channel-list: list<string>,    // e.g. ["R","G","B","A","Z","N.x","N.y","N.z"]
+    compression: compression,
+  }
+
+  record output {
+    sequence-cid: cid,
+    frame-pattern: string,
+    frame-count: u32,
+    bytes-per-frame: u64,
+  }
+
+  composite: func(in: input) -> result<output, string>;
+}
+
+interface encode {
+  use common.{cid, codec, container, resolution, pipeline-run-id};
+
+  record input {
+    run-id: pipeline-run-id,
+    exr-sequence-cid: cid,
+    codec: codec,
+    container: container,
+    crf: option<u32>,              // Quality 0..51 (h264/h265) or 0..63 (av1)
+    bitrate-kbps: option<u32>,
+    fps: u32,
+    resolution: resolution,
+    audio-cid: option<cid>,
+    audio-codec: option<string>,   // e.g. "aac", "opus"
+  }
+
+  record output {
+    media-cid: cid,
+    duration-ms: u64,
+    bytes: u64,
+    container: container,
+    codec: codec,
+  }
+
+  finalize: func(in: input) -> result<output, string>;
+}
+
+// Full pipeline composition. Implementations may run stages in parallel
+// where the DAG allows (e.g. exrSeq composite while diffusionPass refines).
+world cine-pipeline {
+  import world-model;
+  import usd-scene;
+  import neural-geom;
+  import temporal-field;
+  import neural-render;
+  import diffusion-pass;
+  import exr-seq;
+  import encode;
+}
