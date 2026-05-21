@@ -1,7 +1,7 @@
 //! Embedded XRPC terminal — shell for invoking XRPC commands.
 //!
 //! Renders a scrollback buffer via kami-text. Input is routed through
-//! the XRPC client to atproto.gftd.ai and results displayed inline.
+//! the XRPC client to atproto.etzhayyim.com and results displayed inline.
 
 use serde::{Deserialize, Serialize};
 

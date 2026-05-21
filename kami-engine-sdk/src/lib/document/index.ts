@@ -1,4 +1,4 @@
-/** @gftdcojp/kami-engine-sdk/document — Document model types + KAMI Engine scene bridge. */
+/** @etzhayyim/kami-engine-sdk/document — Document model types + KAMI Engine scene bridge. */
 
 export type {
   Emu,

@@ -1,6 +1,6 @@
 [package]
 name = "kami-app-car-sim"
-description = "Public car-sim demo (driver.gftd.ai) — soft-body sedan with multi-surface map, browser-rendered via the kami-app builder."
+description = "Public car-sim demo (driver.etzhayyim.com) — soft-body sedan with multi-surface map, browser-rendered via the kami-app builder."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -7,7 +7,7 @@
  *
  * ```svelte
  * <script lang="ts">
- *   import { createIncidentVrEngine } from '@gftdcojp/kami-engine-sdk/webvr';
+ *   import { createIncidentVrEngine } from '@etzhayyim/kami-engine-sdk/webvr';
  *   import { SEMI_PLANT_INCIDENT } from '$lib/scenarios/semiconductor-chem-plant';
  *   let canvas: HTMLCanvasElement;
  *   const engine = createIncidentVrEngine({ scenario: SEMI_PLANT_INCIDENT });
@@ -60,7 +60,7 @@ export interface CreateIncidentVrEngineOpts {
    * Optional kami-cine pipeline bridge. When supplied, every IncidentNode
    * that declares a `cine` prompt has its scene artifacts resolved before
    * the renderer paints. Pass `createMockCineBridge()` in dev, or
-   * `createCineBridge({ endpoint, token })` against `studio.gftd.ai`.
+   * `createCineBridge({ endpoint, token })` against `studio.etzhayyim.com`.
    */
   cineBridge?: CineBridge;
 }

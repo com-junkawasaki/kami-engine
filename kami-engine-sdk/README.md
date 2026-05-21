@@ -13,7 +13,7 @@ This package contains reusable UI components, headless builders, data presets, a
 ## Install
 
 ```bash
-pnpm add @gftdcojp/kami-engine-sdk svelte three
+pnpm add @etzhayyim/kami-engine-sdk svelte three
 ```
 
 `three` and `@pixiv/three-vrm` are peer dependencies. Install `@pixiv/three-vrm` when using VRM-specific viewer features.
@@ -22,7 +22,7 @@ pnpm add @gftdcojp/kami-engine-sdk svelte three
 
 ```svelte
 <script lang="ts">
-  import { VrmViewer, createVrmEngine } from '@gftdcojp/kami-engine-sdk';
+  import { VrmViewer, createVrmEngine } from '@etzhayyim/kami-engine-sdk';
 
   const engine = createVrmEngine();
 </script>
@@ -33,10 +33,10 @@ pnpm add @gftdcojp/kami-engine-sdk svelte three
 Import narrower modules when you only need one surface:
 
 ```ts
-import { createVrmEngine } from '@gftdcojp/kami-engine-sdk/builders';
-import { genkoEmbedHTML } from '@gftdcojp/kami-engine-sdk/genko';
-import { kamiTrackpadHTML } from '@gftdcojp/kami-engine-sdk/trackpad';
-import type { Document } from '@gftdcojp/kami-engine-sdk/document';
+import { createVrmEngine } from '@etzhayyim/kami-engine-sdk/builders';
+import { genkoEmbedHTML } from '@etzhayyim/kami-engine-sdk/genko';
+import { kamiTrackpadHTML } from '@etzhayyim/kami-engine-sdk/trackpad';
+import type { Document } from '@etzhayyim/kami-engine-sdk/document';
 ```
 
 ## Development

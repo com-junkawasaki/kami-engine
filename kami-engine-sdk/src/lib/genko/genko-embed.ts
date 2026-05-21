@@ -10,7 +10,7 @@ import { kamiTrackpadHTML } from '../trackpad/trackpad-embed.js';
  * - Panel (コマ割り) tool with presets
  * - Tone, fukidashi, text overlay tools
  * - PDS persistence + localStorage auto-save
- * - Auth integration (authn.gftd.ai cross-subdomain SSO — ADR-0024)
+ * - Auth integration (authn.etzhayyim.com cross-subdomain SSO — ADR-0024)
  * - Unified node tree with drag-drop nesting
  *
  * @param name - Display name for the document/app
@@ -610,10 +610,10 @@ function _rebuildNT(){
   });
 }
 
-/* === Auth (authn.gftd.ai session integration; ADR-0024 T4 split) === */
+/* === Auth (authn.etzhayyim.com session integration; ADR-0024 T4 split) === */
 const AUTH_STORAGE_KEY='gftd_session';
-const AUTH_URL='https://authn.gftd.ai/sign-in';
-const AUTH_REFRESH_URL='https://atproto.gftd.ai/xrpc/com.atproto.server.refreshSession';
+const AUTH_URL='https://authn.etzhayyim.com/sign-in';
+const AUTH_REFRESH_URL='https://atproto.etzhayyim.com/xrpc/com.atproto.server.refreshSession';
 let sessionToken=null;
 
 function getSession(){
@@ -640,9 +640,9 @@ function redirectToAuth(){
   window.location.href=AUTH_URL+'?redirectUrl='+encodeURIComponent(window.location.href)+'&app=mangaka&nanoid=${nanoid}';
 }
 
-/* Parse auth callback params (authn.gftd.ai redirects back with #auth={json} or query params) */
+/* Parse auth callback params (authn.etzhayyim.com redirects back with #auth={json} or query params) */
 function parseAuthCallback(){
-  /* Priority 1: hash fragment #auth={json} (authn.gftd.ai standard) */
+  /* Priority 1: hash fragment #auth={json} (authn.etzhayyim.com standard) */
   if(location.hash.startsWith('#auth=')){
     try{
       const session=JSON.parse(decodeURIComponent(location.hash.slice(6)));
@@ -1089,7 +1089,7 @@ function safeDeserialize(docStr){
 /** Build a TOC document from a project's document list. Single page with link nodes grouped by arc. */
 function buildProjectTocDoc(project){
   const docs=project.documents||[];
-  const appHost='${nanoid}.gftd.ai';
+  const appHost='${nanoid}.etzhayyim.com';
   const nodes=[];
 
   /* Title text */
@@ -1183,27 +1183,27 @@ let contextNodes=new Set(); /* context: nids of nodes attached to chat */
 
 /** Default drawing actor types — always available as project members. */
 const DEFAULT_ACTORS=[
-  {did:'did:web:mangaka.gftd.ai:mangaka:shonen',displayName:'Shonen Artist',role:'artist',isAI:true,style:'shonen'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:shojo',displayName:'Shojo Artist',role:'artist',isAI:true,style:'shojo'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:seinen',displayName:'Seinen Artist',role:'artist',isAI:true,style:'seinen'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:yonkoma',displayName:'4-Koma Artist',role:'artist',isAI:true,style:'yonkoma'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:mecha',displayName:'Mecha Artist',role:'artist',isAI:true,style:'mecha'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:horror',displayName:'Horror Artist',role:'artist',isAI:true,style:'horror'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:bg',displayName:'Background Artist',role:'artist',isAI:true,style:'background'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:genga',displayName:'Anime Genga Artist',role:'artist',isAI:true,style:'genga'},
-  {did:'did:web:mangaka.gftd.ai:mangaka:director',displayName:'Storyboard Director',role:'director',isAI:true,style:'director'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:shonen',displayName:'Shonen Artist',role:'artist',isAI:true,style:'shonen'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:shojo',displayName:'Shojo Artist',role:'artist',isAI:true,style:'shojo'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:seinen',displayName:'Seinen Artist',role:'artist',isAI:true,style:'seinen'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:yonkoma',displayName:'4-Koma Artist',role:'artist',isAI:true,style:'yonkoma'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:mecha',displayName:'Mecha Artist',role:'artist',isAI:true,style:'mecha'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:horror',displayName:'Horror Artist',role:'artist',isAI:true,style:'horror'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:bg',displayName:'Background Artist',role:'artist',isAI:true,style:'background'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:genga',displayName:'Anime Genga Artist',role:'artist',isAI:true,style:'genga'},
+  {did:'did:web:mangaka.etzhayyim.com:mangaka:director',displayName:'Storyboard Director',role:'director',isAI:true,style:'director'},
 ];
 
 /** Fetch and render members for active project. */
 async function loadMembers(){
-  members=[{did:'did:web:mng4k4x1.gftd.ai',displayName:'Mangaka AI',role:'admin',isAI:true},...DEFAULT_ACTORS];
+  members=[{did:'did:web:mng4k4x1.etzhayyim.com',displayName:'Mangaka AI',role:'admin',isAI:true},...DEFAULT_ACTORS];
   if(activeProjectId){
     try{
       const r=await xrpc('ai.gftd.mangaka.getMembers',{convoId:activeProjectId});
       if(r.members&&r.members.length){
         const ids=new Set(r.members.map(m=>m.did));
         const extra=DEFAULT_ACTORS.filter(a=>!ids.has(a.did));
-        members=[...r.members.map(m=>({...m,isAI:m.did&&m.did.includes('.gftd.ai')})),...extra];
+        members=[...r.members.map(m=>({...m,isAI:m.did&&m.did.includes('.etzhayyim.com')})),...extra];
       }
     }catch(e){console.warn('loadMembers:',e)}
   }
@@ -1263,7 +1263,7 @@ document.getElementById('mpAddBtn').onclick=async()=>{
   const name=prompt('Display name:',did.split(':').pop()||did);
   try{
     await xrpc('ai.gftd.mangaka.addMember',{convoId:activeProjectId,memberDid:did,displayName:name});
-    members.push({did,displayName:name,role:'member',isAI:did.includes('.gftd.ai'),style:''});
+    members.push({did,displayName:name,role:'member',isAI:did.includes('.etzhayyim.com'),style:''});
     renderMembers();addChat('system','Member added: '+(name||did));
   }catch(e){console.warn('addMember:',e)}
 };

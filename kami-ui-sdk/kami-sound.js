@@ -9,7 +9,7 @@
  *   KamiSound.play('success');
  *
  * @license MIT
- * @see https://kami.gftd.ai/sound-sdk
+ * @see https://kami.etzhayyim.com/sound-sdk
  */
 (function(root) {
 "use strict";

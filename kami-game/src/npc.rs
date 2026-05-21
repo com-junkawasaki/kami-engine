@@ -461,7 +461,7 @@ pub enum NpcAction {
     Talk { npc_name: String, partner: u32 },
 }
 
-/// LLM dialogue stub. In production → murakumo.gftd.ai API.
+/// LLM dialogue stub. In production → murakumo.etzhayyim.com API.
 pub fn generate_dialogue(npc_name: &str, _player_name: &str) -> String {
     match npc_name {
         "Guard" => {

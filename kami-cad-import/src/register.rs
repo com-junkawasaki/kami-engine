@@ -1,4 +1,4 @@
-//! SBOM registration request builder for `sbom.gftd.ai`.
+//! SBOM registration request builder for `sbom.etzhayyim.com`.
 //!
 //! This crate stays runtime-agnostic — it does not bring in an HTTP
 //! client. Instead, `register_request` produces a `RegisterRequest`
@@ -10,7 +10,7 @@
 //! `00-contracts/lexicons/ai/gftd/apps/sbom/registerArtifact.json`):
 //!
 //! ```text
-//! POST https://atproto.gftd.ai/xrpc/ai.gftd.sbom.registerArtifact
+//! POST https://atproto.etzhayyim.com/xrpc/ai.gftd.sbom.registerArtifact
 //! Authorization: Bearer <Service Auth JWT, lxm=ai.gftd.sbom.registerArtifact>
 //! Content-Type: application/json
 //!
@@ -28,7 +28,7 @@
 //! }
 //! ```
 //!
-//! sbom.gftd.ai writes this to its `SbomArtifact` graph + ingests every
+//! sbom.etzhayyim.com writes this to its `SbomArtifact` graph + ingests every
 //! `components[]` entry into `SbomComponent`. CVE / recall pipeline
 //! (already documented in `60-apps/ai-gftd-project-sbom/CLAUDE.md`)
 //! takes over from there — zero new infrastructure on the consumer side.
@@ -37,11 +37,11 @@ use crate::part::{AssemblyError, VehicleAssembly};
 use crate::sbom;
 
 /// Default endpoint. Vehicles registered through this URL flow into
-/// the same `sbom.gftd.ai` SbomArtifact graph as software SBOMs from
-/// `cargo-cyclonedx` etc. The host is `atproto.gftd.ai` (sole XRPC
+/// the same `sbom.etzhayyim.com` SbomArtifact graph as software SBOMs from
+/// `cargo-cyclonedx` etc. The host is `atproto.etzhayyim.com` (sole XRPC
 /// gateway per Layer 2 routing — see ADR-2604231828).
 pub const DEFAULT_ENDPOINT: &str =
-    "https://atproto.gftd.ai/xrpc/ai.gftd.sbom.registerArtifact";
+    "https://atproto.etzhayyim.com/xrpc/ai.gftd.sbom.registerArtifact";
 
 #[derive(Debug, Clone)]
 pub struct RegisterRequest {
@@ -217,7 +217,7 @@ mod tests {
         let req = register_request(&a, &RegisterOptions::default()).unwrap();
         assert_eq!(req.method, "POST");
         assert!(req.url.contains("/xrpc/ai.gftd.sbom.registerArtifact"));
-        assert!(req.url.starts_with("https://atproto.gftd.ai"));
+        assert!(req.url.starts_with("https://atproto.etzhayyim.com"));
     }
 
     #[test]
@@ -269,7 +269,7 @@ mod tests {
         let mut a = VehicleAssembly::new("v1", provenance());
         a.add_part(part("rail", PartKind::Chassis, Material::SteelHss));
         let opts = RegisterOptions {
-            endpoint: Some("https://staging.atproto.gftd.ai/xrpc/ai.gftd.sbom.registerArtifact".into()),
+            endpoint: Some("https://staging.atproto.etzhayyim.com/xrpc/ai.gftd.sbom.registerArtifact".into()),
             ..Default::default()
         };
         let req = register_request(&a, &opts).unwrap();

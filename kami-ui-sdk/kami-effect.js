@@ -9,7 +9,7 @@
  *   KamiEffect.ripple(x, y);
  *
  * @license MIT
- * @see https://kami.gftd.ai/effect-sdk
+ * @see https://kami.etzhayyim.com/effect-sdk
  */
 (function(root) {
 "use strict";

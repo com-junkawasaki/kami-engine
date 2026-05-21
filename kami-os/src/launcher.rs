@@ -28,7 +28,7 @@ pub struct LauncherApp {
     pub icon: String,
     /// App description.
     pub description: String,
-    /// App vanity domain (e.g. "news.gftd.ai").
+    /// App vanity domain (e.g. "news.etzhayyim.com").
     pub domain: String,
     /// Whether currently running (has open window).
     pub running: bool,

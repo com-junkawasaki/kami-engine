@@ -3,7 +3,7 @@
 CAD source → vehicle part graph → JBeam topology + CycloneDX 1.5 SBOM.
 
 Bridges `kami-cad` (BREP / assembly) and `kami-scad` (parametric source) to
-`kami-vehicle` (soft-body sim) and `sbom.gftd.ai` (CVE / recall pipeline).
+`kami-vehicle` (soft-body sim) and `sbom.etzhayyim.com` (CVE / recall pipeline).
 
 See [ADR 2605051430](../../../90-docs/adr/2605051430-drive-cad-jbeam-sbom-pipeline.md).
 
@@ -23,7 +23,7 @@ STEP / glTF / OpenSCAD source
 VehicleAssembly { parts[VehiclePart], hardpoints[Hardpoint] }
    │   │
    │   ├─► jbeam_emit::emit  → kami-vehicle JBeam JSON
-   │   └─► sbom::emit        → CycloneDX 1.5 JSON  →  sbom.gftd.ai
+   │   └─► sbom::emit        → CycloneDX 1.5 JSON  →  sbom.etzhayyim.com
 ```
 
 Phase 1 (this crate) ships the data model + emitters + a programmatic
@@ -38,7 +38,7 @@ cargo run -p kami-cad-import --example synth_sedan
 ```
 
 Produces both a JBeam JSON (loadable by `kami-vehicle::jbeam`) and a
-CycloneDX 1.5 SBOM (ingestable by `sbom.gftd.ai/register-sbom`) for an
+CycloneDX 1.5 SBOM (ingestable by `sbom.etzhayyim.com/register-sbom`) for an
 8-part synthetic sedan (chassis + hood + trunk + windshield + engine +
 4 wheels) with 9 hardpoints (hinges + bolts + adhesive bond).
 

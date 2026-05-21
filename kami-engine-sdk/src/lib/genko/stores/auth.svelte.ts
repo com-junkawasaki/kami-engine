@@ -1,5 +1,5 @@
 /**
- * Genko auth store — cross-subdomain SSO via authn.gftd.ai (ADR-0024).
+ * Genko auth store — cross-subdomain SSO via authn.etzhayyim.com (ADR-0024).
  * Svelte 5 runes ($state).
  */
 
@@ -17,9 +17,9 @@ interface ParentWindowWithSession extends Window {
 
 // --- Constants ---
 const AUTH_STORAGE_KEY = 'gftd_session';
-// ADR-0024 T4 split: auth.gftd.ai retired 2026-04-16 → authn.gftd.ai (AuthN).
-const AUTH_URL = 'https://authn.gftd.ai/sign-in';
-const AUTH_REFRESH_URL = 'https://atproto.gftd.ai/xrpc/com.atproto.server.refreshSession';
+// ADR-0024 T4 split: auth.etzhayyim.com retired 2026-04-16 → authn.etzhayyim.com (AuthN).
+const AUTH_URL = 'https://authn.etzhayyim.com/sign-in';
+const AUTH_REFRESH_URL = 'https://atproto.etzhayyim.com/xrpc/com.atproto.server.refreshSession';
 
 // --- Reactive state ---
 let _sessionToken = $state<AuthSession | null>(null);
@@ -101,7 +101,7 @@ export function parseAuthCallback(): AuthSession | null {
   return session;
 }
 
-// --- Redirect to authn.gftd.ai ---
+// --- Redirect to authn.etzhayyim.com ---
 export function redirectToAuth(nanoid: string): void {
   if (typeof window === 'undefined') return;
   const redirectUrl = encodeURIComponent(window.location.origin + window.location.pathname);

@@ -3,8 +3,8 @@ name = "kami-map"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "KAMI Engine map and cosmic renderer for maps.gftd.ai"
-repository = "https://github.com/gftdcojp/ai-gftd-apps-gftdcojp"
+description = "KAMI Engine map and cosmic renderer for maps.etzhayyim.com"
+repository = "https://github.com/etzhayyim/etzhayyim-root"
 
 [lib]
 crate-type = ["cdylib"]

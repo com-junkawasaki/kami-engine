@@ -1,6 +1,6 @@
 //! VehicleAssembly → CycloneDX 1.5 SBOM emitter.
 //!
-//! Output is consumed by `sbom.gftd.ai` (CDX 1.5 default per
+//! Output is consumed by `sbom.etzhayyim.com` (CDX 1.5 default per
 //! `60-apps/ai-gftd-project-sbom/CLAUDE.md`). Each `VehiclePart`
 //! becomes a CycloneDX component with `type: "device"` — the closest
 //! first-class fit for a physical car part in CDX 1.5. The full spec is
@@ -174,7 +174,7 @@ fn hardpoint_label(k: HardpointKind) -> &'static str {
 
 /// Synthesize a `purl` for a part. We use the `gftd-vehicle` namespace
 /// (vendor-specific, allowed under <https://github.com/package-url/purl-spec>
-/// as a custom type) so `sbom.gftd.ai` queries can filter on it cleanly.
+/// as a custom type) so `sbom.etzhayyim.com` queries can filter on it cleanly.
 fn synth_purl(asm: &VehicleAssembly, part: &VehiclePart) -> String {
     let mut q = Vec::new();
     if !part.supplier.name.is_empty() {
@@ -292,7 +292,7 @@ fn build_root_component(asm: &VehicleAssembly) -> CdxComponent {
         component_type: "device",
         name: asm.display_name.clone(),
         version: asm.revision.clone(),
-        description: Some(format!("driver.gftd.ai vehicle {}", asm.vehicle_id)),
+        description: Some(format!("driver.etzhayyim.com vehicle {}", asm.vehicle_id)),
         manufacturer: Some(CdxOrganization { name: "gftd".into() }),
         purl: vehicle_purl(asm),
         cpe: String::new(),

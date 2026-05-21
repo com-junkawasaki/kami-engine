@@ -11,7 +11,7 @@
 //!   ▼
 //! kami_cad_import::part::VehicleAssembly
 //!   ├─► jbeam_emit::emit  → kami-vehicle JBeam JSON
-//!   └─► sbom::cyclonedx   → CycloneDX 1.5 JSON  →  sbom.gftd.ai
+//!   └─► sbom::cyclonedx   → CycloneDX 1.5 JSON  →  sbom.etzhayyim.com
 //! ```
 //!
 //! Phase 0/1 PoC: programmatic / OpenSCAD source. STEP and glTF

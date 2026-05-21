@@ -1,6 +1,6 @@
 # kami-app-car-sim
 
-Public car-sim demo at <https://driver.gftd.ai>.
+Public car-sim demo at <https://driver.etzhayyim.com>.
 
 A thin per-game crate (per the kami-app builder convention) that:
 

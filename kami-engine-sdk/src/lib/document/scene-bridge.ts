@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```ts
- * import { checkWebGPU, loadKamiWasm, documentPageToScene, renderPageKami } from '@gftdcojp/kami-engine-sdk/document';
+ * import { checkWebGPU, loadKamiWasm, documentPageToScene, renderPageKami } from '@etzhayyim/kami-engine-sdk/document';
  *
  * const hasGpu = await checkWebGPU();
  * const kamiReady = await loadKamiWasm();

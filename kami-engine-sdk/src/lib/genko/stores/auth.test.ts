@@ -42,13 +42,13 @@ describe('auth store', () => {
 
 describe('auth store — regression: redirect param name', () => {
   it('redirectToAuth uses camelCase redirectUrl (not redirect_url)', async () => {
-    // This was a bug: Genko sent redirect_url but authn.gftd.ai expects redirectUrl
+    // This was a bug: Genko sent redirect_url but authn.etzhayyim.com expects redirectUrl
     const { redirectToAuth } = await import('./auth.svelte');
     // Mock location
     const originalHref = Object.getOwnPropertyDescriptor(window, 'location');
     let capturedUrl = '';
     Object.defineProperty(window, 'location', {
-      value: { href: '', origin: 'https://mangaka.gftd.ai', pathname: '/at/test' },
+      value: { href: '', origin: 'https://mangaka.etzhayyim.com', pathname: '/at/test' },
       writable: true,
       configurable: true,
     });

@@ -1,4 +1,4 @@
-/** @gftdcojp/kami-engine-sdk/gsplat — Type definitions. */
+/** @etzhayyim/kami-engine-sdk/gsplat — Type definitions. */
 
 /** Server-side splat asset metadata (mirror of `vertex_maps_gsplat_asset`). */
 export interface GsplatAssetMeta {

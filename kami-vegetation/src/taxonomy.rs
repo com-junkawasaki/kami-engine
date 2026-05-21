@@ -261,7 +261,7 @@ pub fn default_catalog() -> Vec<TaxonomicProfile> {
     vec![grass(), fern(), palm(), conifer(), bush(), cactus(), moss()]
 }
 
-// ── Remote catalog (seibutsu.gftd.ai bridge) ──────────────────────────────
+// ── Remote catalog (seibutsu.etzhayyim.com bridge) ──────────────────────────────
 //
 // `kami-vegetation` has no networking by design (Rust core, runs in WASM).
 // The browser shell fetches `ai.gftd.apps.seibutsu.renderProfile` for each

@@ -1,4 +1,4 @@
-//! kami-app-bim — `bim.gftd.ai` per-game WASM entry.
+//! kami-app-bim — `bim.etzhayyim.com` per-game WASM entry.
 //!
 //! Phase 1: orbit camera + sky + a hardcoded 12 m × 8 m office storey
 //! (1 slab, 1 ceiling, 4 exterior walls, 3 interior partitions, 1

@@ -3,7 +3,7 @@
   "apps": [
     {
       "nanoid": "is1n8k2x",
-      "did": "did:web:isin.gftd.ai",
+      "did": "did:web:isin.etzhayyim.com",
       "name": "ISIN Securities Registry",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -22,7 +22,7 @@
     },
     {
       "nanoid": "",
-      "did": "did:web:hrse.gftd.ai",
+      "did": "did:web:hrse.etzhayyim.com",
       "name": "ai-gftd-hrse",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -39,7 +39,7 @@
     },
     {
       "nanoid": "bm8l9m0n",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-01-1-gov-budget-management-bm8l9m0n",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -58,7 +58,7 @@
     },
     {
       "nanoid": "a4pjejbg",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0111-executive-legislative-4pjejbgz",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -77,7 +77,7 @@
     },
     {
       "nanoid": "a3p5rffu",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0112-foreign-economic-aid-3p5rffuh",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -96,7 +96,7 @@
     },
     {
       "nanoid": "xzv5cc28",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0113-general-services-xzv5cc28",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -115,7 +115,7 @@
     },
     {
       "nanoid": "a3x6dqmc",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0121-r-d-general-public-services-3x6dqmcq",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -134,7 +134,7 @@
     },
     {
       "nanoid": "tv3yzxhv",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0131-general-public-services-nec-tv3yzxhv",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -153,7 +153,7 @@
     },
     {
       "nanoid": "mrtk9z47",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0141-public-debt-transactions-mrtk9z47",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -172,7 +172,7 @@
     },
     {
       "nanoid": "arxdb8en",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0151-transfers-general-character-arxdb8en",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -191,7 +191,7 @@
     },
     {
       "nanoid": "xg4uatgz",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0210-military-defense-xg4uatgz",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -210,7 +210,7 @@
     },
     {
       "nanoid": "aevbmpkh",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0220-civil-defense-aevbmpkh",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -229,7 +229,7 @@
     },
     {
       "nanoid": "a2jrh7d5",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0230-foreign-military-aid-2jrh7d5a",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -248,7 +248,7 @@
     },
     {
       "nanoid": "a79hj6a2",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0240-r-d-defense-79hj6a2f",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -267,7 +267,7 @@
     },
     {
       "nanoid": "rqfwg4xn",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0250-defense-nec-rqfwg4xn",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -286,7 +286,7 @@
     },
     {
       "nanoid": "a95655f7",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0310-de-bka-cyber",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -305,7 +305,7 @@
     },
     {
       "nanoid": "a126db91",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0310-jp-npa-cyber",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -324,7 +324,7 @@
     },
     {
       "nanoid": "h3pn2rnx",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0310-police-services-h3pn2rnx",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -343,7 +343,7 @@
     },
     {
       "nanoid": "bf7f2a13",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0310-uk-action-fraud",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -362,7 +362,7 @@
     },
     {
       "nanoid": "c5c934fa",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0310-us-fbi-ic3",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -381,7 +381,7 @@
     },
     {
       "nanoid": "kas58gzb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0320-fire-protection-services-kas58gzb",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -400,7 +400,7 @@
     },
     {
       "nanoid": "a4n3rgec",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0330-law-courts-4n3rgec4",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -419,7 +419,7 @@
     },
     {
       "nanoid": "a5muk6vy",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0340-prisons-5muk6vy2",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -438,7 +438,7 @@
     },
     {
       "nanoid": "ruzg4r8t",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0350-r-d-public-order-safety-ruzg4r8t",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -457,7 +457,7 @@
     },
     {
       "nanoid": "f3m5awvv",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0360-public-order-safety-nec-f3m5awvv",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -476,7 +476,7 @@
     },
     {
       "nanoid": "a6pbfr2g",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0411-general-economic-commercial-labou-6pbfr2g7",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -495,7 +495,7 @@
     },
     {
       "nanoid": "a8gzjt5a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0412-labor-8gzjt5a3",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -514,7 +514,7 @@
     },
     {
       "nanoid": "a8s8wm9j",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0421-agriculture-8s8wm9jw",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -533,7 +533,7 @@
     },
     {
       "nanoid": "pxpd5xja",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0422-forestry-pxpd5xja",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -552,7 +552,7 @@
     },
     {
       "nanoid": "s54jmubm",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0423-fishing-and-hunting-s54jmubm",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -571,7 +571,7 @@
     },
     {
       "nanoid": "a6f972dy",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0431-coal-n-other-solid-mineral-fuels-6f972dyz",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -590,7 +590,7 @@
     },
     {
       "nanoid": "nun7me5d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0432-petroleum-and-natural-gas-nun7me5d",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -609,7 +609,7 @@
     },
     {
       "nanoid": "mtkjvhs7",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0433-nuclear-fuel-mtkjvhs7",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -628,7 +628,7 @@
     },
     {
       "nanoid": "z97x5jgb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0434-other-fuels-z97x5jgb",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -647,7 +647,7 @@
     },
     {
       "nanoid": "a6842pjb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0435-electricity-6842pjbd",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -666,7 +666,7 @@
     },
     {
       "nanoid": "fegh66gt",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0436-non-fuel-mining-n-mineral-resourc-fegh66gt",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -685,7 +685,7 @@
     },
     {
       "nanoid": "msj6fchc",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0441-manufacturing-msj6fchc",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -704,7 +704,7 @@
     },
     {
       "nanoid": "a7ym53a6",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0442-construction-7ym53a6e",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -723,7 +723,7 @@
     },
     {
       "nanoid": "e387qkxc",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0451-road-transport-e387qkxc",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -742,7 +742,7 @@
     },
     {
       "nanoid": "skqjmps4",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0452-water-transport-skqjmps4",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -761,7 +761,7 @@
     },
     {
       "nanoid": "xrp97xwy",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0453-railway-transport-xrp97xwy",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -780,7 +780,7 @@
     },
     {
       "nanoid": "a3z5a5p8",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0454-air-transport-3z5a5p8p",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -799,7 +799,7 @@
     },
     {
       "nanoid": "ft56f6ga",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0455-pipeline-and-other-transport-ft56f6ga",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -818,7 +818,7 @@
     },
     {
       "nanoid": "frm8c57p",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0460-communication-frm8c57p",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -837,7 +837,7 @@
     },
     {
       "nanoid": "hfg8prgw",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0471-distributive-trades-storage-wareh-hfg8prgw",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -856,7 +856,7 @@
     },
     {
       "nanoid": "yahkg2fj",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0472-hotels-and-restaurants-yahkg2fj",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -875,7 +875,7 @@
     },
     {
       "nanoid": "a4wguabk",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0473-tourism-4wguabk9",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -894,7 +894,7 @@
     },
     {
       "nanoid": "ennpdwbg",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0474-multipurpose-development-projects-ennpdwbg",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -913,7 +913,7 @@
     },
     {
       "nanoid": "qnxgkvbb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0480-r-d-economic-affairs-qnxgkvbb",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -932,7 +932,7 @@
     },
     {
       "nanoid": "vhja2t5m",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0490-economic-affairs-nec-vhja2t5m",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -951,7 +951,7 @@
     },
     {
       "nanoid": "ctcw4sg3",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0510-waste-management-ctcw4sg3",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -970,7 +970,7 @@
     },
     {
       "nanoid": "a4butqzx",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0520-wastewater-management-4butqzx9",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -989,7 +989,7 @@
     },
     {
       "nanoid": "x549up56",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0530-pollution-abatement-x549up56",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1008,7 +1008,7 @@
     },
     {
       "nanoid": "wxzztdyj",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0540-protection-biodiversity-landscape-wxzztdyj",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1027,7 +1027,7 @@
     },
     {
       "nanoid": "p5unzqp2",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0550-r-d-environmental-protection-p5unzqp2",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1046,7 +1046,7 @@
     },
     {
       "nanoid": "tzdd9w8j",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0560-environmental-protection-nec-tzdd9w8j",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1065,7 +1065,7 @@
     },
     {
       "nanoid": "a56ncgmf",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0610-housing-development-56ncgmfx",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1084,7 +1084,7 @@
     },
     {
       "nanoid": "zdfj9gqn",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0620-community-development-zdfj9gqn",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1103,7 +1103,7 @@
     },
     {
       "nanoid": "npjnx57t",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0630-water-supply-npjnx57t",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1122,7 +1122,7 @@
     },
     {
       "nanoid": "mcpurwd8",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0640-street-lighting-mcpurwd8",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -1141,7 +1141,7 @@
     },
     {
       "nanoid": "ebkbv5ep",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0650-r-d-housing-community-amenities-ebkbv5ep",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1160,7 +1160,7 @@
     },
     {
       "nanoid": "a8utm6s9",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0660-housing-community-amenities-nec-8utm6s9h",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1179,7 +1179,7 @@
     },
     {
       "nanoid": "mtgu3vcj",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0711-pharmaceutical-products-mtgu3vcj",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1198,7 +1198,7 @@
     },
     {
       "nanoid": "vke2z53z",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0712-other-medical-products-vke2z53z",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1217,7 +1217,7 @@
     },
     {
       "nanoid": "jm2wr7ss",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0713-therapeutic-appliances-equipment-jm2wr7ss",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1236,7 +1236,7 @@
     },
     {
       "nanoid": "xcesqpvk",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0721-general-medical-services-xcesqpvk",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1255,7 +1255,7 @@
     },
     {
       "nanoid": "a6unfrr6",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0722-specialized-medical-services-6unfrr6p",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1274,7 +1274,7 @@
     },
     {
       "nanoid": "a9nwf534",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0723-dental-services-9nwf5344",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1293,7 +1293,7 @@
     },
     {
       "nanoid": "jy2au27y",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0724-paramedical-services-jy2au27y",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1312,7 +1312,7 @@
     },
     {
       "nanoid": "xcbpyu7s",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0731-hospital-services-xcbpyu7s",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1331,7 +1331,7 @@
     },
     {
       "nanoid": "b3hha5fm",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0732-specialized-hospital-services-b3hha5fm",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1350,7 +1350,7 @@
     },
     {
       "nanoid": "svr6bjg9",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0733-medical-maternity-center-services-svr6bjg9",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1369,7 +1369,7 @@
     },
     {
       "nanoid": "tyeuc5yy",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0734-nurse-convalescent-home-svcs-tyeuc5yy",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1388,7 +1388,7 @@
     },
     {
       "nanoid": "eyghgbr7",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0740-public-health-services-eyghgbr7",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1407,7 +1407,7 @@
     },
     {
       "nanoid": "bwv847zg",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0750-r-d-health-bwv847zg",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1426,7 +1426,7 @@
     },
     {
       "nanoid": "erpmpaqk",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0760-health-nec-erpmpaqk",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1445,7 +1445,7 @@
     },
     {
       "nanoid": "tmx7p8mh",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0810-recreational-sporting-services-tmx7p8mh",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1464,7 +1464,7 @@
     },
     {
       "nanoid": "bxbgf49g",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0820-cultural-services-bxbgf49g",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1483,7 +1483,7 @@
     },
     {
       "nanoid": "fnjubghm",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0830-broadcasting-publishing-services-fnjubghm",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1502,7 +1502,7 @@
     },
     {
       "nanoid": "a6cunxta",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0840-religious-community-services-6cunxtax",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1521,7 +1521,7 @@
     },
     {
       "nanoid": "s7znjejv",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0850-r-d-recreation-culture-religion-s7znjejv",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1540,7 +1540,7 @@
     },
     {
       "nanoid": "a378sq69",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0860-recreation-culture-religion-nec-378sq693",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1559,7 +1559,7 @@
     },
     {
       "nanoid": "ca44cdek",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0911-pre-primary-primary-education-ca44cdek",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1578,7 +1578,7 @@
     },
     {
       "nanoid": "k32dpdwp",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0921-lower-secondary-education-k32dpdwp",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1597,7 +1597,7 @@
     },
     {
       "nanoid": "a2yjbt4p",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0922-upper-secondary-education-2yjbt4pj",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1616,7 +1616,7 @@
     },
     {
       "nanoid": "e8a28375",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0930-post-secondary-non-tertiary-edu-e8a28375",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1635,7 +1635,7 @@
     },
     {
       "nanoid": "heu2znrb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0941-first-stage-tertiary-education-heu2znrb",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1654,7 +1654,7 @@
     },
     {
       "nanoid": "p36uutm4",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0942-second-stage-tertiary-education-p36uutm4",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1673,7 +1673,7 @@
     },
     {
       "nanoid": "a7ysbf4c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0950-education-not-definable-level-7ysbf4ce",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1692,7 +1692,7 @@
     },
     {
       "nanoid": "c4g5qara",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0960-subsidiary-services-education-c4g5qara",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1711,7 +1711,7 @@
     },
     {
       "nanoid": "k5najrbe",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0970-r-d-education-k5najrbe",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1730,7 +1730,7 @@
     },
     {
       "nanoid": "qzxr6vh4",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-0980-education-nec-qzxr6vh4",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1749,7 +1749,7 @@
     },
     {
       "nanoid": "tjd374a3",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-10-social-protection-tjd374a3",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1768,7 +1768,7 @@
     },
     {
       "nanoid": "zmpmzkkz",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1011-sickness-zmpmzkkz",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1787,7 +1787,7 @@
     },
     {
       "nanoid": "fp2ju2cp",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1012-disability-fp2ju2cp",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1806,7 +1806,7 @@
     },
     {
       "nanoid": "f7e9s9c2",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1020-senior-support-f7e9s9c2",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1825,7 +1825,7 @@
     },
     {
       "nanoid": "ny9858qq",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1030-survivors-ny9858qq",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1844,7 +1844,7 @@
     },
     {
       "nanoid": "y4xjwscv",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1040-family-and-children-y4xjwscv",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1863,7 +1863,7 @@
     },
     {
       "nanoid": "aqp4mznu",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1050-unemployment-aqp4mznu",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1882,7 +1882,7 @@
     },
     {
       "nanoid": "chuyndyq",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1060-housing-chuyndyq",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1901,7 +1901,7 @@
     },
     {
       "nanoid": "ndeg2nx3",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1070-social-exclusion-nec-ndeg2nx3",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1920,7 +1920,7 @@
     },
     {
       "nanoid": "ekbbc4ch",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1080-r-d-social-protection-ekbbc4ch",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1939,7 +1939,7 @@
     },
     {
       "nanoid": "fn67298a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "ai-gftd-performer-sys-gftd-actors-pba7d22f-svc-cofog-1090-social-protection-nec-fn67298a",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -1958,7 +1958,7 @@
     },
     {
       "nanoid": "bm1n1ku8",
-      "did": "did:web:baminiku.gftd.ai",
+      "did": "did:web:baminiku.etzhayyim.com",
       "name": "ai-gftd-wasm-baminiku",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -1976,7 +1976,7 @@
     },
     {
       "nanoid": "m34t5t1k",
-      "did": "did:web:baminiku.gftd.ai:gorigoriKetsuMeatstick",
+      "did": "did:web:baminiku.etzhayyim.com:gorigoriKetsuMeatstick",
       "name": "ai-gftd-wasm-baminiku-gorigori-ketsu-meatstick",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -1993,7 +1993,7 @@
     },
     {
       "nanoid": "ykb48d7a",
-      "did": "did:web:baminiku.gftd.ai",
+      "did": "did:web:baminiku.etzhayyim.com",
       "name": "ai-gftd-wasm-baminiku-ykb48d7a",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2011,7 +2011,7 @@
     },
     {
       "nanoid": "bx7qm9p4",
-      "did": "did:web:bpmn.gftd.ai",
+      "did": "did:web:bpmn.etzhayyim.com",
       "name": "ai-gftd-wasm-bpmn",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2036,7 +2036,7 @@
     },
     {
       "nanoid": "w3olw1pf",
-      "did": "did:web:briefing.gftd.ai",
+      "did": "did:web:briefing.etzhayyim.com",
       "name": "ai-gftd-wasm-briefing",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2060,7 +2060,7 @@
     },
     {
       "nanoid": "br0ws3r0",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "ai-gftd-wasm-browser-agent-br0ws3r0",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2078,7 +2078,7 @@
     },
     {
       "nanoid": "cd4dview",
-      "did": "did:web:cad.gftd.ai",
+      "did": "did:web:cad.etzhayyim.com",
       "name": "ai-gftd-wasm-cad",
       "performer_type": "service",
       "runtime_type": "container",
@@ -2096,7 +2096,7 @@
     },
     {
       "nanoid": "cnv5dr4w",
-      "did": "did:web:canvas.gftd.ai",
+      "did": "did:web:canvas.etzhayyim.com",
       "name": "ai-gftd-wasm-canvas",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2114,7 +2114,7 @@
     },
     {
       "nanoid": "cdn7gft2",
-      "did": "did:web:cdn.gftd.ai",
+      "did": "did:web:cdn.etzhayyim.com",
       "name": "ai-gftd-wasm-cdn-cdn7gft2",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2132,7 +2132,7 @@
     },
     {
       "nanoid": "cf0und1n",
-      "did": "did:web:crowdfunding.gftd.ai",
+      "did": "did:web:crowdfunding.etzhayyim.com",
       "name": "ai-gftd-wasm-crowdfunding",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2154,7 +2154,7 @@
     },
     {
       "nanoid": "d1sp7t3x",
-      "did": "did:web:dispute.gftd.ai",
+      "did": "did:web:dispute.etzhayyim.com",
       "name": "ai-gftd-wasm-dispute",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2175,7 +2175,7 @@
     },
     {
       "nanoid": "dr0n3x8k",
-      "did": "did:web:drone.gftd.ai",
+      "did": "did:web:drone.etzhayyim.com",
       "name": "ai-gftd-wasm-drone",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2193,7 +2193,7 @@
     },
     {
       "nanoid": "msnp1an2",
-      "did": "did:web:drone.gftd.ai",
+      "did": "did:web:drone.etzhayyim.com",
       "name": "ai-gftd-wasm-drone-msnp1an2",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2211,7 +2211,7 @@
     },
     {
       "nanoid": "ed1t0r00",
-      "did": "did:web:editor.gftd.ai",
+      "did": "did:web:editor.etzhayyim.com",
       "name": "ai-gftd-wasm-editor",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2227,7 +2227,7 @@
     },
     {
       "nanoid": "ex7a8b9c",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "ai-gftd-wasm-extract-ex7a8b9c",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2245,7 +2245,7 @@
     },
     {
       "nanoid": "ftpol1x1",
-      "did": "did:web:face-tracker.gftd.ai",
+      "did": "did:web:face-tracker.etzhayyim.com",
       "name": "ai-gftd-wasm-face-tracker-police-ftpol1x1",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2263,7 +2263,7 @@
     },
     {
       "nanoid": "ft1u2v3w",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "ai-gftd-wasm-fetch-ft1u2v3w",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2281,7 +2281,7 @@
     },
     {
       "nanoid": "fr0nt13r",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "ai-gftd-wasm-frontier-fr0nt13r",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2299,7 +2299,7 @@
     },
     {
       "nanoid": "gt1v2w3x",
-      "did": "did:web:swe.gftd.ai",
+      "did": "did:web:swe.etzhayyim.com",
       "name": "ai-gftd-wasm-git-gt1v2w3x",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2317,7 +2317,7 @@
     },
     {
       "nanoid": "wy2zvdvd",
-      "did": "did:web:gol-d-roger.gftd.ai",
+      "did": "did:web:gol-d-roger.etzhayyim.com",
       "name": "ai-gftd-wasm-gol-d-roger-wy2zvdvd",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2335,7 +2335,7 @@
     },
     {
       "nanoid": "a251b9za",
-      "did": "did:web:i18n.gftd.ai",
+      "did": "did:web:i18n.etzhayyim.com",
       "name": "ai-gftd-wasm-i18n",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2352,7 +2352,7 @@
     },
     {
       "nanoid": "if1m2n3o",
-      "did": "did:web:aima.gftd.ai",
+      "did": "did:web:aima.etzhayyim.com",
       "name": "ai-gftd-wasm-inference-if1m2n3o",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2370,7 +2370,7 @@
     },
     {
       "nanoid": "n7w1p4d0",
-      "did": "did:web:ipaddress.gftd.ai",
+      "did": "did:web:ipaddress.etzhayyim.com",
       "name": "ai-gftd-wasm-ipaddress",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -2399,7 +2399,7 @@
     },
     {
       "nanoid": "wfc8k3n1",
-      "did": "did:web:isco.gftd.ai",
+      "did": "did:web:isco.etzhayyim.com",
       "name": "ai-gftd-wasm-isco-workforce-coordinator-wfc8k3n1",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2419,7 +2419,7 @@
     },
     {
       "nanoid": "n97ik10n",
-      "did": "did:web:public-kafun-bokumetsu.gftd.ai",
+      "did": "did:web:public-kafun-bokumetsu.etzhayyim.com",
       "name": "ai-gftd-wasm-kafun-bokumetsu-n97ik10n",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2437,7 +2437,7 @@
     },
     {
       "nanoid": "y83jjx4l",
-      "did": "did:web:kago.gftd.ai",
+      "did": "did:web:kago.etzhayyim.com",
       "name": "ai-gftd-wasm-kago-ride",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2455,7 +2455,7 @@
     },
     {
       "nanoid": "k4m13ng1",
-      "did": "did:web:eng.kami.gftd.ai",
+      "did": "did:web:eng.kami.etzhayyim.com",
       "name": "ai-gftd-wasm-kami-eng",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2478,7 +2478,7 @@
     },
     {
       "nanoid": "k4m1r0nt",
-      "did": "did:web:k4m1r0nt.gftd.ai",
+      "did": "did:web:k4m1r0nt.etzhayyim.com",
       "name": "ai-gftd-wasm-kami-runtime",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2496,7 +2496,7 @@
     },
     {
       "nanoid": "k4m1w0rk",
-      "did": "did:web:kami.gftd.ai",
+      "did": "did:web:kami.etzhayyim.com",
       "name": "ai-gftd-wasm-kami-workbench",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2514,7 +2514,7 @@
     },
     {
       "nanoid": "k4m1w0ld",
-      "did": "did:web:worlds.gftd.ai",
+      "did": "did:web:worlds.etzhayyim.com",
       "name": "ai-gftd-wasm-kami-world",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2532,7 +2532,7 @@
     },
     {
       "nanoid": "kb0ard1x",
-      "did": "did:web:keyboard.gftd.ai",
+      "did": "did:web:keyboard.etzhayyim.com",
       "name": "ai-gftd-wasm-keyboard",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2554,7 +2554,7 @@
     },
     {
       "nanoid": "a5i2tmo8",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-finance-5i2tmo8x",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2572,7 +2572,7 @@
     },
     {
       "nanoid": "x4s6m1n7",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-ga-x4s6m1n7",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2590,7 +2590,7 @@
     },
     {
       "nanoid": "ppfjh9jy",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-governance-ppfjh9jy",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2608,7 +2608,7 @@
     },
     {
       "nanoid": "dx9wolvi",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-government-dx9wolvi",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2626,7 +2626,7 @@
     },
     {
       "nanoid": "mdtpqjc8",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-hr-mdtpqjc8",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2644,7 +2644,7 @@
     },
     {
       "nanoid": "w9p5r2t6",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-legal-w9p5r2t6",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2662,7 +2662,7 @@
     },
     {
       "nanoid": "r8v2k4m1",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-marketing-r8v2k4m1",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2680,7 +2680,7 @@
     },
     {
       "nanoid": "u2m4h7f5",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-production-u2m4h7f5",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2698,7 +2698,7 @@
     },
     {
       "nanoid": "a5lxwtko",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-resources-a5lxwtko",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2713,7 +2713,7 @@
     },
     {
       "nanoid": "t3x7n9p2",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-sales-t3x7n9p2",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2731,7 +2731,7 @@
     },
     {
       "nanoid": "q5w8j6d3",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-scm-q5w8j6d3",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2749,7 +2749,7 @@
     },
     {
       "nanoid": "v6n3k8g4",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-service-v6n3k8g4",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2767,7 +2767,7 @@
     },
     {
       "nanoid": "ncdo1fsp",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-shell-ncdo1fsp",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2782,7 +2782,7 @@
     },
     {
       "nanoid": "vjbw0rr9",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-strategy-vjbw0rr9",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2800,7 +2800,7 @@
     },
     {
       "nanoid": "a5itsgip",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-systems-5itsgipc",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2818,7 +2818,7 @@
     },
     {
       "nanoid": "olohwwce",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
       "name": "ai-gftd-wasm-kyber-tech-olohwwce",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2836,7 +2836,7 @@
     },
     {
       "nanoid": "kyc49bb7",
-      "did": "did:web:hc.gftd.ai",
+      "did": "did:web:hc.etzhayyim.com",
       "name": "ai-gftd-wasm-kyc-kyc49bb7",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2854,7 +2854,7 @@
     },
     {
       "nanoid": "ls7s8t9u",
-      "did": "did:web:aima.gftd.ai",
+      "did": "did:web:aima.etzhayyim.com",
       "name": "ai-gftd-wasm-laser-ls7s8t9u",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2872,7 +2872,7 @@
     },
     {
       "nanoid": "llm8cf4ai",
-      "did": "did:web:llm.gftd.ai",
+      "did": "did:web:llm.etzhayyim.com",
       "name": "ai-gftd-wasm-llm",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2889,7 +2889,7 @@
     },
     {
       "nanoid": "mng4k4x1",
-      "did": "did:web:mangaka.gftd.ai",
+      "did": "did:web:mangaka.etzhayyim.com",
       "name": "ai-gftd-wasm-mangaka",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2915,7 +2915,7 @@
     },
     {
       "nanoid": "ms4p5q6r",
-      "did": "did:web:aima.gftd.ai",
+      "did": "did:web:aima.etzhayyim.com",
       "name": "ai-gftd-wasm-mesh-ms4p5q6r",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2933,7 +2933,7 @@
     },
     {
       "nanoid": "nt4g5h6i",
-      "did": "did:web:mailer.gftd.ai",
+      "did": "did:web:mailer.etzhayyim.com",
       "name": "ai-gftd-wasm-notify-nt4g5h6i",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2951,7 +2951,7 @@
     },
     {
       "nanoid": "dyd3lr50",
-      "did": "did:web:oshikatsu.gftd.ai",
+      "did": "did:web:oshikatsu.etzhayyim.com",
       "name": "ai-gftd-wasm-oshikatsu-dyd3lr50",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2972,7 +2972,7 @@
     },
     {
       "nanoid": "ps4x5y6z",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "ai-gftd-wasm-parse-ps4x5y6z",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -2990,7 +2990,7 @@
     },
     {
       "nanoid": "pw1d2e3f",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "ai-gftd-wasm-playwright-pw1d2e3f",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3008,7 +3008,7 @@
     },
     {
       "nanoid": "t53br1o0",
-      "did": "did:web:pptx.gftd.ai",
+      "did": "did:web:pptx.etzhayyim.com",
       "name": "ai-gftd-wasm-pptx",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3028,7 +3028,7 @@
     },
     {
       "nanoid": "rd3l1vry",
-      "did": "did:web:redelivery.gftd.ai",
+      "did": "did:web:redelivery.etzhayyim.com",
       "name": "ai-gftd-wasm-redelivery-rd3l1vry",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3046,7 +3046,7 @@
     },
     {
       "nanoid": "r3p0s3rv",
-      "did": "did:web:repo.gftd.ai",
+      "did": "did:web:repo.etzhayyim.com",
       "name": "ai-gftd-wasm-repo-r3p0s3rv",
       "performer_type": "system",
       "runtime_type": "native",
@@ -3061,7 +3061,7 @@
     },
     {
       "nanoid": "rs7j8k9l",
-      "did": "did:web:mailer.gftd.ai",
+      "did": "did:web:mailer.etzhayyim.com",
       "name": "ai-gftd-wasm-resend-rs7j8k9l",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3079,7 +3079,7 @@
     },
     {
       "nanoid": "f901c7i4",
-      "did": "did:web:syomeisyashin.gftd.ai",
+      "did": "did:web:syomeisyashin.etzhayyim.com",
       "name": "ai-gftd-wasm-shomeisyashin",
       "performer_type": "person",
       "runtime_type": "worker",
@@ -3097,7 +3097,7 @@
     },
     {
       "nanoid": "s0s5ys0s",
-      "did": "did:web:sos.gftd.ai",
+      "did": "did:web:sos.etzhayyim.com",
       "name": "ai-gftd-wasm-systemofsystem-s0s5ys0s",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3115,7 +3115,7 @@
     },
     {
       "nanoid": "wt1e2f3g",
-      "did": "did:web:wallet.gftd.ai",
+      "did": "did:web:wallet.etzhayyim.com",
       "name": "ai-gftd-wasm-wallet",
       "performer_type": "person",
       "runtime_type": "worker",
@@ -3131,7 +3131,7 @@
     },
     {
       "nanoid": "il0ndq6a",
-      "did": "did:web:xlsx.gftd.ai",
+      "did": "did:web:xlsx.etzhayyim.com",
       "name": "ai-gftd-wasm-xlsx",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3153,7 +3153,7 @@
     },
     {
       "nanoid": "y8b41k0x",
-      "did": "did:web:yabai.gftd.ai",
+      "did": "did:web:yabai.etzhayyim.com",
       "name": "ai-gftd-wasm-yabai",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3207,7 +3207,7 @@
     },
     {
       "nanoid": "unyrsfan",
-      "did": "did:web:yotei.gftd.ai",
+      "did": "did:web:yotei.etzhayyim.com",
       "name": "ai-gftd-wasm-yotei",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3228,7 +3228,7 @@
     },
     {
       "nanoid": "yif3ddup",
-      "did": "did:web:aima.gftd.ai",
+      "did": "did:web:aima.etzhayyim.com",
       "name": "aima",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3246,7 +3246,7 @@
     },
     {
       "nanoid": "a82706b8",
-      "did": "did:web:aima.gftd.ai",
+      "did": "did:web:aima.etzhayyim.com",
       "name": "aima-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3264,7 +3264,7 @@
     },
     {
       "nanoid": "d94d27cb",
-      "did": "did:web:ameno.gftd.ai",
+      "did": "did:web:ameno.etzhayyim.com",
       "name": "ameno",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3279,7 +3279,7 @@
     },
     {
       "nanoid": "a9p5l1st",
-      "did": "did:web:apps.gftd.ai",
+      "did": "did:web:apps.etzhayyim.com",
       "name": "apps",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3297,7 +3297,7 @@
     },
     {
       "nanoid": "br0ws3r1",
-      "did": "did:web:br0ws3r1.gftd.ai",
+      "did": "did:web:br0ws3r1.etzhayyim.com",
       "name": "browser",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -3310,7 +3310,7 @@
     },
     {
       "nanoid": "bk7n2d8x",
-      "did": "did:web:bunken.gftd.ai",
+      "did": "did:web:bunken.etzhayyim.com",
       "name": "bunken",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3324,7 +3324,7 @@
     },
     {
       "nanoid": "bm4f8k2d1",
-      "did": "did:web:bm.gftd.ai",
+      "did": "did:web:bm.etzhayyim.com",
       "name": "business-manager-ui",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3342,7 +3342,7 @@
     },
     {
       "nanoid": "calendar-mcp",
-      "did": "did:web:calendar.gftd.ai",
+      "did": "did:web:calendar.etzhayyim.com",
       "name": "calendar-mcp-component",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -3359,7 +3359,7 @@
     },
     {
       "nanoid": "a7297770",
-      "did": "did:web:cards.gftd.ai",
+      "did": "did:web:cards.etzhayyim.com",
       "name": "cards-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3380,7 +3380,7 @@
     },
     {
       "nanoid": "oilt0wta",
-      "did": "did:web:celler.gftd.ai",
+      "did": "did:web:celler.etzhayyim.com",
       "name": "celler",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3402,7 +3402,7 @@
     },
     {
       "nanoid": "a263089d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-01-1-gov-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3421,7 +3421,7 @@
     },
     {
       "nanoid": "a868ba1a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0111-executive-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3440,7 +3440,7 @@
     },
     {
       "nanoid": "a8f8be19",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0112-foreign-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3459,7 +3459,7 @@
     },
     {
       "nanoid": "a602c31b",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0113-general-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3478,7 +3478,7 @@
     },
     {
       "nanoid": "a9048d06",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0121-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3497,7 +3497,7 @@
     },
     {
       "nanoid": "bc1af392",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0131-general-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3516,7 +3516,7 @@
     },
     {
       "nanoid": "a616c713",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0141-public-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3535,7 +3535,7 @@
     },
     {
       "nanoid": "a4b84fff",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0151-transfers-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3554,7 +3554,7 @@
     },
     {
       "nanoid": "a4c64c2d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0210-military-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3573,7 +3573,7 @@
     },
     {
       "nanoid": "b9700978",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0220-civil-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3592,7 +3592,7 @@
     },
     {
       "nanoid": "a803541c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0230-foreign-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3611,7 +3611,7 @@
     },
     {
       "nanoid": "dfdfbbdb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0240-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3630,7 +3630,7 @@
     },
     {
       "nanoid": "a5bf91e3",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0250-defense-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3649,7 +3649,7 @@
     },
     {
       "nanoid": "a27520e8",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0310-de-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3668,7 +3668,7 @@
     },
     {
       "nanoid": "a6d8b8d9",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0310-jp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3687,7 +3687,7 @@
     },
     {
       "nanoid": "a66fc4d1",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0310-police-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3706,7 +3706,7 @@
     },
     {
       "nanoid": "a1748119",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0310-uk-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3725,7 +3725,7 @@
     },
     {
       "nanoid": "a77c3908",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0310-us-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3744,7 +3744,7 @@
     },
     {
       "nanoid": "a5115969",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0320-fire-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3763,7 +3763,7 @@
     },
     {
       "nanoid": "a2be69e1",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0330-law-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3782,7 +3782,7 @@
     },
     {
       "nanoid": "a8e44c46",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0340-prisons-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3801,7 +3801,7 @@
     },
     {
       "nanoid": "b0a2890e",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0350-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3820,7 +3820,7 @@
     },
     {
       "nanoid": "bfbb0fa5",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0360-public-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3839,7 +3839,7 @@
     },
     {
       "nanoid": "eaa2d83f",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0411-general-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3858,7 +3858,7 @@
     },
     {
       "nanoid": "cd7fe1bf",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0412-labor-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3877,7 +3877,7 @@
     },
     {
       "nanoid": "a76976c5",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0421-agriculture-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3896,7 +3896,7 @@
     },
     {
       "nanoid": "a9780db1",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0422-forestry-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3915,7 +3915,7 @@
     },
     {
       "nanoid": "d2de5de2",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0423-fishing-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3934,7 +3934,7 @@
     },
     {
       "nanoid": "fc2ec819",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0431-coal-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3953,7 +3953,7 @@
     },
     {
       "nanoid": "a82b6c83",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0432-petroleum-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3972,7 +3972,7 @@
     },
     {
       "nanoid": "c93ec516",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0433-nuclear-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -3991,7 +3991,7 @@
     },
     {
       "nanoid": "ef3c205e",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0434-other-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4010,7 +4010,7 @@
     },
     {
       "nanoid": "a0585f51",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0435-electricity-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4029,7 +4029,7 @@
     },
     {
       "nanoid": "a3e5ec64",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0436-non-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4048,7 +4048,7 @@
     },
     {
       "nanoid": "a1f33b54",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0441-manufacturing-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4067,7 +4067,7 @@
     },
     {
       "nanoid": "e542e79f",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0442-construction-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4086,7 +4086,7 @@
     },
     {
       "nanoid": "a3284b4a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0451-road-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4105,7 +4105,7 @@
     },
     {
       "nanoid": "fc96684d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0452-water-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4124,7 +4124,7 @@
     },
     {
       "nanoid": "a86ea86a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0453-railway-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4143,7 +4143,7 @@
     },
     {
       "nanoid": "a230f142",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0454-air-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4162,7 +4162,7 @@
     },
     {
       "nanoid": "d4dc781c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0455-pipeline-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4181,7 +4181,7 @@
     },
     {
       "nanoid": "a7b3ab95",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0460-communication-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4200,7 +4200,7 @@
     },
     {
       "nanoid": "a0565c0d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0471-distributive-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4219,7 +4219,7 @@
     },
     {
       "nanoid": "a66d8a5c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0472-hotels-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4238,7 +4238,7 @@
     },
     {
       "nanoid": "a890eb1c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0473-tourism-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4257,7 +4257,7 @@
     },
     {
       "nanoid": "a30d9dce",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0474-multipurpose-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4276,7 +4276,7 @@
     },
     {
       "nanoid": "d1c1543a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0480-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4295,7 +4295,7 @@
     },
     {
       "nanoid": "a9c38804",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0490-economic-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4314,7 +4314,7 @@
     },
     {
       "nanoid": "a0d82004",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0510-waste-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4333,7 +4333,7 @@
     },
     {
       "nanoid": "a0ed5eff",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0520-wastewater-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4352,7 +4352,7 @@
     },
     {
       "nanoid": "b648e7e4",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0530-pollution-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4371,7 +4371,7 @@
     },
     {
       "nanoid": "a98aa3a8",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0540-protection-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4390,7 +4390,7 @@
     },
     {
       "nanoid": "f78c6a42",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0550-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4409,7 +4409,7 @@
     },
     {
       "nanoid": "a2bcb07f",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0560-environmental-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4428,7 +4428,7 @@
     },
     {
       "nanoid": "d6d2fd09",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0610-housing-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4447,7 +4447,7 @@
     },
     {
       "nanoid": "b0753d5c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0620-community-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4466,7 +4466,7 @@
     },
     {
       "nanoid": "a0006894",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0630-water-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4485,7 +4485,7 @@
     },
     {
       "nanoid": "a7cebd3c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0640-street-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4504,7 +4504,7 @@
     },
     {
       "nanoid": "f2340b45",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0650-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4523,7 +4523,7 @@
     },
     {
       "nanoid": "a915dfc0",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0660-housing-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4542,7 +4542,7 @@
     },
     {
       "nanoid": "a21e4f28",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0711-pharmaceutical-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4561,7 +4561,7 @@
     },
     {
       "nanoid": "a9341a3c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0712-other-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4580,7 +4580,7 @@
     },
     {
       "nanoid": "d40bd2e7",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0713-therapeutic-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4599,7 +4599,7 @@
     },
     {
       "nanoid": "aa6d4e15",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0721-general-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4618,7 +4618,7 @@
     },
     {
       "nanoid": "a06643b1",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0722-specialized-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4637,7 +4637,7 @@
     },
     {
       "nanoid": "a88e7d20",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0723-dental-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4656,7 +4656,7 @@
     },
     {
       "nanoid": "a013d414",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0724-paramedical-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4675,7 +4675,7 @@
     },
     {
       "nanoid": "a475fdb5",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0731-hospital-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4694,7 +4694,7 @@
     },
     {
       "nanoid": "a129c80f",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0732-specialized-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4713,7 +4713,7 @@
     },
     {
       "nanoid": "d66e1b6c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0733-medical-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4732,7 +4732,7 @@
     },
     {
       "nanoid": "a8aa712c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0734-nurse-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4751,7 +4751,7 @@
     },
     {
       "nanoid": "de7f3b8f",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0740-public-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4770,7 +4770,7 @@
     },
     {
       "nanoid": "a5e73368",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0750-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4789,7 +4789,7 @@
     },
     {
       "nanoid": "a36915df",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0760-health-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4808,7 +4808,7 @@
     },
     {
       "nanoid": "a23a4b00",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0810-recreational-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4827,7 +4827,7 @@
     },
     {
       "nanoid": "a60e93d3",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0820-cultural-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4846,7 +4846,7 @@
     },
     {
       "nanoid": "a919f1f7",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0830-broadcasting-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4865,7 +4865,7 @@
     },
     {
       "nanoid": "a293551a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0840-religious-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4884,7 +4884,7 @@
     },
     {
       "nanoid": "a1cad48d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0850-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4903,7 +4903,7 @@
     },
     {
       "nanoid": "a2c5f35c",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0860-recreation-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4922,7 +4922,7 @@
     },
     {
       "nanoid": "a8a8c0b0",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0911-pre-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4941,7 +4941,7 @@
     },
     {
       "nanoid": "a3da2296",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0921-lower-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4960,7 +4960,7 @@
     },
     {
       "nanoid": "a39588db",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0922-upper-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4979,7 +4979,7 @@
     },
     {
       "nanoid": "a25e18dd",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0930-post-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -4998,7 +4998,7 @@
     },
     {
       "nanoid": "a3811fc4",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0941-first-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5017,7 +5017,7 @@
     },
     {
       "nanoid": "f129fe19",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0942-second-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5036,7 +5036,7 @@
     },
     {
       "nanoid": "a7bd09bb",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0950-education-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5055,7 +5055,7 @@
     },
     {
       "nanoid": "a61f9f6b",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0960-subsidiary-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5074,7 +5074,7 @@
     },
     {
       "nanoid": "a16a059e",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0970-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5093,7 +5093,7 @@
     },
     {
       "nanoid": "a7aba95a",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-0980-education-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5112,7 +5112,7 @@
     },
     {
       "nanoid": "a62d1bc7",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-10-social-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5131,7 +5131,7 @@
     },
     {
       "nanoid": "e85e7bc9",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1011-sickness-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5150,7 +5150,7 @@
     },
     {
       "nanoid": "a61513e1",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1012-disability-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5169,7 +5169,7 @@
     },
     {
       "nanoid": "e344dd70",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1020-senior-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5188,7 +5188,7 @@
     },
     {
       "nanoid": "a74bdf4b",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1030-survivors-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5207,7 +5207,7 @@
     },
     {
       "nanoid": "a3fcbe13",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1040-family-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5226,7 +5226,7 @@
     },
     {
       "nanoid": "a05267aa",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1050-unemployment-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5245,7 +5245,7 @@
     },
     {
       "nanoid": "a5071a58",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1060-housing-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5264,7 +5264,7 @@
     },
     {
       "nanoid": "a4776844",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1070-social-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5283,7 +5283,7 @@
     },
     {
       "nanoid": "d8a71867",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1080-r-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5302,7 +5302,7 @@
     },
     {
       "nanoid": "a28d361d",
-      "did": "did:web:cofog.gftd.ai",
+      "did": "did:web:cofog.etzhayyim.com",
       "name": "cofog-1090-social-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5321,7 +5321,7 @@
     },
     {
       "nanoid": "cc26m4x1",
-      "did": "did:web:cc26m4x1.gftd.ai",
+      "did": "did:web:cc26m4x1.etzhayyim.com",
       "name": "common-crawl",
       "performer_type": "",
       "runtime_type": "worker",
@@ -5337,7 +5337,7 @@
     },
     {
       "nanoid": "a4d4c5a1",
-      "did": "did:web:www-crawler.gftd.ai",
+      "did": "did:web:www-crawler.etzhayyim.com",
       "name": "crawler-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5355,7 +5355,7 @@
     },
     {
       "nanoid": "a5ce95af",
-      "did": "did:web:credits.gftd.ai",
+      "did": "did:web:credits.etzhayyim.com",
       "name": "credits-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5370,7 +5370,7 @@
     },
     {
       "nanoid": "dcscan01",
-      "did": "did:web:disk-cleaner.gftd.ai",
+      "did": "did:web:disk-cleaner.etzhayyim.com",
       "name": "disk-cleaner",
       "performer_type": "service",
       "runtime_type": "desktop-wasm",
@@ -5385,7 +5385,7 @@
     },
     {
       "nanoid": "r5ycqp6x",
-      "did": "did:web:docs.gftd.ai",
+      "did": "did:web:docs.etzhayyim.com",
       "name": "docs-performers",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -5403,7 +5403,7 @@
     },
     {
       "nanoid": "dr1v3st0",
-      "did": "did:web:drive.gftd.ai",
+      "did": "did:web:drive.etzhayyim.com",
       "name": "drive",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5425,7 +5425,7 @@
     },
     {
       "nanoid": "hzaooy0f",
-      "did": "did:web:ekyc.gftd.ai",
+      "did": "did:web:ekyc.etzhayyim.com",
       "name": "ekyc",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5450,7 +5450,7 @@
     },
     {
       "nanoid": "gsgpde96",
-      "did": "did:web:forms.gftd.ai",
+      "did": "did:web:forms.etzhayyim.com",
       "name": "forms-frontend-gsgpde96",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5468,7 +5468,7 @@
     },
     {
       "nanoid": "g4z0img1",
-      "did": "did:web:gazo.gftd.ai",
+      "did": "did:web:gazo.etzhayyim.com",
       "name": "gazo",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5481,8 +5481,8 @@
     },
     {
       "nanoid": "gftdapps",
-      "did": "did:web:kyber-qzzg06nh.gftd.ai",
-      "name": "gftdcojp-apps-static-component",
+      "did": "did:web:kyber-qzzg06nh.etzhayyim.com",
+      "name": "etzhayyim-apps-static-component",
       "performer_type": "service",
       "runtime_type": "worker",
       "ui_type": "appview",
@@ -5496,7 +5496,7 @@
     },
     {
       "nanoid": "w5n8p3q6",
-      "did": "did:web:global.gftd.ai",
+      "did": "did:web:global.etzhayyim.com",
       "name": "global",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5514,7 +5514,7 @@
     },
     {
       "nanoid": "gmail-mcp",
-      "did": "did:web:gmail.gftd.ai",
+      "did": "did:web:gmail.etzhayyim.com",
       "name": "gmail-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5531,7 +5531,7 @@
     },
     {
       "nanoid": "d3yqp37e",
-      "did": "did:web:gov-jpn.gftd.ai",
+      "did": "did:web:gov-jpn.etzhayyim.com",
       "name": "gov-jpn",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5549,7 +5549,7 @@
     },
     {
       "nanoid": "i3zinrs2",
-      "did": "did:web:gyotaku.gftd.ai",
+      "did": "did:web:gyotaku.etzhayyim.com",
       "name": "gyotaku",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5564,7 +5564,7 @@
     },
     {
       "nanoid": "c3852576",
-      "did": "did:web:gyotaku.gftd.ai",
+      "did": "did:web:gyotaku.etzhayyim.com",
       "name": "gyotaku-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5582,7 +5582,7 @@
     },
     {
       "nanoid": "dtyy44cr",
-      "did": "did:web:handotai.gftd.ai",
+      "did": "did:web:handotai.etzhayyim.com",
       "name": "handotai",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5603,7 +5603,7 @@
     },
     {
       "nanoid": "h4nr31jp",
-      "did": "did:web:hanrei.gftd.ai",
+      "did": "did:web:hanrei.etzhayyim.com",
       "name": "hanrei",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5623,7 +5623,7 @@
     },
     {
       "nanoid": "a5ugfx2n",
-      "did": "did:web:har.gftd.ai",
+      "did": "did:web:har.etzhayyim.com",
       "name": "har-app-5ugfx2n1",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5641,7 +5641,7 @@
     },
     {
       "nanoid": "hc0mp7ng",
-      "did": "did:web:hc.gftd.ai",
+      "did": "did:web:hc.etzhayyim.com",
       "name": "hc",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5668,7 +5668,7 @@
     },
     {
       "nanoid": "h0g3t3st",
-      "did": "did:web:hoge.gftd.ai",
+      "did": "did:web:hoge.etzhayyim.com",
       "name": "hoge",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5684,7 +5684,7 @@
     },
     {
       "nanoid": "im2mh8n1",
-      "did": "did:web:im2mh8n1.gftd.ai",
+      "did": "did:web:im2mh8n1.etzhayyim.com",
       "name": "image2metahuman",
       "performer_type": "",
       "runtime_type": "worker",
@@ -5699,7 +5699,7 @@
     },
     {
       "nanoid": "img2vrm1",
-      "did": "did:web:img2vrm1.gftd.ai",
+      "did": "did:web:img2vrm1.etzhayyim.com",
       "name": "image2vrm",
       "performer_type": "",
       "runtime_type": "worker",
@@ -5714,7 +5714,7 @@
     },
     {
       "nanoid": "i7n73l0x",
-      "did": "did:web:intel.gftd.ai",
+      "did": "did:web:intel.etzhayyim.com",
       "name": "intel",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5777,7 +5777,7 @@
     },
     {
       "nanoid": "erp6xu1c",
-      "did": "did:web:joucho.gftd.ai",
+      "did": "did:web:joucho.etzhayyim.com",
       "name": "joucho",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5794,7 +5794,7 @@
     },
     {
       "nanoid": "a5h1ba8k",
-      "did": "did:web:jp-ashiba.gftd.ai",
+      "did": "did:web:jp-ashiba.etzhayyim.com",
       "name": "jp-ashiba",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5815,7 +5815,7 @@
     },
     {
       "nanoid": "k4g4m1db",
-      "did": "did:web:kagami.gftd.ai",
+      "did": "did:web:kagami.etzhayyim.com",
       "name": "kagami",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5934,7 +5934,7 @@
     },
     {
       "nanoid": "kk8r3n5v",
-      "did": "did:web:kenkyusha.gftd.ai",
+      "did": "did:web:kenkyusha.etzhayyim.com",
       "name": "kenkyusha",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5956,7 +5956,7 @@
     },
     {
       "nanoid": "kyb3rerp",
-      "did": "did:web:kyber.gftd.ai",
+      "did": "did:web:kyber.etzhayyim.com",
       "name": "kyber",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -5983,7 +5983,7 @@
     },
     {
       "nanoid": "zio3cb3r",
-      "did": "did:web:livecam.gftd.ai",
+      "did": "did:web:livecam.etzhayyim.com",
       "name": "livecam",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6006,7 +6006,7 @@
     },
     {
       "nanoid": "deps",
-      "did": "did:web:deps.gftd.ai",
+      "did": "did:web:deps.etzhayyim.com",
       "name": "magatama-linker-dependencies",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -6024,7 +6024,7 @@
     },
     {
       "nanoid": "ml1nb0nd",
-      "did": "did:web:ml1nb0nd.gftd.ai",
+      "did": "did:web:ml1nb0nd.etzhayyim.com",
       "name": "mailer-inbound",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -6040,7 +6040,7 @@
     },
     {
       "nanoid": "a8wwtz73",
-      "did": "did:web:8wwtz73p.gftd.ai",
+      "did": "did:web:8wwtz73p.etzhayyim.com",
       "name": "mailer-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6054,7 +6054,7 @@
     },
     {
       "nanoid": "m4l4k001",
-      "did": "did:web:malak.gftd.ai",
+      "did": "did:web:malak.etzhayyim.com",
       "name": "malak",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6101,7 +6101,7 @@
     },
     {
       "nanoid": "mlk8x2p9",
-      "did": "did:web:malak.gftd.ai",
+      "did": "did:web:malak.etzhayyim.com",
       "name": "malak-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6119,7 +6119,7 @@
     },
     {
       "nanoid": "v1m9k2q8",
-      "did": "did:web:v1m9k2q8.gftd.ai",
+      "did": "did:web:v1m9k2q8.etzhayyim.com",
       "name": "maps-collection-control-plane",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6141,7 +6141,7 @@
     },
     {
       "nanoid": "uqpel6i6",
-      "did": "did:web:maps.gftd.ai",
+      "did": "did:web:maps.etzhayyim.com",
       "name": "maps-ui",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -6216,7 +6216,7 @@
     },
     {
       "nanoid": "iewsbshk",
-      "did": "did:web:marketer.gftd.ai",
+      "did": "did:web:marketer.etzhayyim.com",
       "name": "marketer",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6232,7 +6232,7 @@
     },
     {
       "nanoid": "a7m8oocs",
-      "did": "did:web:gamers.gftd.ai",
+      "did": "did:web:gamers.etzhayyim.com",
       "name": "media-gamers",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6250,7 +6250,7 @@
     },
     {
       "nanoid": "mp7k9x2w",
-      "did": "did:web:minpaku.gftd.ai",
+      "did": "did:web:minpaku.etzhayyim.com",
       "name": "minpaku",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6268,7 +6268,7 @@
     },
     {
       "nanoid": "m9r4k8m0",
-      "did": "did:web:murakumo.gftd.ai",
+      "did": "did:web:murakumo.etzhayyim.com",
       "name": "murakumo",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6286,7 +6286,7 @@
     },
     {
       "nanoid": "nwscr001",
-      "did": "did:web:news.gftd.ai",
+      "did": "did:web:news.etzhayyim.com",
       "name": "nwscr001",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6301,7 +6301,7 @@
     },
     {
       "nanoid": "a1ef52ee",
-      "did": "did:web:okaimono.gftd.ai",
+      "did": "did:web:okaimono.etzhayyim.com",
       "name": "okaimono-d2c-checkout-agent",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6319,7 +6319,7 @@
     },
     {
       "nanoid": "ok4imn1o",
-      "did": "did:web:okaimono.gftd.ai",
+      "did": "did:web:okaimono.etzhayyim.com",
       "name": "okaimono-d2c-store",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6360,7 +6360,7 @@
     },
     {
       "nanoid": "om1s3sh0p",
-      "did": "did:web:omise.gftd.ai",
+      "did": "did:web:omise.etzhayyim.com",
       "name": "omise",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6378,7 +6378,7 @@
     },
     {
       "nanoid": "a01dffc5",
-      "did": "did:web:omise.gftd.ai",
+      "did": "did:web:omise.etzhayyim.com",
       "name": "omise-taxonomy-bridge-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6396,7 +6396,7 @@
     },
     {
       "nanoid": "org4n1z3",
-      "did": "did:web:organizer.gftd.ai",
+      "did": "did:web:organizer.etzhayyim.com",
       "name": "organizer",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6427,7 +6427,7 @@
     },
     {
       "nanoid": "cc36abf5",
-      "did": "did:web:oshikatsu.gftd.ai",
+      "did": "did:web:oshikatsu.etzhayyim.com",
       "name": "oshikatsu-automaton-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6445,7 +6445,7 @@
     },
     {
       "nanoid": "outlook",
-      "did": "did:web:outlook.gftd.ai",
+      "did": "did:web:outlook.etzhayyim.com",
       "name": "outlook-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6459,7 +6459,7 @@
     },
     {
       "nanoid": "f0963b54",
-      "did": "did:web:pharma.gftd.ai",
+      "did": "did:web:pharma.etzhayyim.com",
       "name": "pharma",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6477,7 +6477,7 @@
     },
     {
       "nanoid": "search-mcp",
-      "did": "did:web:search.gftd.ai",
+      "did": "did:web:search.etzhayyim.com",
       "name": "search",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -6495,7 +6495,7 @@
     },
     {
       "nanoid": "r8fitt3i",
-      "did": "did:web:sheets.gftd.ai",
+      "did": "did:web:sheets.etzhayyim.com",
       "name": "sheets-ui",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -6513,7 +6513,7 @@
     },
     {
       "nanoid": "a80c21a0",
-      "did": "did:web:shigotoba.gftd.ai",
+      "did": "did:web:shigotoba.etzhayyim.com",
       "name": "shigotoba-jobs-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6531,7 +6531,7 @@
     },
     {
       "nanoid": "sh1nk4ev",
-      "did": "did:web:shinka.gftd.ai",
+      "did": "did:web:shinka.etzhayyim.com",
       "name": "shinka",
       "performer_type": "",
       "runtime_type": "worker",
@@ -6540,7 +6540,7 @@
     },
     {
       "nanoid": "w3bpg001",
-      "did": "did:web:site.gftd.ai",
+      "did": "did:web:site.etzhayyim.com",
       "name": "site",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6567,7 +6567,7 @@
     },
     {
       "nanoid": "sm15h001",
-      "did": "did:web:smishing.gftd.ai",
+      "did": "did:web:smishing.etzhayyim.com",
       "name": "smishing-core",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6587,7 +6587,7 @@
     },
     {
       "nanoid": "s6c9m2q1",
-      "did": "did:web:society6.gftd.ai",
+      "did": "did:web:society6.etzhayyim.com",
       "name": "society6-ui",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6605,7 +6605,7 @@
     },
     {
       "nanoid": "st4rp301",
-      "did": "did:web:stripe.gftd.ai",
+      "did": "did:web:stripe.etzhayyim.com",
       "name": "stripe",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6627,7 +6627,7 @@
     },
     {
       "nanoid": "sw3ng1n3",
-      "did": "did:web:swe.gftd.ai",
+      "did": "did:web:swe.etzhayyim.com",
       "name": "swe",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6645,7 +6645,7 @@
     },
     {
       "nanoid": "a58eb999",
-      "did": "did:web:briefing.gftd.ai",
+      "did": "did:web:briefing.etzhayyim.com",
       "name": "sys-briefing-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6663,7 +6663,7 @@
     },
     {
       "nanoid": "t4sk1ist",
-      "did": "did:web:tasklist.gftd.ai",
+      "did": "did:web:tasklist.etzhayyim.com",
       "name": "tasklist",
       "performer_type": "system",
       "runtime_type": "worker",
@@ -6678,7 +6678,7 @@
     },
     {
       "nanoid": "a1a1226d",
-      "did": "did:web:tenki.gftd.ai",
+      "did": "did:web:tenki.etzhayyim.com",
       "name": "tenki-weather-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6696,7 +6696,7 @@
     },
     {
       "nanoid": "t3ns0f1l",
-      "did": "did:web:tenso.gftd.ai",
+      "did": "did:web:tenso.etzhayyim.com",
       "name": "tenso",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6714,7 +6714,7 @@
     },
     {
       "nanoid": "v554eq1f",
-      "did": "did:web:translate.gftd.ai",
+      "did": "did:web:translate.etzhayyim.com",
       "name": "translate-ui",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6732,7 +6732,7 @@
     },
     {
       "nanoid": "tm5x7k9q",
-      "did": "did:web:translator.gftd.ai",
+      "did": "did:web:translator.etzhayyim.com",
       "name": "translator",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6750,7 +6750,7 @@
     },
     {
       "nanoid": "a6f293f3",
-      "did": "did:web:vault.gftd.ai",
+      "did": "did:web:vault.etzhayyim.com",
       "name": "vault-extension-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6768,7 +6768,7 @@
     },
     {
       "nanoid": "ababdcfd",
-      "did": "did:web:vault.gftd.ai",
+      "did": "did:web:vault.etzhayyim.com",
       "name": "vault-mcp-component",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6786,7 +6786,7 @@
     },
     {
       "nanoid": "v3ss3l01",
-      "did": "did:web:v3ss3l01.gftd.ai",
+      "did": "did:web:v3ss3l01.etzhayyim.com",
       "name": "vessel-registry",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6809,7 +6809,7 @@
     },
     {
       "nanoid": "mfbtsuyc",
-      "did": "did:web:mfbtsuyc.gftd.ai",
+      "did": "did:web:mfbtsuyc.etzhayyim.com",
       "name": "watashi",
       "performer_type": "",
       "runtime_type": "",
@@ -6818,7 +6818,7 @@
     },
     {
       "nanoid": "cr4wl3r0",
-      "did": "did:web:webpage.gftd.ai",
+      "did": "did:web:webpage.etzhayyim.com",
       "name": "webpage",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6836,7 +6836,7 @@
     },
     {
       "nanoid": "b7r4n2xq",
-      "did": "did:web:yadoya.gftd.ai",
+      "did": "did:web:yadoya.etzhayyim.com",
       "name": "yadoya",
       "performer_type": "service",
       "runtime_type": "worker",
@@ -6854,7 +6854,7 @@
     },
     {
       "nanoid": "yoro",
-      "did": "did:web:yoro.gftd.ai",
+      "did": "did:web:yoro.etzhayyim.com",
       "name": "yoro-ui",
       "performer_type": "system",
       "runtime_type": "worker",

@@ -1,6 +1,6 @@
 [package]
 name = "kami-app-cad"
-description = "CAD viewer / editor entry (cad.gftd.ai) — orbit camera + BREP scene + anchored comment overlay, composed on KamiApp Builder"
+description = "CAD viewer / editor entry (cad.etzhayyim.com) — orbit camera + BREP scene + anchored comment overlay, composed on KamiApp Builder"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

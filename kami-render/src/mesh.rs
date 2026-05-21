@@ -339,7 +339,7 @@ pub fn instances_to_frame(transforms: &[f32], tick: u32) -> Frame {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GIS / Maps mesh generators — hex grid, cylinder pipe, building extrusion
-// Used by maps.gftd.ai for KAMI-based infrastructure & spatial rendering
+// Used by maps.etzhayyim.com for KAMI-based infrastructure & spatial rendering
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Generate a hexagonal prism (flat-top). Center at origin, extends along Y axis.

@@ -1,6 +1,6 @@
 /**
  * spark/types.ts — Shared types for the Spark-style sample suite
- * (`@gftdcojp/kami-engine-sdk/spark`).
+ * (`@etzhayyim/kami-engine-sdk/spark`).
  *
  * Mirrors the Spark 2.0 web-3DGS feature set (worldlabs.ai/blog/spark-2.0):
  *   - 3D Gaussian splat clouds with painter's-algorithm depth sort

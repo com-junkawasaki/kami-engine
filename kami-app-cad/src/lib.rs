@@ -1,4 +1,4 @@
-//! kami-app-cad — `cad.gftd.ai` per-game WASM entry.
+//! kami-app-cad — `cad.etzhayyim.com` per-game WASM entry.
 //!
 //! Phase 1: orbit camera + sky + a hardcoded mechanical part (base
 //! plate + boss + central pin) composed from `kami-pipelines`
@@ -7,7 +7,7 @@
 //! highlights it amber; the pick is published to
 //! `window.__kami_cad_pick` for the HUD.
 //!
-//! The real BREP → mesh path (via `kami-cad` + the `cad-job.gftd.ai`
+//! The real BREP → mesh path (via `kami-cad` + the `cad-job.etzhayyim.com`
 //! Container tessellator) lands in the follow-up PR.
 
 use glam::Mat4;

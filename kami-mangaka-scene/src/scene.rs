@@ -231,7 +231,7 @@ impl MangakaScene {
             .collect();
         let props: Vec<_> = self.props.iter().map(|(id, _)| serde_json::json!({ "id": id.0 })).collect();
         serde_json::json!({
-            "@context": "https://kami.gftd.ai/mangaka-scene/v1",
+            "@context": "https://kami.etzhayyim.com/mangaka-scene/v1",
             "characters": chars,
             "props": props,
             "camera": self.camera,

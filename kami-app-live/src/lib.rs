@@ -1,4 +1,4 @@
-//! kami-app-live — WASM entry for `live.gftd.ai`.
+//! kami-app-live — WASM entry for `live.etzhayyim.com`.
 //!
 //! Composes:
 //! - `kami-pipelines::SkyAdapter`         — atmosphere
@@ -64,7 +64,7 @@ extern "C" {
 use wasm_bindgen::prelude::*;
 
 /// Build a default 3-track demo set. Replaces a network-sourced setlist
-/// for the standalone demo at `live.gftd.ai/?demo=1`.
+/// for the standalone demo at `live.etzhayyim.com/?demo=1`.
 pub fn demo_show() -> LiveShow {
     let mut show = LiveShow::builder()
         .bpm(128.0)

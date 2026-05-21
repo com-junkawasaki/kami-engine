@@ -1,4 +1,4 @@
-// kami-mangaka-scene — headless 3D scene composition facade for mangaka.gftd.ai.
+// kami-mangaka-scene — headless 3D scene composition facade for mangaka.etzhayyim.com.
 // ADR-2605141200. Composes existing kami-* crates; no engine-internal modifications.
 // P0 skeleton: types + builder API. Renderer + simulation wiring lands in P1–P4.
 

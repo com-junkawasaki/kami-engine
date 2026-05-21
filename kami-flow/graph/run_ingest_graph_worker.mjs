@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 
-const GRAPH_BASE = process.env.GRAPH_BASE || 'https://graph.gftd.ai';
+const GRAPH_BASE = process.env.GRAPH_BASE || 'https://graph.etzhayyim.com';
 const NSID = 'ai.gftd.kagami.graph.query';
-const GRAPH_REPO_DID = process.env.GRAPH_REPO_DID || 'did:web:kami.gftd.ai';
+const GRAPH_REPO_DID = process.env.GRAPH_REPO_DID || 'did:web:kami.etzhayyim.com';
 const COLLECTION = process.env.GRAPH_COLLECTION || 'ai.gftd.apps.kami.flow.graph';
 const VERTEX_TABLE = 'vertex_kami_flow_node';
 const EDGE_TABLE = 'edge_kami_flow_relation';

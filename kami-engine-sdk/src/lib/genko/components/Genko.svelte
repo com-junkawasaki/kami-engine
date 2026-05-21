@@ -474,7 +474,7 @@
   /** Build project TOC document from project data. */
   function buildProjectToc(project: Record<string, unknown>): GenkoDoc {
     const docs = (project.documents || []) as Array<Record<string, unknown>>;
-    const appHost = nanoid + '.gftd.ai';
+    const appHost = nanoid + '.etzhayyim.com';
     const nodes: Array<Record<string, unknown>> = [];
     const titleNid = nid();
     nodes.push({ id: titleNid, type: 'text', visible: true, data: { type: 'text', _nid: titleNid, _visible: true, text: project.name || 'Project', x: 300, y: 200, fontSize: 52, color: '#222', font: 'sans' } });

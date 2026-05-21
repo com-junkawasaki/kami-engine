@@ -5,7 +5,7 @@
 //! normals + indices + base colour + world transform + feature_id +
 //! feature_name). BREP → mesh tessellation happens either in the game
 //! crate (via `kami-sdf` / `kami-scad` for demos) or in the
-//! `cad-job.gftd.ai` CF Container service (for real STEP / IGES
+//! `cad-job.etzhayyim.com` CF Container service (for real STEP / IGES
 //! imports). The adapter stays dumb about topology: it only cares
 //! about GPU-ready triangles + a caller-assigned string id per batch.
 //!

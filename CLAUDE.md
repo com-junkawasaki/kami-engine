@@ -70,7 +70,7 @@ See also: `ARCHITECTURE.md` for ownership boundaries and authority rules across 
 | **kami-atmosphere** | Sky/sun/clouds + day-night cycle + weather presets + **wind_field** (2-octave FBM, spatially-varying ripples mirrored in WGSL) | 11 |
 | **kami-vegetation** | GPU-instanced vegetation. **Taxonomy-driven** `mesh_from_profile(&TaxonomicProfile)` switches on `CanopyShape` (7: Blade/Fan/Radial/Cone/Dome/Column/Carpet) parameterized by `leaf_count/leaf_size/stem_radius`. 7 profiles (grass/fern/palm/conifer/bush/cactus/moss) — adding a species = adding a profile (no new mesh fn). `OwnedTaxonomicProfile::from_json_str` bridges `ai.gftd.apps.seibutsu.renderProfile` XRPC. Poisson-disk biome-filtered placement, WASM-cached cull (flat for N<10k, patch-clustered for N≥10k), per-species batched `draw_indexed`, ground AO + wind field in shader | 23 |
 
-Dependency chain: `kami-terrain → kami-vegetation`. Used via `kami-web` WASM exports for browser demos at `isekai.gftd.ai/{terrain-demo,quarry,quarry-walk}.htm`.
+Dependency chain: `kami-terrain → kami-vegetation`. Used via `kami-web` WASM exports for browser demos at `isekai.etzhayyim.com/{terrain-demo,quarry,quarry-walk}.htm`.
 
 ### WASM exports (kami-web open-world API)
 
@@ -132,9 +132,9 @@ L4 HTML (shell only):
 | **kami-app** | Builder SDK (`KamiApp::new_web/.with_*/.run`). `RenderPipeline` / `InputHandler` / `Scene` trait + `Camera` (yaw/pitch/time) + `DepthTarget` + RAF loop + DPR/resize/pointer-lock/HUD publish |
 | **kami-pipelines** | Shared `RenderPipeline` adapters: `SkyAdapter`, `TerrainAdapter` (streaming chunks + multi-species vegetation), `WaterAdapter` (Gerstner + fresnel), `VoxelChunkAdapter` (streaming blocky chunks + DDA raycast + greedy meshing + mine/place + AABB collision + floor probe), `ParticleAdapter` (billboard particles, gravity + gravity-free `emit_flow`, burst API). v3-DEC adapters: `FieldVisAdapter` (Λ⁰), `EdgeVisAdapter` (Λ¹ arrows), `FaceVisAdapter` (Λ²) — all with camera-distance LOD (near=stride1 / mid=2 / far=4). Nintendo-style adapters: `AtlasVisAdapter` (procedural sprite atlas — 16 shape slots with 1D bob / scale pulse / rot wiggle / pop-in easeOutBack; distance LOD sparkle collapse + cull) and `FieldIconMap` (7-rule heat/moisture → icon map). `GsplatAdapter` (3D Gaussian Splat preview/QC, ADR-2605092800 — CPU sort + WGSL EWA falloff, ≤50k splats / cloud, multi-cloud HashMap, consumes `kami_render::splat`/`splat_loader` PLY + `.splat` parsers; **WGSL `evaluate_sh` for SH degree 0–3** with `sh_rest` storage buffer + Inria-convention band coefficients — view-dependent specular when `f_rest_*` is present, bit-exact identical degree-0 path otherwise). Game-specific pipelines live in game crate |
 | **kami-dec** | v3 DEC physics primitives (see §v3 DEC below) |
-| **kami-app-isekai** | ISEKAI game (Plains biome, voxel sandbox target). Live at `isekai.gftd.ai/v2.htm` + v3 physics demo `isekai.gftd.ai/v3-demos.htm` (11 scenes) |
-| **kami-app-quarry-walk** | 2nd reference game (Quarry biome). Live at `isekai.gftd.ai/quarry-walk-v2.htm` |
-| **kami-app-car-sim** | BeamNG-grade soft-body car simulator. Live at `driver.gftd.ai`. Garage picker (6 vehicles) + paint colour + 8-zone surface map (asphalt-dry/wet/gravel/sand/snow/ice/mud/grass) + parts detach UI. 3 wgpu pipelines (line wireframe / filled body Lambert / ground tiles with procedural surface texture in fragment shader — no PNG/JPG assets, all noise-based). XPBD + rigid-chassis projection + tire-as-PBD-constraint integrator. Drive with WASD, scroll to zoom, drag to orbit |
+| **kami-app-isekai** | ISEKAI game (Plains biome, voxel sandbox target). Live at `isekai.etzhayyim.com/v2.htm` + v3 physics demo `isekai.etzhayyim.com/v3-demos.htm` (11 scenes) |
+| **kami-app-quarry-walk** | 2nd reference game (Quarry biome). Live at `isekai.etzhayyim.com/quarry-walk-v2.htm` |
+| **kami-app-car-sim** | BeamNG-grade soft-body car simulator. Live at `driver.etzhayyim.com`. Garage picker (6 vehicles) + paint colour + 8-zone surface map (asphalt-dry/wet/gravel/sand/snow/ice/mud/grass) + parts detach UI. 3 wgpu pipelines (line wireframe / filled body Lambert / ground tiles with procedural surface texture in fragment shader — no PNG/JPG assets, all noise-based). XPBD + rigid-chassis projection + tire-as-PBD-constraint integrator. Drive with WASD, scroll to zoom, drag to orbit |
 
 ### v3 DEC Physics (kami-dec, 2026-04)
 
@@ -148,7 +148,7 @@ Discrete Exterior Calculus on the voxel cubical complex — replaces N hand-code
 
 Operators: `d_0: Λ⁰ → Λ¹` (grad) / `d_1: Λ¹ → Λ²` (curl) / `div: Λ¹ → Λ⁰` (codiff) / `solve_poisson_jacobi` / `solve_poisson_multigrid` (2-level V-cycle) / `project_divergence_free` / `project_divergence_free_mg` (Helmholtz) / `vorticity_confine` (Fedkiw) / `step_maxwell` (Yee E/B leapfrog) / `advect_field` (semi-Lagrangian) / `prune_outside` (active-region clip).
 
-Demo URL: `isekai.gftd.ai/v3-demos.htm#scene=0..10`. 11 scenes isolate one phenomenon each (heat / moisture / wind / projection / walls+vorticity / Maxwell EM / fire propagation / water extinguish / gravity rain / wind drag / gravity·fire·water·wind coupled). HUD shows position / yaw / pitch / fps / backend via `window.__kami_hud_isekai`.
+Demo URL: `isekai.etzhayyim.com/v3-demos.htm#scene=0..10`. 11 scenes isolate one phenomenon each (heat / moisture / wind / projection / walls+vorticity / Maxwell EM / fire propagation / water extinguish / gravity rain / wind drag / gravity·fire·water·wind coupled). HUD shows position / yaw / pitch / fps / backend via `window.__kami_hud_isekai`.
 
 Perf optimisation stack (layered, each optional): (1) active-region clip (`prune_outside`, caps at 27 chunks), (2) 30 Hz fixed DEC tick (render 60 Hz), (3) multigrid projection, (4) projection iters 12 → 6, (5) streamline-particle budget cap, (6) camera-distance LOD on visualisers.
 
@@ -178,7 +178,7 @@ Atlas slot catalogue: 0–2 flame S/M/L, 3 ember, 4–5 smoke thin/thick, 6–7 
 | Crate | 役割 |
 |---|---|
 | **kami-web** | Legacy monolithic WASM entry (6567 LoC, 11 `run_with_*`). Frozen — new games use `kami-app-{game}` |
-| **kami-map** | Map renderer WASM entry (maps.gftd.ai) |
+| **kami-map** | Map renderer WASM entry (maps.etzhayyim.com) |
 | **kami-demo** | Desktop demo (winit) |
 
 ## kami-ui-sdk (JS, Nintendo-style)
@@ -368,7 +368,7 @@ Desktop environment crate consuming both SDK primitives above. See `60-apps/ai-g
 - **`kami-app`** が Builder SDK contract の正本 (`KamiApp::with_*`, `RenderPipeline` trait, Camera/Depth)
 - **`kami-pipelines`** が shared pipeline adapter の正本 (Sky / Terrain+vegetation / Water)
 - **`kami-app-{game}`** は per-game 独立 wasm bundle、engine contract に依存するが逆依存なし
-- **`kami-web`** は **legacy monolithic entry**。`run_with_*` の新規追加はゲーム migration 経由のみ (ゲームは `kami-app-{game}` へ)。**例外: VRM viewer surface** は ADR-0031 (`90-docs/adr/0031-kami-vrm-three-free-topology.md`) に基づき kami-web に留まり、VRM spec (skinning / morph / spring / constraint / part composition) にマップされる additive export (`run_embed_vrm` / `set_vrm_*` / `get_vrm_*` / `compose_vrm_*`) は許容する。VRM locomotion (walk/run/jump/idle + third-person orbit) も `run_embed_vrm` 内の additive 拡張として許容 (2026-04-20, isekai.gftd.ai/v3-demos.htm#scene=12)
+- **`kami-web`** は **legacy monolithic entry**。`run_with_*` の新規追加はゲーム migration 経由のみ (ゲームは `kami-app-{game}` へ)。**例外: VRM viewer surface** は ADR-0031 (`90-docs/adr/0031-kami-vrm-three-free-topology.md`) に基づき kami-web に留まり、VRM spec (skinning / morph / spring / constraint / part composition) にマップされる additive export (`run_embed_vrm` / `set_vrm_*` / `get_vrm_*` / `compose_vrm_*`) は許容する。VRM locomotion (walk/run/jump/idle + third-person orbit) も `run_embed_vrm` 内の additive 拡張として許容 (2026-04-20, isekai.etzhayyim.com/v3-demos.htm#scene=12)
 - `kami-engine-sdk` は contract 追従の統合層 (Svelte components/builders/types)
 - `kami-ui-sdk` は汎用 DOM UI utility (engine contract を定義しない)
 

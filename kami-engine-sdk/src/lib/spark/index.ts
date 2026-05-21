@@ -1,5 +1,5 @@
 /**
- * `@gftdcojp/kami-engine-sdk/spark` — Spark 2.0-style web-3DGS sample
+ * `@etzhayyim/kami-engine-sdk/spark` — Spark 2.0-style web-3DGS sample
  * suite. Four self-contained Three.js samples that demonstrate the
  * concepts from worldlabs.ai/blog/spark-2.0 in browser-safe code:
  *

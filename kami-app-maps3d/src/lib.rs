@@ -1,4 +1,4 @@
-//! kami-app-maps3d — Nintendo-style 3D walkable map for `maps.gftd.ai`.
+//! kami-app-maps3d — Nintendo-style 3D walkable map for `maps.etzhayyim.com`.
 //!
 //! Phase 1 scope (this file):
 //!   - WebGPU FPS walker (gravity + jump) atop procedural Plains terrain.

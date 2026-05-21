@@ -212,7 +212,7 @@
     if (!workId) { createError = 'no workId for project'; return; }
     if (!newChapterTitle) { createError = 'title required'; return; }
     try {
-      const workAtUri = `at://mng4k4x1.gftd.ai/ai.gftd.mangaka.work/${workId}`;
+      const workAtUri = `at://mng4k4x1.etzhayyim.com/ai.gftd.mangaka.work/${workId}`;
       const r = await fetch('/xrpc/ai.gftd.mangaka.addChapter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -253,7 +253,7 @@
                 type: 'ai-image',
                 _nid: nid(),
                 _visible: true,
-                src: `https://atproto.gftd.ai/xrpc/com.atproto.sync.getBlob?did=did:web:mng4k4x1.gftd.ai&cid=${cid}`,
+                src: `https://atproto.etzhayyim.com/xrpc/com.atproto.sync.getBlob?did=did:web:mng4k4x1.etzhayyim.com&cid=${cid}`,
                 x: 0, y: 0, w: 1080, h: 1920,
                 altText: pg.altText ?? '',
               },

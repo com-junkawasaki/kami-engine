@@ -887,7 +887,7 @@ export function createRoboticsApprovalRecord(input: {
     approvalId: input.approvalId || `robotics-approval-${Date.now().toString(36)}`,
     requestId: input.requestId || "robotics-request",
     decision,
-    approverDid: input.approverDid || "did:web:robotics-operator.gftd.ai",
+    approverDid: input.approverDid || "did:web:robotics-operator.etzhayyim.com",
     approvedAt: new Date().toISOString(),
     scope: input.scope || "robot-motion-and-transport",
     requiredEvidence: input.requiredEvidence || [

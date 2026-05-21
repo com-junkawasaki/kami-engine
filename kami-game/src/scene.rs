@@ -147,7 +147,7 @@ pub enum MeshRef {
     },
     #[serde(rename = "scad")]
     Scad { code: String },
-    /// Hexagonal prism for H3 grid visualization (maps.gftd.ai).
+    /// Hexagonal prism for H3 grid visualization (maps.etzhayyim.com).
     #[serde(rename = "hex_prism")]
     HexPrism {
         color: [f32; 4],
@@ -173,7 +173,7 @@ pub enum MeshRef {
         height: f32,
         segments: u32,
     },
-    /// Building extrusion from 2D footprint polygon (maps.gftd.ai).
+    /// Building extrusion from 2D footprint polygon (maps.etzhayyim.com).
     #[serde(rename = "building")]
     Building {
         color: [f32; 4],

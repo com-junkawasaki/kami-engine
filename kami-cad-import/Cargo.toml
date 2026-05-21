@@ -1,6 +1,6 @@
 [package]
 name = "kami-cad-import"
-description = "CAD → vehicle part graph → JBeam topology + CycloneDX SBOM. Bridges kami-cad/kami-scad to kami-vehicle and sbom.gftd.ai for driver.gftd.ai BeamNG-grade vehicles (ADR 2605051430)."
+description = "CAD → vehicle part graph → JBeam topology + CycloneDX SBOM. Bridges kami-cad/kami-scad to kami-vehicle and sbom.etzhayyim.com for driver.etzhayyim.com BeamNG-grade vehicles (ADR 2605051430)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -2,7 +2,7 @@
  * webvr/cine-bridge.ts — Thin client for the kami-cine pipeline
  * (`gftd:kami-cine@1.0.0`, stages 1-4: worldModel → usdScene → neuralGeom
  * → temporalField). Wires the cyber-drill VR to a remote
- * `studio.gftd.ai` LangGraph pod when available, or falls back to a
+ * `studio.etzhayyim.com` LangGraph pod when available, or falls back to a
  * deterministic mock so the demo runs offline.
  *
  * Pipeline reference: `40-engine/kami-engine/wit/cine/package.wit`.
@@ -130,7 +130,7 @@ export interface CineBridge {
 export interface CreateCineBridgeOpts {
   /**
    * HTTPS endpoint for the LangGraph pod. Example:
-   *   "https://studio.gftd.ai/xrpc/ai.gftd.mangaka.cineGenerateScene"
+   *   "https://studio.etzhayyim.com/xrpc/ai.gftd.mangaka.cineGenerateScene"
    * When omitted or unreachable, the bridge falls back to mock.
    */
   endpoint?: string;

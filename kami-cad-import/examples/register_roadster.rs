@@ -1,5 +1,5 @@
 //! Print a `curl` command that registers the roadster's SBOM with
-//! `sbom.gftd.ai` (lexicon `ai.gftd.sbom.registerArtifact`).
+//! `sbom.etzhayyim.com` (lexicon `ai.gftd.sbom.registerArtifact`).
 //!
 //! ```bash
 //! export GFTD_TOKEN=$(gftd agent-token --lxm ai.gftd.sbom.registerArtifact)

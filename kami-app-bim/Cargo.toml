@@ -1,6 +1,6 @@
 [package]
 name = "kami-app-bim"
-description = "BIM viewer / editor entry (bim.gftd.ai) — storey LOD + space highlight + IFC-aware overlay, composed on KamiApp Builder"
+description = "BIM viewer / editor entry (bim.etzhayyim.com) — storey LOD + space highlight + IFC-aware overlay, composed on KamiApp Builder"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

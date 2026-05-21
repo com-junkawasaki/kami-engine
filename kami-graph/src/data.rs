@@ -362,7 +362,7 @@ fn shorten_label(s: &str) -> String {
         return rest.to_string();
     }
     if let Some(rest) = s.strip_prefix("did:web:") {
-        return rest.replace(".gftd.ai", "");
+        return rest.replace(".etzhayyim.com", "");
     }
     if let Some(rest) = s.strip_prefix("sql:") {
         return rest.to_string();

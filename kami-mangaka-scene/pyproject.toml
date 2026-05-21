@@ -7,7 +7,7 @@ build-backend = "maturin"
 [project]
 name = "kami-mangaka-scene"
 version = "0.1.0"
-description = "Headless 3D scene composition for mangaka.gftd.ai — PyO3 wheel"
+description = "Headless 3D scene composition for mangaka.etzhayyim.com — PyO3 wheel"
 requires-python = ">=3.11"
 authors = [
     { name = "Gftd Japan" },

@@ -1,6 +1,6 @@
 [package]
 name = "kami-app-giemon"
-description = "Giemon robot kit viewer (giemon.gftd.ai) — orbit camera + ArmCrawler procedural model via CadSceneAdapter"
+description = "Giemon robot kit viewer (giemon.etzhayyim.com) — orbit camera + ArmCrawler procedural model via CadSceneAdapter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

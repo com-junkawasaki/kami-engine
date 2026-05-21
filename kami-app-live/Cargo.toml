@@ -7,7 +7,7 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# kami-app-live — Reference WASM entry for live.gftd.ai.
+# kami-app-live — Reference WASM entry for live.etzhayyim.com.
 #
 # Composes:
 #   kami-pipelines::{SkyAdapter, TerrainAdapter, WaterAdapter,

@@ -34,7 +34,7 @@ pub enum Genre {
     Chase,         // ketsu-gorilla
 }
 
-/// The 22 Godot games from games.gftd.ai.
+/// The 22 Godot games from games.etzhayyim.com.
 pub fn godot_game_catalog() -> Vec<GameDef> {
     vec![
         game(

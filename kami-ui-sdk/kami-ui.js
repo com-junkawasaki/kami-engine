@@ -9,7 +9,7 @@
  *   hud.setText('Ready');
  *
  * @license MIT
- * @see https://kami.gftd.ai/ui-sdk
+ * @see https://kami.etzhayyim.com/ui-sdk
  */
 (function(root) {
 "use strict";

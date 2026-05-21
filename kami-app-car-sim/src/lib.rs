@@ -1,4 +1,4 @@
-//! kami-app-car-sim — public car-sim demo (`driver.gftd.ai`).
+//! kami-app-car-sim — public car-sim demo (`driver.etzhayyim.com`).
 //!
 //! Loads a `kami-vehicle` BeamNG-grade soft-body car (vehicle kind +
 //! paint colour selected from JS globals at boot), renders the chassis

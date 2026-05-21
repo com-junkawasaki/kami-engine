@@ -2,7 +2,7 @@
 //!
 //! `VehicleAssembly` is the single source of truth shared between the
 //! soft-body simulator (`kami-vehicle`) and the SBOM emitter
-//! (`sbom.gftd.ai`). Every part carries provenance — without it the
+//! (`sbom.etzhayyim.com`). Every part carries provenance — without it the
 //! emitters refuse to produce output (ADR 2605051430).
 
 use glam::Vec3;

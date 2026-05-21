@@ -1,5 +1,5 @@
 /**
- * @gftdcojp/kami-engine-sdk/webvr — Choice-based VR incident-response
+ * @etzhayyim/kami-engine-sdk/webvr — Choice-based VR incident-response
  * walkthrough runtime for smartphone WebXR.
  *
  * Public surface:
@@ -45,7 +45,7 @@ export {
 
 // kami-cine Stage 1-4 bridge (worldModel → usdScene → neuralGeom →
 // temporalField). Use createMockCineBridge() in dev; createCineBridge({
-// endpoint, token }) against studio.gftd.ai in prod.
+// endpoint, token }) against studio.etzhayyim.com in prod.
 export {
   createCineBridge,
   createMockCineBridge,

@@ -1,4 +1,4 @@
-//! kami-map: WebGPU map renderer for maps.gftd.ai.
+//! kami-map: WebGPU map renderer for maps.etzhayyim.com.
 //!
 //! Replaces MapLibre GL JS with KAMI Engine wgpu rendering.
 //! Entry point: `KamiMap::create(canvas_id, options_json)`.

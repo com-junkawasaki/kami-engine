@@ -1,4 +1,4 @@
-/** @gftdcojp/kami-engine-sdk — Svelte 5 VRM character viewer components + headless builders + Genko manga editor. */
+/** @etzhayyim/kami-engine-sdk — Svelte 5 VRM character viewer components + headless builders + Genko manga editor. */
 
 // Components
 export {
@@ -44,7 +44,7 @@ export { genkoEmbedHTML } from './genko/index.js';
 // Trackpad (Apple trackpad + mouse gesture unification)
 export { kamiTrackpadHTML } from './trackpad/index.js';
 
-// Gsplat (3D Gaussian Splatting preview/QC bridge for maps.gftd.ai)
+// Gsplat (3D Gaussian Splatting preview/QC bridge for maps.etzhayyim.com)
 export {
   loadGsplatAsset,
   listGsplatAssets,
@@ -104,7 +104,7 @@ export type {
 } from './manufacturing/index.js';
 
 // Document (structured document model + KAMI scene bridge)
-// Use `import { ... } from '@gftdcojp/kami-engine-sdk/document'` for tree-shaking
+// Use `import { ... } from '@etzhayyim/kami-engine-sdk/document'` for tree-shaking
 export type {
   Emu,
   DocumentRect,
@@ -120,7 +120,7 @@ export type {
 } from './document/index.js';
 
 // WebVR (choice-based VR incident-response walkthrough — smartphone WebXR)
-// Use `import { ... } from '@gftdcojp/kami-engine-sdk/webvr'` for tree-shaking
+// Use `import { ... } from '@etzhayyim/kami-engine-sdk/webvr'` for tree-shaking
 export type {
   IncidentScenario,
   IncidentNode,

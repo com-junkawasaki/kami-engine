@@ -7,7 +7,7 @@
 //!
 //! **Preview / QC scope (ADR-2605092800).** Per-cloud splat budget is
 //! capped at `MAX_SPLATS_PER_CLOUD` = 50 000 — sized for landmark / spot
-//! review, not city-scale streaming. Runtime delivery on `maps.gftd.ai`
+//! review, not city-scale streaming. Runtime delivery on `maps.etzhayyim.com`
 //! stays on baked static meshes (260416-maps-kami-street-asset-pipeline).
 //!
 //! Multi-cloud: clouds are keyed by an arbitrary string (typically a

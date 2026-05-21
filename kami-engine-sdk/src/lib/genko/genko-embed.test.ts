@@ -80,7 +80,7 @@ describe('genkoEmbedHTML — auth integration (regression)', () => {
     expect(html).not.toContain("'?redirect_url='");
   });
 
-  it('parses #auth= hash fragment from authn.gftd.ai callback', () => {
+  it('parses #auth= hash fragment from authn.etzhayyim.com callback', () => {
     expect(html).toContain("#auth=");
     expect(html).toContain("location.hash.startsWith('#auth=')");
   });

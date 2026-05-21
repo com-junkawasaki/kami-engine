@@ -140,7 +140,7 @@ describe("kami-engine-sdk manufacturing", () => {
     const approval = createRoboticsApprovalRecord({
       requestId: "req-approval",
       decision: "approve",
-      approverDid: "did:web:ops.gftd.ai",
+      approverDid: "did:web:ops.etzhayyim.com",
     });
     expect(approval.auditAction).toBe("robotics.approval.approve");
     expect(approval.requiredEvidence).toContain("mission simulation pass or reviewed");

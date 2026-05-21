@@ -11,8 +11,8 @@ import {
 } from "./index.js";
 
 const META: GsplatAssetMeta = {
-  vertexId: "at://did:web:maps.gftd.ai/ai.gftd.apps.maps.gsplatAsset/abc123",
-  sourceDid: "did:web:maps.gftd.ai:street_view",
+  vertexId: "at://did:web:maps.etzhayyim.com/ai.gftd.apps.maps.gsplatAsset/abc123",
+  sourceDid: "did:web:maps.etzhayyim.com:street_view",
   tileH3: "8c2a1072b59ffff",
   b2Key: "gsplat/8c2a1072b59ffff.ply",
   byteSize: 4,
@@ -55,7 +55,7 @@ describe("kami-engine-sdk gsplat", () => {
       },
       "b2.example/blob": bytes,
     });
-    const asset = await loadGsplatAsset("https://maps.gftd.ai", META.tileH3, {
+    const asset = await loadGsplatAsset("https://maps.etzhayyim.com", META.tileH3, {
       fetch: fakeFetch,
     });
     expect(asset.meta.tileH3).toBe(META.tileH3);
@@ -73,7 +73,7 @@ describe("kami-engine-sdk gsplat", () => {
       "b2.example/blob": bytes,
     });
     await expect(
-      loadGsplatAsset("https://maps.gftd.ai", META.tileH3, { fetch: fakeFetch }),
+      loadGsplatAsset("https://maps.etzhayyim.com", META.tileH3, { fetch: fakeFetch }),
     ).rejects.toThrow(/size mismatch/);
   });
 
@@ -87,7 +87,7 @@ describe("kami-engine-sdk gsplat", () => {
       },
     });
     const result = await listGsplatAssets(
-      "https://maps.gftd.ai",
+      "https://maps.etzhayyim.com",
       { tileH3: META.tileH3 },
       { fetch: fakeFetch },
     );
@@ -137,7 +137,7 @@ describe("kami-engine-sdk gsplat", () => {
     }) as unknown as typeof fetch;
 
     const r = await bakeGsplatAsset(
-      "https://maps.gftd.ai",
+      "https://maps.etzhayyim.com",
       { tileH3: META.tileH3 },
       { fetch: fakeFetch },
     );

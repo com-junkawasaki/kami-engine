@@ -1,6 +1,6 @@
 //! kami-live — Live music venue SDK.
 //!
-//! Domain layer for `live.gftd.ai`: turn a wgpu canvas into a live show
+//! Domain layer for `live.etzhayyim.com`: turn a wgpu canvas into a live show
 //! where music, dance, fans, stage, sound, and visual effects (VX) are
 //! co-driven from a single shared clock — the beat grid.
 //!

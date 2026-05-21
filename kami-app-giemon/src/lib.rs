@@ -1,4 +1,4 @@
-//! kami-app-giemon — Giemon robot kit viewer (giemon.gftd.ai)
+//! kami-app-giemon — Giemon robot kit viewer (giemon.etzhayyim.com)
 //!
 //! Procedural ArmCrawler model:
 //!   - Rubber-track crawler chassis (2 tracks + 8 drive wheels)

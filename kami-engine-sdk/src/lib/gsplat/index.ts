@@ -1,13 +1,13 @@
 /**
- * `@gftdcojp/kami-engine-sdk/gsplat` — Gaussian splat preview helpers.
+ * `@etzhayyim/kami-engine-sdk/gsplat` — Gaussian splat preview helpers.
  *
- * Browser-side glue between `maps.gftd.ai` XRPC (`getGsplatAsset` /
+ * Browser-side glue between `maps.etzhayyim.com` XRPC (`getGsplatAsset` /
  * `listGsplatAssets` / `bakeGsplatAsset`) and the
  * `kami-app-maps3d` WASM exports (`set_gsplat_asset` /
  * `remove_gsplat_asset`).
  *
  * Scope: preview / QC only (ADR-2605092800). Runtime delivery on
- * `maps.gftd.ai` stays on baked static meshes.
+ * `maps.etzhayyim.com` stays on baked static meshes.
  */
 
 import type {
@@ -30,7 +30,7 @@ export interface FetchedGsplatAsset {
 }
 
 /**
- * Resolve a single splat asset by `tileH3` against the maps.gftd.ai
+ * Resolve a single splat asset by `tileH3` against the maps.etzhayyim.com
  * XRPC endpoint, then fetch the signed B2 binary. Returns the raw
  * bytes and asset metadata so the caller can choose to also store
  * them in an LRU on the host side.

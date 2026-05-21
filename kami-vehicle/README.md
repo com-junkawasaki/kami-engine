@@ -2,7 +2,7 @@
 
 BeamNG-grade soft-body vehicle physics for the KAMI engine.
 Pure Rust + glam + serde, no GPU dependency. Live demo:
-<https://driver.gftd.ai>.
+<https://driver.etzhayyim.com>.
 
 ## Granularity
 

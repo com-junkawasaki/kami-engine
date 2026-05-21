@@ -9,7 +9,7 @@
  *   KamiMotion.stagger('.card', { y: [30, 0], opacity: [0, 1] }, { delay: 60 });
  *
  * @license MIT
- * @see https://kami.gftd.ai/motion-sdk
+ * @see https://kami.etzhayyim.com/motion-sdk
  */
 (function(root) {
 "use strict";

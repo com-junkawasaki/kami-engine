@@ -1,6 +1,6 @@
 //! kami-app-animeka-timeline — X-sheet + onion-skin timeline editor.
 //!
-//! Per-game crate for animeka.gftd.ai. Renders a 2D X-sheet grid (frame × layer
+//! Per-game crate for animeka.etzhayyim.com. Renders a 2D X-sheet grid (frame × layer
 //! columns A/B/C + dialogue + camera), an onion-skin composite (prev/next frame
 //! translucent + current frame opaque), and a playhead scrubber.
 //!
