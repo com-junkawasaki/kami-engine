@@ -1,0 +1,7 @@
+[package]
+name = "kami-audio"
+version.workspace = true
+edition.workspace = true
+description = "Spatial audio (HRTF, 3D panning, mixer)"
+[dependencies]
+glam.workspace = true
