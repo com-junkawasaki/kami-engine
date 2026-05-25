@@ -5,6 +5,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = []
+gpu = ["dep:wgpu", "dep:pollster", "dep:bytemuck"]
+
 [dependencies]
 log = { workspace = true }
 thiserror = { workspace = true }
@@ -12,3 +16,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 glam = { workspace = true }
 kami-articulated = { path = "../kami-articulated" }
+
+# Optional WebGPU compute backend (gated; opt in with --features gpu).
+# Brings cartpole_step.wgsl to a real wgpu::ComputePipeline. Works on
+# Metal / Vulkan / DX12 / WebGPU per wgpu's universal backend strategy.
+wgpu = { version = "24", optional = true }
+pollster = { version = "0.4", optional = true }
+bytemuck = { workspace = true, optional = true }

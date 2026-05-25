@@ -27,9 +27,15 @@ mod cartpole;
 mod vectorized;
 mod world;
 
+#[cfg(feature = "gpu")]
+mod wgpu_backend;
+
 pub use cartpole::{CartpoleConfig, CartpoleState};
 pub use vectorized::{WGSL_SOURCE, step_vectorized};
 pub use world::{Articulation, ArticulationHandle, World};
+
+#[cfg(feature = "gpu")]
+pub use wgpu_backend::WgpuBackend;
 
 /// Solver coverage by R1 sub-phase.
 pub fn solver_for_phase(phase: &str) -> Option<&'static str> {
