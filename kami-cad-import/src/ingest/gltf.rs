@@ -8,7 +8,7 @@
 //! 3. Mesh primitive POSITION accessor `min` / `max` (glTF spec mandates
 //!    these on the POSITION accessor) — used to derive the per-part AABB
 //!    without ever loading vertex data
-//! 4. `extras` block on each node + on the asset — picks up the GFTD
+//! 4. `extras` block on each node + on the asset — picks up the etzhayyim
 //!    annotation that says "this node *is* a VehiclePart, and here is
 //!    its kind / material / supplier / source"
 //!
@@ -135,11 +135,11 @@ struct GltfAsset {
 #[derive(Debug, Deserialize)]
 struct GltfAssetExtras {
     #[serde(default)]
-    gftd_vehicle: Option<GftdVehicle>,
+    gftd_vehicle: Option<etzhayyimVehicle>,
 }
 
 #[derive(Debug, Deserialize)]
-struct GftdVehicle {
+struct etzhayyimVehicle {
     id: String,
     #[serde(default)]
     display_name: Option<String>,
@@ -159,11 +159,11 @@ struct GltfScene {
 #[derive(Debug, Deserialize)]
 struct GltfSceneExtras {
     #[serde(default)]
-    gftd_hardpoints: Vec<GftdHardpoint>,
+    gftd_hardpoints: Vec<etzhayyimHardpoint>,
 }
 
 #[derive(Debug, Deserialize)]
-struct GftdHardpoint {
+struct etzhayyimHardpoint {
     id: String,
     from: String,
     to: String,
@@ -194,11 +194,11 @@ struct GltfNode {
 #[derive(Debug, Deserialize)]
 struct GltfNodeExtras {
     #[serde(default)]
-    gftd_part: Option<GftdPart>,
+    gftd_part: Option<etzhayyimPart>,
 }
 
 #[derive(Debug, Deserialize)]
-struct GftdPart {
+struct etzhayyimPart {
     id: String,
     #[serde(default)]
     display_name: Option<String>,
@@ -384,7 +384,7 @@ fn walk_node(
     let world = parent_world * node_local_transform(node);
 
     // Decide whether this node becomes a VehiclePart.
-    let part_for_this_node: Option<(GftdPart, usize)> = if let Some(part) = node
+    let part_for_this_node: Option<(etzhayyimPart, usize)> = if let Some(part) = node
         .extras
         .as_ref()
         .and_then(|e| e.gftd_part.as_ref())
@@ -402,7 +402,7 @@ fn walk_node(
             .clone()
             .unwrap_or_else(|| format!("node_{node_idx}"));
         Some((
-            GftdPart {
+            etzhayyimPart {
                 id: auto_id.clone(),
                 display_name: node.name.clone(),
                 kind: kind_label(auto_kind).to_string(),
@@ -454,7 +454,7 @@ fn walk_node(
 
 // `clone_into_owned` mirrors a `.clone()` but explicit so the macro
 // parser doesn't trip over the shared by-ref reference.
-impl GftdPart {
+impl etzhayyimPart {
     fn clone_into_owned(&self) -> Self {
         Self {
             id: self.id.clone(),
@@ -551,7 +551,7 @@ pub fn from_gltf_json(json: &str, opts: &IngestOptions) -> Result<VehicleAssembl
     Ok(asm)
 }
 
-impl GftdVehicle {
+impl etzhayyimVehicle {
     fn clone_into_owned(&self) -> Self {
         Self {
             id: self.id.clone(),

@@ -40,7 +40,7 @@ struct JBeamBeamOut {
     #[serde(rename = "type")]
     beam_type: &'static str,
     break_strain: f32,
-    /// GFTD extension — break_group propagates from `VehiclePart`.
+    /// etzhayyim extension — break_group propagates from `VehiclePart`.
     break_group: u32,
 }
 

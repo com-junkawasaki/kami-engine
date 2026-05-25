@@ -11,7 +11,7 @@ import {
 } from "./index.js";
 
 const META: GsplatAssetMeta = {
-  vertexId: "at://did:web:maps.etzhayyim.com/ai.gftd.apps.maps.gsplatAsset/abc123",
+  vertexId: "at://did:web:maps.etzhayyim.com/app.etzhayyim.apps.maps.gsplatAsset/abc123",
   sourceDid: "did:web:maps.etzhayyim.com:street_view",
   tileH3: "8c2a1072b59ffff",
   b2Key: "gsplat/8c2a1072b59ffff.ply",
@@ -48,7 +48,7 @@ describe("kami-engine-sdk gsplat", () => {
   it("loadGsplatAsset returns meta + bytes when sizes agree", async () => {
     const bytes = new Uint8Array([1, 2, 3, 4]);
     const fakeFetch = mockJsonFetch({
-      "ai.gftd.apps.maps.getGsplatAsset": {
+      "app.etzhayyim.apps.maps.getGsplatAsset": {
         meta: META,
         signedUrl: "https://b2.example/blob",
         expiresInSec: 60,
@@ -65,7 +65,7 @@ describe("kami-engine-sdk gsplat", () => {
   it("loadGsplatAsset throws on size mismatch (truncation guard)", async () => {
     const bytes = new Uint8Array([1, 2, 3]); // wrong size (3 != meta.byteSize 4)
     const fakeFetch = mockJsonFetch({
-      "ai.gftd.apps.maps.getGsplatAsset": {
+      "app.etzhayyim.apps.maps.getGsplatAsset": {
         meta: META,
         signedUrl: "https://b2.example/blob",
         expiresInSec: 60,

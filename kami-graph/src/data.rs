@@ -354,7 +354,7 @@ fn shorten_label(s: &str) -> String {
     if s.len() <= 16 {
         return s.to_string();
     }
-    if let Some(rest) = s.strip_prefix("ai.gftd.apps.") {
+    if let Some(rest) = s.strip_prefix("app.etzhayyim.apps.") {
         let parts: Vec<&str> = rest.split('.').collect();
         if parts.len() > 2 {
             return format!("{}.{}..", parts[0], parts[1]);

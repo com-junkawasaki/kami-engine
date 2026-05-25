@@ -316,7 +316,7 @@ pub enum TimeUnit { Second, Minute, Hour }
 /// but purely derived — safe to regenerate on any model edit.
 ///
 /// Wire format: `#[serde(rename_all = "camelCase")]` so Rust ↔ XRPC
-/// `ai.gftd.apps.bim.getStoreyScene` JSON round-trips without a
+/// `app.etzhayyim.apps.bim.getStoreyScene` JSON round-trips without a
 /// separate transport type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

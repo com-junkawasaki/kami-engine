@@ -1,7 +1,7 @@
 //! DB-driven vegetation placement for maps3d.
 //!
 //! JS calls `set_vegetation_json` with positioned vegetation items from
-//! `ai.gftd.apps.maps.getChunk`. Each item carries a JSON-serialised
+//! `app.etzhayyim.apps.maps.getChunk`. Each item carries a JSON-serialised
 //! `OwnedTaxonomicProfile` (from `vertex_scientific_taxon`) plus a
 //! world-space position and scale.
 //!

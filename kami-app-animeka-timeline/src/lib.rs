@@ -13,7 +13,7 @@
 //!   - Stylus pressure/tilt capture via `kami-input` (KAMI `FocusManager` routing)
 //!   - Per-frame `wgpu::Texture` upload from blob CIDs
 //!   - Playback scrubber with keyboard / mouse scroll
-//!   - Integration with `ai.gftd.animeka.*` XRPC handlers (keyframe / inbetween record load)
+//!   - Integration with `app.etzhayyim.animeka.*` XRPC handlers (keyframe / inbetween record load)
 
 #[cfg(target_family = "wasm")]
 use glam::Vec3;

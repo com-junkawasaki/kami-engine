@@ -2,7 +2,7 @@
 //!
 //! Displays a tree/grid view of files stored in R2 (Cloudflare)
 //! and IPFS (content-addressed). File operations go through
-//! Magatama XRPC commands (ai.gftd.os.sync.*).
+//! Magatama XRPC commands (app.etzhayyim.os.sync.*).
 
 use serde::{Deserialize, Serialize};
 

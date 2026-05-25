@@ -14,7 +14,7 @@ See also: `ARCHITECTURE.md` for ownership boundaries and authority rules across 
 
 | Package | Path | Purpose |
 |---|---|---|
-| `gftd:kami-cine@1.0.0` | `wit/cine/package.wit` | 8-stage neural cinematic pipeline (world-model → usd-scene → neural-geom → temporal-field → neural-render → diffusion-pass → exr-seq → encode). Consumed by `60-apps/ai-gftd-project-{mangaka,animeka,dogaka}/`. Stage records live in shared `ai.gftd.apps.cine.*` lexicons (`00-contracts/lexicons/ai/gftd/apps/cine/`). Execution is pod-side per ADR-2605111200; CF Workers only dispatch. Rust crate impl deferred — `kami-cine-{world-model,usd,neural-geom,temporal-field,neural-render,diffusion-pass,exr,encode}` planned. |
+| `gftd:kami-cine@1.0.0` | `wit/cine/package.wit` | 8-stage neural cinematic pipeline (world-model → usd-scene → neural-geom → temporal-field → neural-render → diffusion-pass → exr-seq → encode). Consumed by `60-apps/ai-gftd-project-{mangaka,animeka,dogaka}/`. Stage records live in shared `app.etzhayyim.apps.cine.*` lexicons (`00-contracts/lexicons/ai/gftd/apps/cine/`). Execution is pod-side per ADR-2605111200; CF Workers only dispatch. Rust crate impl deferred — `kami-cine-{world-model,usd,neural-geom,temporal-field,neural-render,diffusion-pass,exr,encode}` planned. |
 
 ## Crate Structure (Rust, 29 crates)
 
@@ -68,7 +68,7 @@ See also: `ARCHITECTURE.md` for ownership boundaries and authority rules across 
 | **kami-terrain** | FBM value noise heightmap + splatmap material blend + chunk mesh/LOD + Gerstner water with wind-driven waves + biome presets (Plains/Quarry/Desert/Tundra) | 14 |
 | **kami-atmosphere** | Procedural sky (Rayleigh gradient + sun + cloud ray-march) + day/night cycle + wind (gust oscillation) + weather presets (overcast/clear) | 7 |
 | **kami-atmosphere** | Sky/sun/clouds + day-night cycle + weather presets + **wind_field** (2-octave FBM, spatially-varying ripples mirrored in WGSL) | 11 |
-| **kami-vegetation** | GPU-instanced vegetation. **Taxonomy-driven** `mesh_from_profile(&TaxonomicProfile)` switches on `CanopyShape` (7: Blade/Fan/Radial/Cone/Dome/Column/Carpet) parameterized by `leaf_count/leaf_size/stem_radius`. 7 profiles (grass/fern/palm/conifer/bush/cactus/moss) — adding a species = adding a profile (no new mesh fn). `OwnedTaxonomicProfile::from_json_str` bridges `ai.gftd.apps.seibutsu.renderProfile` XRPC. Poisson-disk biome-filtered placement, WASM-cached cull (flat for N<10k, patch-clustered for N≥10k), per-species batched `draw_indexed`, ground AO + wind field in shader | 23 |
+| **kami-vegetation** | GPU-instanced vegetation. **Taxonomy-driven** `mesh_from_profile(&TaxonomicProfile)` switches on `CanopyShape` (7: Blade/Fan/Radial/Cone/Dome/Column/Carpet) parameterized by `leaf_count/leaf_size/stem_radius`. 7 profiles (grass/fern/palm/conifer/bush/cactus/moss) — adding a species = adding a profile (no new mesh fn). `OwnedTaxonomicProfile::from_json_str` bridges `app.etzhayyim.apps.seibutsu.renderProfile` XRPC. Poisson-disk biome-filtered placement, WASM-cached cull (flat for N<10k, patch-clustered for N≥10k), per-species batched `draw_indexed`, ground AO + wind field in shader | 23 |
 
 Dependency chain: `kami-terrain → kami-vegetation`. Used via `kami-web` WASM exports for browser demos at `isekai.etzhayyim.com/{terrain-demo,quarry,quarry-walk}.htm`.
 

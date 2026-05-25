@@ -1,7 +1,7 @@
 //! CPK atom sphere rendering for maps3d.
 //!
 //! JS calls `set_atoms_json` with an array of atomic positions from
-//! `ai.gftd.apps.maps.getChunk`. Each entry carries element symbol,
+//! `app.etzhayyim.apps.maps.getChunk`. Each entry carries element symbol,
 //! CPK colour, physical sphere radius (pm), and world-space position.
 //!
 //! Spheres are UV-sphere meshes (8 stacks × 16 slices). Radius is

@@ -1,6 +1,6 @@
 //! Room config DTO. Mirrors the wire shape returned from the
-//! `ai.gftd.apps.live.joinRoom` XRPC and pushed by the performer
-//! console via `ai.gftd.apps.live.scheduleSet`. Lives in `kami-app-live`
+//! `app.etzhayyim.apps.live.joinRoom` XRPC and pushed by the performer
+//! console via `app.etzhayyim.apps.live.scheduleSet`. Lives in `kami-app-live`
 //! (not `kami-live`) so the SDK's serde shape stays minimal.
 //!
 //! Conversion is one-way: `RoomConfig::into_show(...)` builds a fresh

@@ -4,7 +4,7 @@
 //! (1 slab, 1 ceiling, 4 exterior walls, 3 interior partitions, 1
 //! column). The storey is constructed as a `kami_bim::StoreyScene` so
 //! the same code path exercises the IFC-native types that the real
-//! `ai.gftd.apps.bim.getStoreyScene` XRPC response will return.
+//! `app.etzhayyim.apps.bim.getStoreyScene` XRPC response will return.
 //!
 //! Entry naming follows ARCHITECTURE.md §Migration: `run_*_v2`.
 
@@ -39,7 +39,7 @@ pub async fn run_bim_v2(canvas_id: &str) -> Result<(), JsValue> {
 }
 
 /// JS entry (XRPC-fed): parses a JSON string produced by
-/// `ai.gftd.apps.bim.getStoreyScene` into a `kami_bim::StoreyScene`
+/// `app.etzhayyim.apps.bim.getStoreyScene` into a `kami_bim::StoreyScene`
 /// and feeds it to the `BimSceneAdapter`. Mouse-projected click =
 /// pick + amber highlight + JS bridge publish.
 #[cfg(target_family = "wasm")]

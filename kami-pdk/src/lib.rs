@@ -645,7 +645,7 @@ pub mod stdcell {
         ];
 
         StdCellLibrary {
-            name: format!("GFTD_GENERIC_{:?}", node),
+            name: format!("etzhayyim_GENERIC_{:?}", node),
             tech_node: node,
             cells,
         }

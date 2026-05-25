@@ -1,8 +1,8 @@
 //! Print a `curl` command that registers the roadster's SBOM with
-//! `sbom.etzhayyim.com` (lexicon `ai.gftd.sbom.registerArtifact`).
+//! `sbom.etzhayyim.com` (lexicon `app.etzhayyim.sbom.registerArtifact`).
 //!
 //! ```bash
-//! export GFTD_TOKEN=$(gftd agent-token --lxm ai.gftd.sbom.registerArtifact)
+//! export etzhayyim_TOKEN=$(gftd agent-token --lxm app.etzhayyim.sbom.registerArtifact)
 //! cargo run -p kami-cad-import --example register_roadster | bash
 //! ```
 //!

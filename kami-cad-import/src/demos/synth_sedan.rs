@@ -21,7 +21,7 @@ pub fn synth_sedan() -> VehicleAssembly {
     };
 
     let mut a = VehicleAssembly::new("synth-sedan-na", prov("scad://synth-sedan/v1.0.0"));
-    a.display_name = "GFTD Synth Sedan NA".into();
+    a.display_name = "etzhayyim Synth Sedan NA".into();
     a.revision = "1.0.0".into();
 
     a.add_part(VehiclePart {

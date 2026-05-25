@@ -235,7 +235,7 @@ pub mod step {
     /// Generate minimal STEP AP214 header.
     pub fn generate_header(filename: &str, author: &str) -> String {
         format!(
-            "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('KAMI Engineering SDK export'), '2;1');\nFILE_NAME('{}', '2026-04-09', ('{}'), ('GFTD'), 'KAMI-ENG-SDK', 'kami-cad', '');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN'));\nENDSEC;\nDATA;\n",
+            "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('KAMI Engineering SDK export'), '2;1');\nFILE_NAME('{}', '2026-04-09', ('{}'), ('etzhayyim'), 'KAMI-ENG-SDK', 'kami-cad', '');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN'));\nENDSEC;\nDATA;\n",
             filename, author
         )
     }

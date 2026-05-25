@@ -52,7 +52,7 @@ impl TerminalState {
         Self {
             history: Vec::new(),
             output: vec![TerminalLine {
-                text: "GFTD OS Terminal — XRPC shell. Type `help` for commands.".to_string(),
+                text: "etzhayyim OS Terminal — XRPC shell. Type `help` for commands.".to_string(),
                 kind: LineKind::System,
             }],
             input: String::new(),

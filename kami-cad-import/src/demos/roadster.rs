@@ -1,5 +1,5 @@
 //! Miata-class roadster expressed as parametric SCAD primitives — the
-//! reference vehicle for ADR 2605051430. All shapes are GFTD-authored
+//! reference vehicle for ADR 2605051430. All shapes are etzhayyim-authored
 //! parametric (license MIT) so there's no third-party CAD licence
 //! question. Geometry is illustrative — wheelbase / track / panel
 //! proportions are roughly NA-Miata, but the dimensions are tuneable
@@ -464,7 +464,7 @@ pub fn roadster_na() -> VehicleAssembly {
     hps.push(hp("hp_seat_r", "chassis", "seat_r", [0.30, 0.30, -0.10], HardpointKind::Bolt));
     hps.push(hp("hp_dashboard", "chassis", "dashboard", [0.0, belt_y, 0.55], HardpointKind::Bolt));
 
-    from_annotated("scad-roadster-na", "GFTD SCAD Roadster NA", "0.1.0", prov, &entities, hps)
+    from_annotated("scad-roadster-na", "etzhayyim SCAD Roadster NA", "0.1.0", prov, &entities, hps)
         .expect("assembly validates")
 }
 

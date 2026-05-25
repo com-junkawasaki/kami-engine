@@ -7,7 +7,7 @@
  *
  * Pipeline reference: `40-engine/kami-engine/wit/cine/package.wit`.
  * XRPC entry point on the mangaka pod:
- *   POST /xrpc/ai.gftd.mangaka.cineGenerateScene
+ *   POST /xrpc/app.etzhayyim.mangaka.cineGenerateScene
  *
  * Float discipline (AT Lexicon): bbox is integer cm, frame range is
  * integer frames, fps is integer.
@@ -130,7 +130,7 @@ export interface CineBridge {
 export interface CreateCineBridgeOpts {
   /**
    * HTTPS endpoint for the LangGraph pod. Example:
-   *   "https://studio.etzhayyim.com/xrpc/ai.gftd.mangaka.cineGenerateScene"
+   *   "https://studio.etzhayyim.com/xrpc/app.etzhayyim.mangaka.cineGenerateScene"
    * When omitted or unreachable, the bridge falls back to mock.
    */
   endpoint?: string;

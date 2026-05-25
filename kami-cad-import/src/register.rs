@@ -10,8 +10,8 @@
 //! `00-contracts/lexicons/ai/gftd/apps/sbom/registerArtifact.json`):
 //!
 //! ```text
-//! POST https://atproto.etzhayyim.com/xrpc/ai.gftd.sbom.registerArtifact
-//! Authorization: Bearer <Service Auth JWT, lxm=ai.gftd.sbom.registerArtifact>
+//! POST https://atproto.etzhayyim.com/xrpc/app.etzhayyim.sbom.registerArtifact
+//! Authorization: Bearer <Service Auth JWT, lxm=app.etzhayyim.sbom.registerArtifact>
 //! Content-Type: application/json
 //!
 //! {
@@ -41,7 +41,7 @@ use crate::sbom;
 /// `cargo-cyclonedx` etc. The host is `atproto.etzhayyim.com` (sole XRPC
 /// gateway per Layer 2 routing — see ADR-2604231828).
 pub const DEFAULT_ENDPOINT: &str =
-    "https://atproto.etzhayyim.com/xrpc/ai.gftd.sbom.registerArtifact";
+    "https://atproto.etzhayyim.com/xrpc/app.etzhayyim.sbom.registerArtifact";
 
 #[derive(Debug, Clone)]
 pub struct RegisterRequest {
@@ -57,7 +57,7 @@ pub struct RegisterOptions {
     /// Override `DEFAULT_ENDPOINT` (e.g. for staging or self-hosted PDS).
     pub endpoint: Option<String>,
     /// Service Auth JWT — the caller mints this with
-    /// `gftd agent-token --lxm ai.gftd.sbom.registerArtifact`.
+    /// `gftd agent-token --lxm app.etzhayyim.sbom.registerArtifact`.
     /// Leave `None` if the caller adds the Authorization header itself.
     pub bearer_token: Option<String>,
     /// Override the SBOM serial number (defaults to deterministic UUID
@@ -142,7 +142,7 @@ pub fn register_request(
 
 /// Convenience: emit a single `curl(1)` command line that performs the
 /// registration. Pipe the output to `bash` to actually run it. The token
-/// is read from the `GFTD_TOKEN` env var when not provided in opts.
+/// is read from the `etzhayyim_TOKEN` env var when not provided in opts.
 pub fn curl_command(
     asm: &VehicleAssembly,
     opts: &RegisterOptions,
@@ -159,7 +159,7 @@ pub fn curl_command(
         s.push_str(&shell_escape(&format!("{k}: {v}")));
     }
     if opts.bearer_token.is_none() {
-        s.push_str(" \\\n  -H \"Authorization: Bearer ${GFTD_TOKEN:?GFTD_TOKEN must be set, run: gftd agent-token --lxm ai.gftd.sbom.registerArtifact}\"");
+        s.push_str(" \\\n  -H \"Authorization: Bearer ${etzhayyim_TOKEN:?etzhayyim_TOKEN must be set, run: gftd agent-token --lxm app.etzhayyim.sbom.registerArtifact}\"");
     }
     s.push_str(" \\\n  --data ");
     s.push_str(&shell_escape(&req.body));
@@ -216,7 +216,7 @@ mod tests {
         a.add_part(part("rail", PartKind::Chassis, Material::SteelHss));
         let req = register_request(&a, &RegisterOptions::default()).unwrap();
         assert_eq!(req.method, "POST");
-        assert!(req.url.contains("/xrpc/ai.gftd.sbom.registerArtifact"));
+        assert!(req.url.contains("/xrpc/app.etzhayyim.sbom.registerArtifact"));
         assert!(req.url.starts_with("https://atproto.etzhayyim.com"));
     }
 
@@ -258,10 +258,10 @@ mod tests {
         a.add_part(part("rail", PartKind::Chassis, Material::SteelHss));
         let cmd = curl_command(&a, &RegisterOptions::default()).unwrap();
         assert!(cmd.starts_with("curl -fsSL -X POST"));
-        assert!(cmd.contains("/xrpc/ai.gftd.sbom.registerArtifact"));
+        assert!(cmd.contains("/xrpc/app.etzhayyim.sbom.registerArtifact"));
         assert!(cmd.contains("Content-Type: application/json"));
-        // GFTD_TOKEN env-var indirection in the printed command.
-        assert!(cmd.contains("GFTD_TOKEN"));
+        // etzhayyim_TOKEN env-var indirection in the printed command.
+        assert!(cmd.contains("etzhayyim_TOKEN"));
     }
 
     #[test]
@@ -269,7 +269,7 @@ mod tests {
         let mut a = VehicleAssembly::new("v1", provenance());
         a.add_part(part("rail", PartKind::Chassis, Material::SteelHss));
         let opts = RegisterOptions {
-            endpoint: Some("https://staging.atproto.etzhayyim.com/xrpc/ai.gftd.sbom.registerArtifact".into()),
+            endpoint: Some("https://staging.atproto.etzhayyim.com/xrpc/app.etzhayyim.sbom.registerArtifact".into()),
             ..Default::default()
         };
         let req = register_request(&a, &opts).unwrap();

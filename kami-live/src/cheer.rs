@@ -1,6 +1,6 @@
 //! Cheer aggregation.
 //!
-//! Each viewer can emit a cheer via XRPC `ai.gftd.apps.live.sendCheer`.
+//! Each viewer can emit a cheer via XRPC `app.etzhayyim.apps.live.sendCheer`.
 //! Server-side aggregator collapses thousands of incoming events into a
 //! cheap rolling histogram per [`CheerKind`] that the renderer queries
 //! per-frame to drive crowd reactions and PostFX intensity.

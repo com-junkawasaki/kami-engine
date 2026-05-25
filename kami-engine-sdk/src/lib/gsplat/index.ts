@@ -44,7 +44,7 @@ export async function loadGsplatAsset(
   init: { fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): Promise<FetchedGsplatAsset> {
   const f = init.fetch ?? fetch;
-  const xrpcUrl = new URL("/xrpc/ai.gftd.apps.maps.getGsplatAsset", endpoint);
+  const xrpcUrl = new URL("/xrpc/app.etzhayyim.apps.maps.getGsplatAsset", endpoint);
   xrpcUrl.searchParams.set("tileH3", tileH3);
   const xrpcResp = await f(xrpcUrl.toString(), { signal: init.signal });
   if (!xrpcResp.ok) {
@@ -74,7 +74,7 @@ export async function listGsplatAssets(
   init: { fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): Promise<ListGsplatAssetsResponse> {
   const f = init.fetch ?? fetch;
-  const url = new URL("/xrpc/ai.gftd.apps.maps.listGsplatAssets", endpoint);
+  const url = new URL("/xrpc/app.etzhayyim.apps.maps.listGsplatAssets", endpoint);
   if (query.tileH3) url.searchParams.set("tileH3", query.tileH3);
   if (query.sourceDid) url.searchParams.set("sourceDid", query.sourceDid);
   url.searchParams.set("offset", String(query.offset ?? 0));
@@ -114,7 +114,7 @@ export async function bakeGsplatAsset(
   init: { fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): Promise<{ bakeJobId: string; queuedAt: string }> {
   const f = init.fetch ?? fetch;
-  const url = new URL("/xrpc/ai.gftd.apps.maps.bakeGsplatAsset", endpoint);
+  const url = new URL("/xrpc/app.etzhayyim.apps.maps.bakeGsplatAsset", endpoint);
   const resp = await f(url.toString(), {
     method: "POST",
     headers: { "content-type": "application/json" },

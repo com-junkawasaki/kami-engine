@@ -20,7 +20,7 @@ Optional env overrides:
 ```bash
 GRAPH_BASE='https://graph.etzhayyim.com' \
 GRAPH_REPO_DID='did:web:kami.etzhayyim.com' \
-GRAPH_COLLECTION='ai.gftd.apps.kami.flow.graph' \
+GRAPH_COLLECTION='app.etzhayyim.apps.kami.flow.graph' \
 RUNS_JSON='40-engine/kami-engine/kami-flow/graph/data/runs.json' \
 ENTRIES_JSON='40-engine/kami-engine/kami-flow/graph/data/entries_semiconductor.json' \
 node 40-engine/kami-engine/kami-flow/graph/run_ingest_graph_worker.mjs
@@ -34,7 +34,7 @@ The script:
 ## Direct query example (`statement` SQL)
 
 ```bash
-curl -sS -X POST https://graph.etzhayyim.com/xrpc/ai.gftd.kagami.graph.query \
+curl -sS -X POST https://graph.etzhayyim.com/xrpc/app.etzhayyim.kagami.graph.query \
   -H 'content-type: application/json' \
   --data '{"statement":"SELECT node_label AS label, COUNT(*) AS cnt FROM graphar.vertex_kami_flow_node GROUP BY node_label ORDER BY cnt DESC LIMIT 20"}'
 ```
@@ -42,7 +42,7 @@ curl -sS -X POST https://graph.etzhayyim.com/xrpc/ai.gftd.kagami.graph.query \
 ## Cypher read example
 
 ```bash
-curl -sS -X POST https://graph.etzhayyim.com/xrpc/ai.gftd.kagami.graph.query \
+curl -sS -X POST https://graph.etzhayyim.com/xrpc/app.etzhayyim.kagami.graph.query \
   -H 'content-type: application/json' \
   --data '{"cypher":"MATCH (n:Coverage) RETURN count(n) AS cnt LIMIT 1"}'
 ```

@@ -89,7 +89,7 @@ describe('kami-engine-sdk webvr / cine-bridge', () => {
         }],
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     const b = createCineBridge({
-      endpoint: 'https://studio.example/xrpc/ai.gftd.mangaka.cineGenerateScene',
+      endpoint: 'https://studio.example/xrpc/app.etzhayyim.mangaka.cineGenerateScene',
       fetchImpl: fakeFetch as unknown as typeof fetch,
     });
     const r = await b.generatePanel({

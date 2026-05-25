@@ -857,7 +857,7 @@ async function xrpc(method,body){
 async function saveToPDS(){
   const json=serializeDoc();
   try{
-    const r=await xrpc('ai.gftd.mangaka.saveDocument',{docId:doc.docId,name:doc.name,document:json,convoId:activeProjectId||doc.convoId||''});
+    const r=await xrpc('app.etzhayyim.mangaka.saveDocument',{docId:doc.docId,name:doc.name,document:json,convoId:activeProjectId||doc.convoId||''});
     if(r.error)console.warn('pds save:',r.error);
     else status.textContent='Saved'+(activeProjectId?' (Project)':sessionToken?' (PDS)':' (local)');
   }catch(e){console.warn('pds save:',e)}
@@ -866,7 +866,7 @@ async function saveToPDS(){
 /** Load document from PDS by docId (authenticated). */
 async function loadFromPDS(docId){
   try{
-    const r=await xrpc('ai.gftd.mangaka.loadDocument',{docId});
+    const r=await xrpc('app.etzhayyim.mangaka.loadDocument',{docId});
     if(r.error){console.warn('pds load:',r.error);return false}
     const docStr=r.document||r.value_b64;
     if(docStr&&deserializeDoc(docStr)){needsRedraw=true;status.textContent='Loaded from PDS';return true}
@@ -876,7 +876,7 @@ async function loadFromPDS(docId){
 
 /** List saved documents from PDS (authenticated). */
 async function listFromPDS(){
-  try{return(await xrpc('ai.gftd.mangaka.listDocuments',{limit:20})).items||[]}
+  try{return(await xrpc('app.etzhayyim.mangaka.listDocuments',{limit:20})).items||[]}
   catch(e){console.warn('pds list:',e);return[]}
 }
 
@@ -912,7 +912,7 @@ function loadFromFile(){
 /* Restore: localStorage on init (PDS load is async, deferred). Skip if AT URI deep-link present — resolveAtUri() handles loading. */
 if(!location.pathname.startsWith('/at/')){try{const sv=localStorage.getItem(STORE_KEY);if(sv)deserializeDoc(sv)}catch(e){}}
 
-/* === Project Management (ai.gftd.projectors) === */
+/* === Project Management (app.etzhayyim.projectors) === */
 const projSelect=document.getElementById('projSelect');
 let projects=[];
 const PROJ_CACHE_KEY='mangaka-projects-${nanoid}';
@@ -927,7 +927,7 @@ async function loadProjects(){
   try{const cached=localStorage.getItem(PROJ_CACHE_KEY);if(cached){const cp=JSON.parse(cached);if(Array.isArray(cp)&&cp.length)projects=cp;renderProjectSelect()}}catch(e){}
   /* Then try graph query */
   try{
-    const r=await xrpc('ai.gftd.mangaka.listProjects',{limit:50});
+    const r=await xrpc('app.etzhayyim.mangaka.listProjects',{limit:50});
     const items=(r.items||[]).map(p=>{
       if(typeof p==='string'){try{p=JSON.parse(p)}catch(e){}}
       if(p.value_b64){try{const v=JSON.parse(p.value_b64);Object.assign(p,v)}catch(e){}}
@@ -942,7 +942,7 @@ async function loadProjects(){
   }catch(e){
     /* Fallback: try PDS convo project list directly */
     try{
-      const r2=await fetch(XRPC_BASE+'ai.gftd.projector.listProjectConvos',{
+      const r2=await fetch(XRPC_BASE+'app.etzhayyim.projector.listProjectConvos',{
         method:'POST',headers:authHeaders(),body:JSON.stringify({limit:50})
       });
       if(r2.ok){const d=await r2.json();const items=(d.items||d.projects||[]).map(p=>{
@@ -980,7 +980,7 @@ projSelect.onchange=async()=>{
   /* Try to load saved canvas document first */
   let loaded=false;
   try{
-    const r=await xrpc('ai.gftd.mangaka.listDocuments',{limit:1,convoId:val});
+    const r=await xrpc('app.etzhayyim.mangaka.listDocuments',{limit:1,convoId:val});
     const items=r.items||[];
     if(items.length>0){
       const d=items[0];
@@ -993,8 +993,8 @@ projSelect.onchange=async()=>{
     const proj=projects.find(p=>(p.convoId||p.rkey||p.vertex_id||p.id)===val);
     const projName=proj?.name||proj?.display_name||proj?.displayName||val;
     const [wR,cR]=await Promise.allSettled([
-      xrpc('ai.gftd.mangaka.listWorks',{limit:20}),
-      xrpc('ai.gftd.mangaka.listCharacters',{limit:50}),
+      xrpc('app.etzhayyim.mangaka.listWorks',{limit:20}),
+      xrpc('app.etzhayyim.mangaka.listCharacters',{limit:50}),
     ]);
     const works=(wR.status==='fulfilled'?wR.value.items:[])||[];
     const chars=(cR.status==='fulfilled'?cR.value.items:[])||[];
@@ -1045,7 +1045,7 @@ document.getElementById('projNewOk').onclick=async()=>{
   const btn=document.getElementById('projNewOk');
   btn.textContent='Creating...';btn.disabled=true;
   try{
-    const r=await xrpc('ai.gftd.mangaka.createProject',{name:nm,description:'Manga project: '+nm});
+    const r=await xrpc('app.etzhayyim.mangaka.createProject',{name:nm,description:'Manga project: '+nm});
     if(r.convoId){
       activeProjectId=r.convoId;
       doc.convoId=r.convoId;
@@ -1117,7 +1117,7 @@ function buildProjectTocDoc(project){
     /* Episode link nodes under the arc group */
     for(const d of epDocs){
       const linkNid=nid();
-      const href='/at/'+appHost+'/ai.gftd.mangaka.document/'+d.docId;
+      const href='/at/'+appHost+'/app.etzhayyim.mangaka.document/'+d.docId;
       const subtitle=(d.pages||0)+'p'+(d.images?' '+d.images+'img':'');
       nodes.push({id:linkNid,type:'link',visible:true,data:{
         type:'link',_nid:linkNid,_visible:true,_parent:groupNid,
@@ -1144,7 +1144,7 @@ async function resolveAtUri(){
   try{
     if(isProject){
       /* Project AT URI → load project metadata → build TOC document */
-      const r=await xrpc('ai.gftd.mangaka.loadProject',{projectId:at.rkey});
+      const r=await xrpc('app.etzhayyim.mangaka.loadProject',{projectId:at.rkey});
       if(r.error){status.textContent='Project not found: '+at.rkey;return false}
       const tocDoc=buildProjectTocDoc(r);
       if(safeDeserialize(JSON.stringify(tocDoc))){
@@ -1153,7 +1153,7 @@ async function resolveAtUri(){
       }
     } else {
       /* Document AT URI → load document directly */
-      const r=await xrpc('ai.gftd.mangaka.loadDocument',{docId:at.rkey});
+      const r=await xrpc('app.etzhayyim.mangaka.loadDocument',{docId:at.rkey});
       const docStr=r.document||r.value_b64;
       if(docStr&&safeDeserialize(docStr)){
         status.textContent='Loaded: '+at.rkey;
@@ -1199,7 +1199,7 @@ async function loadMembers(){
   members=[{did:'did:web:mng4k4x1.etzhayyim.com',displayName:'Mangaka AI',role:'admin',isAI:true},...DEFAULT_ACTORS];
   if(activeProjectId){
     try{
-      const r=await xrpc('ai.gftd.mangaka.getMembers',{convoId:activeProjectId});
+      const r=await xrpc('app.etzhayyim.mangaka.getMembers',{convoId:activeProjectId});
       if(r.members&&r.members.length){
         const ids=new Set(r.members.map(m=>m.did));
         const extra=DEFAULT_ACTORS.filter(a=>!ids.has(a.did));
@@ -1262,7 +1262,7 @@ document.getElementById('mpAddBtn').onclick=async()=>{
   if(!did)return;
   const name=prompt('Display name:',did.split(':').pop()||did);
   try{
-    await xrpc('ai.gftd.mangaka.addMember',{convoId:activeProjectId,memberDid:did,displayName:name});
+    await xrpc('app.etzhayyim.mangaka.addMember',{convoId:activeProjectId,memberDid:did,displayName:name});
     members.push({did,displayName:name,role:'member',isAI:did.includes('.etzhayyim.com'),style:''});
     renderMembers();addChat('system','Member added: '+(name||did));
   }catch(e){console.warn('addMember:',e)}
@@ -1347,7 +1347,7 @@ async function sendChat(){
   if(isStoryRequest&&director){
     addChat('Storyboard Director','Analyzing story and creating panel layout...');
     try{
-      const r=await xrpc('ai.gftd.mangaka.storyboard',{story:txt+buildContextStr()});
+      const r=await xrpc('app.etzhayyim.mangaka.storyboard',{story:txt+buildContextStr()});
       if(r.panels&&r.panels.length>0){
         /* Create panels + prompts from storyboard */
         const rect=getYoushiInnerRect();
@@ -1379,7 +1379,7 @@ async function sendChat(){
   /* General chat → LLM response (with context nodes) */
   try{
     const ctxStr=buildContextStr();
-    const r=await xrpc('ai.gftd.mangaka.generateImage',{prompt:txt+ctxStr,style:'manga'});
+    const r=await xrpc('app.etzhayyim.mangaka.generateImage',{prompt:txt+ctxStr,style:'manga'});
     if(r.description)addChat('Mangaka AI',r.description);
     else addChat('Mangaka AI',r.error||'Ready to draw!');
   }catch(e){addChat('system','Error: '+e.message)}
@@ -1393,7 +1393,7 @@ async function generateForPanel(oi,style,artistName){
   const promptText=panelPrompt?.prompt||chatMessages.filter(m=>m.sender==='You').slice(-1)[0]?.text||'manga scene';
   status.textContent='AI generating...';
   try{
-    const r=await xrpc('ai.gftd.mangaka.generateImage',{prompt:promptText,style});
+    const r=await xrpc('app.etzhayyim.mangaka.generateImage',{prompt:promptText,style});
     if(r.image){
       /* Create AI image as a child node of the panel */
       const aiNode={type:'ai-image',_nid:nid(),_visible:true,_parent:o._nid,_agent:style,
@@ -1511,7 +1511,7 @@ async function generatePanelImage(panelIdx){
   status.textContent='Generating image...';
   try{
     const w=Math.abs(o.x2-o.x1)/dpr;const h=Math.abs(o.y2-o.y1)/dpr;
-    const r=await xrpc('ai.gftd.mangaka.generateImage',{
+    const r=await xrpc('app.etzhayyim.mangaka.generateImage',{
       prompt:promptText,style:'manga',
       width:Math.min(Math.round(w)||512,1024),
       height:Math.min(Math.round(h)||512,1024),

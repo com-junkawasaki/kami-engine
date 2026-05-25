@@ -2,7 +2,7 @@
 
 /** Server-side splat asset metadata (mirror of `vertex_maps_gsplat_asset`). */
 export interface GsplatAssetMeta {
-  /** AT URI: `at://{authority}/ai.gftd.apps.maps.gsplatAsset/{rkey}` */
+  /** AT URI: `at://{authority}/app.etzhayyim.apps.maps.gsplatAsset/{rkey}` */
   vertexId: string;
   /** Path-based DID that registered this asset. */
   sourceDid: string;

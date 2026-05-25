@@ -264,7 +264,7 @@ pub fn default_catalog() -> Vec<TaxonomicProfile> {
 // ── Remote catalog (seibutsu.etzhayyim.com bridge) ──────────────────────────────
 //
 // `kami-vegetation` has no networking by design (Rust core, runs in WASM).
-// The browser shell fetches `ai.gftd.apps.seibutsu.renderProfile` for each
+// The browser shell fetches `app.etzhayyim.apps.seibutsu.renderProfile` for each
 // species DID and feeds the resulting JSON through `OwnedTaxonomicProfile::
 // from_json_str`. The owned variant decouples the engine from the static
 // `&'static str` `common_name` of `TaxonomicProfile` so dynamic species can
@@ -295,7 +295,7 @@ fn default_arrangement() -> LeafArrangement { LeafArrangement::None }
 impl OwnedTaxonomicProfile {
     /// Parse a single `seibutsu.renderProfile` response (camelCase JSON).
     pub fn from_json_str(s: &str) -> Result<Self, serde_json::Error> {
-        // Accept the camelCase wire format used by ai.gftd.apps.seibutsu.renderProfile
+        // Accept the camelCase wire format used by app.etzhayyim.apps.seibutsu.renderProfile
         // by mapping it through a lenient intermediate.
         let v: serde_json::Value = serde_json::from_str(s)?;
         let take_f = |k: &str| v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0) as f32;

@@ -10,7 +10,7 @@ import {
 // Tiny synthetic scenario — the SDK is content-free, scenarios live in
 // downstream private projects. This fixture only verifies graph invariants.
 const TINY: IncidentScenario = {
-  id: 'ai.gftd.apps.webvr.test.tiny',
+  id: 'app.etzhayyim.apps.webvr.test.tiny',
   title: 'tiny',
   synopsis: 'tiny test scenario',
   start: 'a',

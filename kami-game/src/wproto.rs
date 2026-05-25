@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 
 /// W Protocol record kinds for KAMI.
 ///
-/// AT Lexicon mapping (dot notation → ai.gftd.apps.kami.*):
-///   "kami.islandDef"     → ai.gftd.apps.kami.islandDef
-///   "kami.character"     → ai.gftd.apps.kami.character
-///   "kami.matchSummary"  → ai.gftd.apps.kami.matchSummary
+/// AT Lexicon mapping (dot notation → app.etzhayyim.apps.kami.*):
+///   "kami.islandDef"     → app.etzhayyim.apps.kami.islandDef
+///   "kami.character"     → app.etzhayyim.apps.kami.character
+///   "kami.matchSummary"  → app.etzhayyim.apps.kami.matchSummary
 ///   etc.
 pub mod kinds {
     // ── gftd:kami/island ──

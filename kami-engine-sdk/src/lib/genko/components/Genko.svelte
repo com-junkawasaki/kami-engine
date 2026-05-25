@@ -74,7 +74,7 @@
     if (!o || o.type !== 'ai-image' || !o._genImageUrl) return;
     const d = getDoc();
     try {
-      const r = await xrpc('ai.gftd.mangaka.detectFaces', {
+      const r = await xrpc('app.etzhayyim.mangaka.detectFaces', {
         docId: d.docId, imageNid: o._nid,
       });
       if (Array.isArray((r as any)?.faces)) {
@@ -90,7 +90,7 @@
   //   ai-image → single mode (writes `_emotion` directly).
   //   panel    → batch mode (server walks every child ai-image, rolls a
   //              max-saliency aggregate up to this panel's `_emotion`).
-  // Backed by the `ai.gftd.mangaka.scoreEmotion` XRPC on the
+  // Backed by the `app.etzhayyim.mangaka.scoreEmotion` XRPC on the
   // lg-mangaka pod (graph: lg_mangaka.graphs.score_emotion).
   async function runEmotionScore() {
     const o = selectedOverlay as any;
@@ -98,7 +98,7 @@
     const d = getDoc();
     try {
       if (o.type === 'ai-image' && o._genImageUrl) {
-        const r = await xrpc('ai.gftd.mangaka.scoreEmotion', {
+        const r = await xrpc('app.etzhayyim.mangaka.scoreEmotion', {
           docId: d.docId, imageNid: o._nid,
         });
         const emo = (r as any)?.emotion;
@@ -106,7 +106,7 @@
       } else if (o.type === 'panel') {
         // Batch mode — server re-scores every ai-image in the doc and
         // recomputes panel aggregates. We only need this panel's record.
-        const r = await xrpc('ai.gftd.mangaka.scoreEmotion', {
+        const r = await xrpc('app.etzhayyim.mangaka.scoreEmotion', {
           docId: d.docId,
         });
         const panelMap = (r as any)?.panelEmotion;
@@ -327,11 +327,11 @@
 
   // === Op log (change history) ===
   // Every meaningful edit emits a kind=opLog row into vertex_mangaka via
-  // ai.gftd.mangaka.recordOpLog. Fire-and-forget; failures don't block UX.
+  // app.etzhayyim.mangaka.recordOpLog. Fire-and-forget; failures don't block UX.
   async function recordOp(op: string, target: { nid: string; type: string }, before: any, after: any) {
     try {
       const d = getDoc();
-      await xrpc('ai.gftd.mangaka.recordOpLog', {
+      await xrpc('app.etzhayyim.mangaka.recordOpLog', {
         docId: d.docId, op, nid: target.nid, nodeType: target.type,
         before: JSON.stringify(before || {}),
         after: JSON.stringify(after || {}),
@@ -344,7 +344,7 @@
     const d = getDoc();
     saveCurrentPage();
     try {
-      await xrpc('ai.gftd.mangaka.saveDocument', { docId: d.docId, name: d.name, document: JSON.stringify(d), convoId: d.convoId || '' });
+      await xrpc('app.etzhayyim.mangaka.saveDocument', { docId: d.docId, name: d.name, document: JSON.stringify(d), convoId: d.convoId || '' });
     } catch (e) { console.warn('saveImmediately:', e); }
   }
 
@@ -493,7 +493,7 @@
         const linkNid = nid();
         nodes.push({ id: linkNid, type: 'link', visible: true, data: {
           type: 'link', _nid: linkNid, _visible: true, _parent: groupNid,
-          _href: '/at/' + appHost + '/ai.gftd.mangaka.document/' + d.docId,
+          _href: '/at/' + appHost + '/app.etzhayyim.mangaka.document/' + d.docId,
           linkTitle: d.title || d.docId, _subtitle: (d.pages || 0) + 'p' + (d.images ? ' ' + d.images + 'img' : ''),
           text: d.title || d.docId, x: 320, y: 400, fontSize: 20, color: '#307050', font: 'sans',
         } });
@@ -515,11 +515,11 @@
 
     try {
       if (isProject) {
-        const r = await xrpc('ai.gftd.mangaka.loadProject', { projectId: at.rkey });
+        const r = await xrpc('app.etzhayyim.mangaka.loadProject', { projectId: at.rkey });
         if (r.error) return false;
         return safeDeserialize(JSON.stringify(buildProjectToc(r)));
       } else {
-        const r = await xrpc('ai.gftd.mangaka.loadDocument', { docId: at.rkey });
+        const r = await xrpc('app.etzhayyim.mangaka.loadDocument', { docId: at.rkey });
         const docStr = r.document || r.value_b64;
         if (docStr) return safeDeserialize(docStr);
       }
@@ -542,7 +542,7 @@
       const d = getDoc();
       saveCurrentPage();
       try {
-        await xrpc('ai.gftd.mangaka.saveDocument', { docId: d.docId, name: d.name, document: JSON.stringify(d), convoId: d.convoId || '' });
+        await xrpc('app.etzhayyim.mangaka.saveDocument', { docId: d.docId, name: d.name, document: JSON.stringify(d), convoId: d.convoId || '' });
       } catch (e) { console.warn('auto-save:', e); }
     }, 5000);
   }
@@ -559,7 +559,7 @@
     const d = getDoc();
     saveCurrentPage();
     try {
-      await xrpc('ai.gftd.mangaka.saveDocument', {
+      await xrpc('app.etzhayyim.mangaka.saveDocument', {
         docId: d.docId, name: d.name, document: JSON.stringify(d), convoId: d.convoId || '',
       });
     } catch (e) { console.warn('saveDocument:', e); }
@@ -597,7 +597,7 @@
   async function onSend(text: string) {
     messages = [...messages, { sender: 'You', text, isUser: true }];
     try {
-      const r = await xrpc('ai.gftd.mangaka.chat', { message: text, convoId: activeProjectId });
+      const r = await xrpc('app.etzhayyim.mangaka.chat', { message: text, convoId: activeProjectId });
       if (r?.reply) {
         messages = [...messages, { sender: r.sender || 'Mangaka', text: r.reply, isUser: false }];
       }

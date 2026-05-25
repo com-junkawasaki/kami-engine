@@ -3,8 +3,8 @@
 
   Shows chapters for the active project (via associated workId) and, on expand,
   their pages. Data comes from:
-    POST /xrpc/ai.gftd.mangaka.listChapters { workId }
-    POST /xrpc/ai.gftd.mangaka.listPages    { chapterId }
+    POST /xrpc/app.etzhayyim.mangaka.listChapters { workId }
+    POST /xrpc/app.etzhayyim.mangaka.listPages    { chapterId }
   Both queries use server-side edge_contains traversal (not vertex scan).
 -->
 <script lang="ts">
@@ -50,7 +50,7 @@
     loadingChapters = true;
     errorMsg = '';
     try {
-      const r = await fetch('/xrpc/ai.gftd.mangaka.listChapters', {
+      const r = await fetch('/xrpc/app.etzhayyim.mangaka.listChapters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ workId, limit: 50 }),
@@ -74,7 +74,7 @@
   async function loadPages(chapterId: string) {
     if (pagesByChapter[chapterId]) return;
     try {
-      const r = await fetch('/xrpc/ai.gftd.mangaka.listPages', {
+      const r = await fetch('/xrpc/app.etzhayyim.mangaka.listPages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ chapterId, limit: 50 }),
@@ -123,7 +123,7 @@
     savingEdit = true;
     saveError = '';
     try {
-      const r = await fetch('/xrpc/ai.gftd.mangaka.publishChapter', {
+      const r = await fetch('/xrpc/app.etzhayyim.mangaka.publishChapter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
@@ -171,7 +171,7 @@
     pageSaving = true;
     pageSaveError = '';
     try {
-      const r = await fetch('/xrpc/ai.gftd.mangaka.updatePage', {
+      const r = await fetch('/xrpc/app.etzhayyim.mangaka.updatePage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
@@ -212,8 +212,8 @@
     if (!workId) { createError = 'no workId for project'; return; }
     if (!newChapterTitle) { createError = 'title required'; return; }
     try {
-      const workAtUri = `at://mng4k4x1.etzhayyim.com/ai.gftd.mangaka.work/${workId}`;
-      const r = await fetch('/xrpc/ai.gftd.mangaka.addChapter', {
+      const workAtUri = `at://mng4k4x1.etzhayyim.com/app.etzhayyim.mangaka.work/${workId}`;
+      const r = await fetch('/xrpc/app.etzhayyim.mangaka.addChapter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({

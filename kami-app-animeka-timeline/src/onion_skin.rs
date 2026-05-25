@@ -7,7 +7,7 @@
 //!
 //! Phase 2 wiring:
 //!   - Accept `Vec<wgpu::Texture>` indexed by frame number (loaded from
-//!     blob CIDs via `ai.gftd.animeka.getCut` → `keyframe.imageCid` /
+//!     blob CIDs via `app.etzhayyim.animeka.getCut` → `keyframe.imageCid` /
 //!     `inbetween.imageCid`).
 //!   - Bind prev (α=0.30, blue tint) + next (α=0.30, red tint) + current (α=1.0).
 //!   - Scrub via playhead `u32` frame index passed through uniforms.

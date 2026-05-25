@@ -116,18 +116,18 @@ describe('genkoEmbedHTML — document persistence', () => {
   const html = genkoEmbedHTML('Mangaka', 'mng4k4x1');
 
   it('uses R2-based saveDocument XRPC', () => {
-    expect(html).toContain('ai.gftd.mangaka.saveDocument');
+    expect(html).toContain('app.etzhayyim.mangaka.saveDocument');
   });
 
   it('uses R2-based loadDocument XRPC', () => {
-    expect(html).toContain('ai.gftd.mangaka.loadDocument');
+    expect(html).toContain('app.etzhayyim.mangaka.loadDocument');
   });
 
   it('uses R2-based listDocuments XRPC', () => {
-    expect(html).toContain('ai.gftd.mangaka.listDocuments');
+    expect(html).toContain('app.etzhayyim.mangaka.listDocuments');
   });
 
   it('uses R2-based loadProject XRPC for project AT URIs', () => {
-    expect(html).toContain('ai.gftd.mangaka.loadProject');
+    expect(html).toContain('app.etzhayyim.mangaka.loadProject');
   });
 });

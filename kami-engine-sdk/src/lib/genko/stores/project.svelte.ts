@@ -51,7 +51,7 @@ export async function loadProjects(nanoid: string): Promise<GenkoProject[]> {
   // Fetch from XRPC
   try {
     const res = await fetch(
-      `/xrpc/ai.gftd.mangaka.listProjects?nanoid=${encodeURIComponent(nanoid)}`,
+      `/xrpc/app.etzhayyim.mangaka.listProjects?nanoid=${encodeURIComponent(nanoid)}`,
       { headers: authHeaders() },
     );
     if (res.ok) {
@@ -77,7 +77,7 @@ export function switchProject(convoId: string, nanoid?: string): void {
 // --- Create project via XRPC ---
 export async function createProject(name: string, desc: string, nanoid?: string): Promise<GenkoProject | null> {
   try {
-    const res = await fetch('/xrpc/ai.gftd.mangaka.createProject', {
+    const res = await fetch('/xrpc/app.etzhayyim.mangaka.createProject', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ name, description: desc }),
