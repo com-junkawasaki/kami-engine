@@ -1,21 +1,37 @@
-//! kami-genesis — Genesis physics backend bind for KAMI / e7m-sim.
+//! kami-genesis — Genesis-compat physics backend for KAMI / e7m-sim.
 //!
-//! R1.0 path reservation per ADR-2605261800 §D2.
-//! Backend = Genesis-Embodied-AI/Genesis (Apache-2.0), 5 solvers in one engine.
-//! Integration path: Genesis Python API → Taichi IR → Vulkan SPIR-V → wgpu.
+//! R1.1 PoC scope (ADR-2605261800):
+//!   - closed-form Cartpole dynamics (Sutton & Barto 1983 formulation)
+//!   - semi-implicit Euler integrator
+//!   - PhysX-style `World` + `Articulation` API surface
 //!
-//! R1.1 deliverable = Cartpole reward curve ±10% vs Isaac Sim baseline (1000 episodes).
+//! Full Genesis 5-solver Taichi → wgpu integration is deferred to R1.x
+//! per ADR §D7. The R1.1 contract: `World::step()` produces results
+//! within ±10% reward of Isaac Sim Cartpole-v1 baseline (G5 gate).
+//!
+//! API surface mirrors:
+//!   - `isaacsim.core.api.{World, Articulation}` (Isaac Sim 4.x)
+//!   - `PxScene` / `PxArticulationReducedCoordinate` (PhysX 5)
+//! See `nv-compat/isaacsim` and `nv-compat/physx` for facade.
 
 pub const ADR: &str = "ADR-2605261800";
-pub const PHASE: &str = "R1.0-path-reservation";
+pub const PHASE: &str = "R1.1-cartpole-poc";
 pub const KAMI_NAME: &str = "kami-genesis";
-pub const NV_COMPAT_TARGET: &str = "isaacsim.core.api (articulation)";
+pub const NV_COMPAT_TARGETS: &[&str] = &["isaacsim.core.api", "PhysX 5"];
 pub const UPSTREAM_REPO: &str = "Genesis-Embodied-AI/Genesis";
-pub const FORK_POLICY: &str = "upstream-only-no-fork";
 
 pub const SOLVERS: &[&str] = &["rigid", "mpm", "sph", "fem", "pbd"];
+pub const SOLVERS_IMPLEMENTED_R1_1: &[&str] = &["rigid (cartpole closed-form)"];
 
-/// Solver coverage planned for R1 sub-phases.
+mod cartpole;
+mod vectorized;
+mod world;
+
+pub use cartpole::{CartpoleConfig, CartpoleState};
+pub use vectorized::{WGSL_SOURCE, step_vectorized};
+pub use world::{Articulation, ArticulationHandle, World};
+
+/// Solver coverage by R1 sub-phase.
 pub fn solver_for_phase(phase: &str) -> Option<&'static str> {
     match phase {
         "R1.1" => Some("rigid"),

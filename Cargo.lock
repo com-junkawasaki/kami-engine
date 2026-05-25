@@ -1432,7 +1432,9 @@ dependencies = [
 name = "kami-articulated"
 version = "0.1.0"
 dependencies = [
+ "glam",
  "log",
+ "roxmltree",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1534,6 +1536,18 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "kami-cartpole-wasm"
+version = "0.1.0"
+dependencies = [
+ "kami-articulated",
+ "kami-genesis",
+ "kami-shugyo",
+ "log",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1741,6 +1755,8 @@ dependencies = [
 name = "kami-genesis"
 version = "0.1.0"
 dependencies = [
+ "glam",
+ "kami-articulated",
  "log",
  "serde",
  "serde_json",
@@ -2155,9 +2171,12 @@ dependencies = [
 name = "kami-shugyo"
 version = "0.1.0"
 dependencies = [
+ "kami-articulated",
+ "kami-genesis",
  "log",
  "serde",
  "serde_json",
+ "serde_yaml",
  "thiserror 2.0.18",
 ]
 
@@ -3355,6 +3374,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e27ee8bb91ca0adcf0ecb116293afa12d393f9c2b9b9cd54d33e8078fe19839"
 
 [[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
 name = "rstar"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3426,6 +3451,12 @@ dependencies = [
  "unicode-properties",
  "unicode-script",
 ]
+
+[[package]]
+name = "ryu"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "safe_arch"
@@ -3511,6 +3542,19 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -3898,6 +3942,12 @@ name = "unindent"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

@@ -1,6 +1,6 @@
 [package]
 name = "kami-genesis"
-description = "Genesis (Apache-2.0, Genesis-Embodied-AI/Genesis) physics backend bind — Taichi → wgpu (WebGPU). 5 solvers: rigid / MPM / SPH / FEM / PBD. Isaac Sim articulation API-compat target. R1.0 path reservation per ADR-2605261800."
+description = "Genesis-compat physics backend for KAMI / e7m-sim. R1.1 PoC: closed-form Cartpole dynamics (semi-implicit Euler). isaacsim.core.api articulation API-compat target. Full Genesis Taichi->wgpu bind deferred to R1.x. PhysX 5 API parity (PxScene/PxRigidDynamic/PxArticulationReducedCoordinate) via §D11. ADR-2605261800."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,3 +10,5 @@ log = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+glam = { workspace = true }
+kami-articulated = { path = "../kami-articulated" }

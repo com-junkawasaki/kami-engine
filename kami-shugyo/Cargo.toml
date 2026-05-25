@@ -1,6 +1,6 @@
 [package]
 name = "kami-shugyo"
-description = "e7m-shugyo (修行) — Isaac Lab-equivalent RL training framework. ManagerBasedRLEnv API-compat target. R1.0 path reservation per ADR-2605261800."
+description = "e7m-shugyo (修行) — Isaac Lab-equivalent RL training framework. ManagerBasedRLEnv API-compat target. R1.1: CartpoleEnv gym wrapper around kami-genesis. ADR-2605261800."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,3 +10,6 @@ log = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+kami-articulated = { path = "../kami-articulated" }
+kami-genesis = { path = "../kami-genesis" }

@@ -1,6 +1,6 @@
 [package]
 name = "kami-articulated"
-description = "URDF / MJCF / USD physics → kami-genesis articulation. R1.0 path reservation per ADR-2605261800."
+description = "URDF / MJCF / USD physics loader -> kami-genesis articulation. R1.1 PoC: minimum URDF parser supporting prismatic + revolute joints with mass / inertia / axis. Pure Rust + roxmltree (WASM-friendly). ADR-2605261800."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,3 +10,5 @@ log = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+glam = { workspace = true }
+roxmltree = { workspace = true }
