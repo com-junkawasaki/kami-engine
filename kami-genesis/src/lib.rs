@@ -24,6 +24,7 @@ pub const SOLVERS: &[&str] = &["rigid", "mpm", "sph", "fem", "pbd"];
 pub const SOLVERS_IMPLEMENTED_R1_1: &[&str] = &["rigid (cartpole closed-form)"];
 
 mod cartpole;
+mod controllers;
 mod double_pendulum;
 mod ik;
 mod jacobian;
@@ -35,6 +36,7 @@ mod world;
 mod wgpu_backend;
 
 pub use cartpole::{CartpoleConfig, CartpoleState};
+pub use controllers::{ArticulationAction, ArticulationController};
 pub use double_pendulum::{DoublePendulumConfig, DoublePendulumState};
 pub use ik::{
     IkOptions, IkResult, TargetPose, solve_ik_cartpole, solve_ik_dp, solve_ik_planar_chain,
