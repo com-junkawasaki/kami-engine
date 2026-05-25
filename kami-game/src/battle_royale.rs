@@ -1922,7 +1922,7 @@ pub fn generate_br_map(seed: u64) -> IslandScene {
     });
 
     IslandScene {
-        context: Some("https://gftd.co.jp/ns/kami/scene".into()),
+        context: Some("https://etzhayyim.com/ns/kami/scene".into()),
         ld_type: Some("BattleRoyaleScene".into()),
         ld_id: Some(format!("urn:kami:br:map:{seed}")),
         name: "KAMI Battle Royale — Brainrot Edition".into(),

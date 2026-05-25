@@ -86,7 +86,7 @@
         sceneJson = await res.text();
       } else if (islandId) {
         $status.textContent = 'Loading island...';
-        const res = await fetch('https://k4m1w0rk.gftd.ai/api/grpc/gftd.kami.v1.KamiQueryService/GetWorldScene', {
+        const res = await fetch('https://k4m1w0rk.etzhayyim.com/api/grpc/gftd.kami.v1.KamiQueryService/GetWorldScene', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ island_id: islandId }),

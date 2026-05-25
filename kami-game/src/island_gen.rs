@@ -930,7 +930,7 @@ pub fn generate_all_islands() -> Vec<(String, GameDef)> {
         .map(|game| {
             let mut scene = game_to_island(&game);
             // Stamp JSON-LD metadata
-            scene.context = Some("https://gftd.co.jp/ns/kami/scene".into());
+            scene.context = Some("https://etzhayyim.com/ns/kami/scene".into());
             scene.ld_type = Some("IslandScene".into());
             scene.ld_id = Some(format!("urn:kami:island:{}", game.slug));
             let json = serde_json::to_string(&scene).unwrap();
@@ -947,7 +947,7 @@ pub fn generate_brainrot_islands() -> Vec<(String, GameDef)> {
         .filter(|g| matches!(g.genre, Genre::Brainrot))
         .map(|game| {
             let mut scene = game_to_island(&game);
-            scene.context = Some("https://gftd.co.jp/ns/kami/scene".into());
+            scene.context = Some("https://etzhayyim.com/ns/kami/scene".into());
             scene.ld_type = Some("IslandScene".into());
             scene.ld_id = Some(format!("urn:kami:island:{}", game.slug));
             // Attach relevant characters
