@@ -75,6 +75,21 @@ members = [
     "kami-live",
     "kami-app-live",
     "kami-mangaka-scene",
+    # ADR-2605261800 (NVIDIA Omniverse stack API-compat layer, R1.0 path reservation)
+    "kami-rt",
+    "kami-pbrt",
+    "kami-usd",
+    "kami-genesis",
+    "kami-articulated",
+    "kami-sensor-sim",
+    "kami-replicator",
+    "kami-app-amenominaka",
+    "kami-shugyo",
+    # ADR-2605261800 §D10.4 contingent fallback crates (activated only on Council Lv6+ attestation
+    # after Genesis / Mitsuba 3 / tinyusdz upstream WebGPU+WASM viability gate failure)
+    "kami-physics-solvers",
+    "kami-rtx-native",
+    "kami-usd-native",
 ]
 
 [workspace.package]

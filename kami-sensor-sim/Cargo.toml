@@ -1,0 +1,11 @@
+[package]
+name = "kami-sensor-sim"
+description = "Camera / lidar / IMU / contact sensor synth on WebGPU compute. isaacsim.sensors API-compat target. R1.0 path reservation per ADR-2605261800."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+log = { workspace = true }
+thiserror = { workspace = true }
+glam = { workspace = true }
