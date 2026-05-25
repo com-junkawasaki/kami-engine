@@ -9,6 +9,7 @@
 //! Gated behind feature `gpu` so default builds don't pull in wgpu.
 
 use crate::cartpole::{CartpoleConfig, CartpoleState};
+use crate::double_pendulum::{DoublePendulumConfig, DoublePendulumState};
 use bytemuck::{Pod, Zeroable};
 use std::borrow::Cow;
 use wgpu::util::DeviceExt;
@@ -47,12 +48,61 @@ impl From<GpuState> for CartpoleState {
     }
 }
 
-/// Wraps a `wgpu::Device + Queue + ComputePipeline` for cartpole_step.wgsl.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct GpuDpState {
+    q1: f32,
+    q2: f32,
+    q1_dot: f32,
+    q2_dot: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct GpuDpTorque {
+    t1: f32,
+    t2: f32,
+    _pad0: f32,
+    _pad1: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct GpuDpCfg {
+    m1: f32,
+    m2: f32,
+    l1: f32,
+    l2: f32,
+    gravity: f32,
+    effort_limit: f32,
+    dt: f32,
+    num_envs: u32,
+}
+
+impl From<&DoublePendulumState> for GpuDpState {
+    fn from(s: &DoublePendulumState) -> Self {
+        GpuDpState { q1: s.q1, q2: s.q2, q1_dot: s.q1_dot, q2_dot: s.q2_dot }
+    }
+}
+
+impl From<GpuDpState> for DoublePendulumState {
+    fn from(s: GpuDpState) -> Self {
+        DoublePendulumState { q1: s.q1, q2: s.q2, q1_dot: s.q1_dot, q2_dot: s.q2_dot }
+    }
+}
+
+/// Wraps `wgpu::Device + Queue` plus per-topology compute pipelines.
+/// Holds the cartpole and double-pendulum pipelines side-by-side; future
+/// topologies (R1.5 Featherstone) plug in as additional pipelines.
 pub struct WgpuBackend {
     device: wgpu::Device,
     queue: wgpu::Queue,
-    pipeline: wgpu::ComputePipeline,
-    bind_group_layout: wgpu::BindGroupLayout,
+    // Cartpole
+    cartpole_pipeline: wgpu::ComputePipeline,
+    cartpole_bgl: wgpu::BindGroupLayout,
+    // Double pendulum
+    dp_pipeline: wgpu::ComputePipeline,
+    dp_bgl: wgpu::BindGroupLayout,
     pub backend_name: String,
 }
 
@@ -90,65 +140,94 @@ impl WgpuBackend {
             .await
             .map_err(|e| format!("wgpu device request failed: {e}"))?;
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        // Standard 3-binding layout used by both cartpole and dp pipelines.
+        let triple_storage_layout = |label: &'static str| wgpu::BindGroupLayoutDescriptor {
+            label: Some(label),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        };
+
+        // --- Cartpole pipeline ---
+        let cp_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("cartpole_step.wgsl"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(super::WGSL_SOURCE)),
         });
-
-        let bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("kami-genesis-cartpole-bgl"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        let pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("kami-genesis-cartpole-pl"),
-                bind_group_layouts: &[&bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        let cartpole_bgl =
+            device.create_bind_group_layout(&triple_storage_layout("kami-genesis-cartpole-bgl"));
+        let cp_pl_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("kami-genesis-cartpole-pl"),
+            bind_group_layouts: &[&cartpole_bgl],
+            push_constant_ranges: &[],
+        });
+        let cartpole_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("kami-genesis-cartpole-pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
+            layout: Some(&cp_pl_layout),
+            module: &cp_shader,
             entry_point: Some("step_main"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             cache: None,
         });
 
-        Ok(WgpuBackend { device, queue, pipeline, bind_group_layout, backend_name })
+        // --- Double pendulum pipeline ---
+        let dp_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("double_pendulum_step.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(DP_WGSL_SOURCE)),
+        });
+        let dp_bgl =
+            device.create_bind_group_layout(&triple_storage_layout("kami-genesis-dp-bgl"));
+        let dp_pl_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("kami-genesis-dp-pl"),
+            bind_group_layouts: &[&dp_bgl],
+            push_constant_ranges: &[],
+        });
+        let dp_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("kami-genesis-dp-pipeline"),
+            layout: Some(&dp_pl_layout),
+            module: &dp_shader,
+            entry_point: Some("step_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
+        });
+
+        Ok(WgpuBackend {
+            device,
+            queue,
+            cartpole_pipeline,
+            cartpole_bgl,
+            dp_pipeline,
+            dp_bgl,
+            backend_name,
+        })
     }
 
     /// One step on the GPU for `num_envs` envs.
@@ -218,7 +297,7 @@ impl WgpuBackend {
 
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("kami-genesis-cartpole-bg"),
-            layout: &self.bind_group_layout,
+            layout: &self.cartpole_bgl,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -243,7 +322,7 @@ impl WgpuBackend {
                 label: Some("cartpole_step"),
                 timestamp_writes: None,
             });
-            cpass.set_pipeline(&self.pipeline);
+            cpass.set_pipeline(&self.cartpole_pipeline);
             cpass.set_bind_group(0, &bind_group, &[]);
             let workgroup_count = n.div_ceil(64);
             cpass.dispatch_workgroups(workgroup_count, 1, 1);
@@ -276,6 +355,125 @@ impl WgpuBackend {
 /// `futures` / `tokio` just for one signal.
 fn futures_channel<T>() -> (std::sync::mpsc::Sender<T>, std::sync::mpsc::Receiver<T>) {
     std::sync::mpsc::channel()
+}
+
+/// WGSL source for the double pendulum step kernel.
+pub const DP_WGSL_SOURCE: &str = include_str!("wgsl/double_pendulum_step.wgsl");
+
+impl WgpuBackend {
+    /// One step on the GPU for `num_envs` double pendulum envs.
+    /// `torques[i] = [tau1_i, tau2_i]` packed contiguously (length = 2 * num_envs).
+    pub fn step_double_pendulum(
+        &self,
+        states: &mut [DoublePendulumState],
+        torques: &[[f32; 2]],
+        cfg: &DoublePendulumConfig,
+    ) -> Result<(), String> {
+        pollster::block_on(self.step_double_pendulum_async(states, torques, cfg))
+    }
+
+    async fn step_double_pendulum_async(
+        &self,
+        states: &mut [DoublePendulumState],
+        torques: &[[f32; 2]],
+        cfg: &DoublePendulumConfig,
+    ) -> Result<(), String> {
+        if states.len() != torques.len() {
+            return Err(format!(
+                "states.len() ({}) != torques.len() ({})",
+                states.len(),
+                torques.len()
+            ));
+        }
+        let n = states.len() as u32;
+        if n == 0 {
+            return Ok(());
+        }
+
+        let gpu_states: Vec<GpuDpState> = states.iter().map(Into::into).collect();
+        let gpu_torques: Vec<GpuDpTorque> = torques
+            .iter()
+            .map(|t| GpuDpTorque { t1: t[0], t2: t[1], _pad0: 0.0, _pad1: 0.0 })
+            .collect();
+        let states_bytes = bytemuck::cast_slice(&gpu_states);
+        let torques_bytes = bytemuck::cast_slice(&gpu_torques);
+        let gpu_cfg = GpuDpCfg {
+            m1: cfg.m1,
+            m2: cfg.m2,
+            l1: cfg.l1,
+            l2: cfg.l2,
+            gravity: cfg.gravity,
+            effort_limit: cfg.effort_limit,
+            dt: cfg.dt,
+            num_envs: n,
+        };
+
+        let states_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("dp-states"),
+            contents: states_bytes,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        });
+        let torques_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("dp-torques"),
+            contents: torques_bytes,
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+        let cfg_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("dp-cfg"),
+            contents: bytemuck::bytes_of(&gpu_cfg),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let readback_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("dp-readback"),
+            size: states_bytes.len() as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("dp-bg"),
+            layout: &self.dp_bgl,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: states_buf.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: torques_buf.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 2, resource: cfg_buf.as_entire_binding() },
+            ],
+        });
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("dp-encoder") });
+        {
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("double_pendulum_step"),
+                timestamp_writes: None,
+            });
+            cpass.set_pipeline(&self.dp_pipeline);
+            cpass.set_bind_group(0, &bind_group, &[]);
+            cpass.dispatch_workgroups(n.div_ceil(64), 1, 1);
+        }
+        encoder.copy_buffer_to_buffer(&states_buf, 0, &readback_buf, 0, states_bytes.len() as u64);
+        self.queue.submit(Some(encoder.finish()));
+
+        let slice = readback_buf.slice(..);
+        let (tx, rx) = futures_channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
+        let _ = self.device.poll(wgpu::Maintain::Wait);
+        rx.recv()
+            .map_err(|e| format!("map_async receive failed: {e}"))?
+            .map_err(|e| format!("map_async failed: {e}"))?;
+
+        let mapped = slice.get_mapped_range();
+        let result: &[GpuDpState] = bytemuck::cast_slice(&mapped);
+        for (i, s) in result.iter().enumerate() {
+            states[i] = (*s).into();
+        }
+        drop(mapped);
+        readback_buf.unmap();
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -340,5 +538,70 @@ mod tests {
         scalar.step(5.0, &cfg);
         assert!((gpu[0].x - scalar.x).abs() < 1e-6);
         assert!((gpu[0].theta - scalar.theta).abs() < 1e-6);
+    }
+
+    #[test]
+    fn wgpu_dp_dispatch_matches_cpu_scalar() {
+        let backend = match WgpuBackend::new() {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("skipping GPU test, no adapter available: {e}");
+                return;
+            }
+        };
+        println!("wgpu backend (dp): {}", backend.backend_name);
+
+        let cfg = DoublePendulumConfig::default();
+        let n = 256;
+        let mut gpu_states: Vec<DoublePendulumState> = (0..n)
+            .map(|i| DoublePendulumState {
+                q1: 0.5 + (i as f32) * 0.001,
+                q2: -0.3 + (i as f32) * 0.0005,
+                ..Default::default()
+            })
+            .collect();
+        let mut cpu_states = gpu_states.clone();
+        let torques: Vec<[f32; 2]> = (0..n)
+            .map(|i| [(i as f32) * 0.01, (i as f32) * -0.005])
+            .collect();
+
+        for _ in 0..50 {
+            backend.step_double_pendulum(&mut gpu_states, &torques, &cfg).unwrap();
+            for (st, tau) in cpu_states.iter_mut().zip(torques.iter()) {
+                st.step(*tau, &cfg);
+            }
+        }
+
+        let mut max_d = 0.0_f32;
+        for i in 0..n {
+            max_d = max_d
+                .max((gpu_states[i].q1 - cpu_states[i].q1).abs())
+                .max((gpu_states[i].q2 - cpu_states[i].q2).abs())
+                .max((gpu_states[i].q1_dot - cpu_states[i].q1_dot).abs())
+                .max((gpu_states[i].q2_dot - cpu_states[i].q2_dot).abs());
+        }
+        println!(
+            "dp max state drift = {:.3e} over {} envs × 50 steps",
+            max_d, n
+        );
+        assert!(max_d < 1e-3, "dp gpu-vs-cpu drift too large: {max_d}");
+    }
+
+    #[test]
+    fn dp_single_step_matches_scalar() {
+        let backend = match WgpuBackend::new() {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("skipping GPU test, no adapter available: {e}");
+                return;
+            }
+        };
+        let cfg = DoublePendulumConfig::default();
+        let mut gpu = vec![DoublePendulumState { q1: 0.5, q2: -0.2, ..Default::default() }];
+        let mut scalar = DoublePendulumState { q1: 0.5, q2: -0.2, ..Default::default() };
+        backend.step_double_pendulum(&mut gpu, &[[2.0, -1.0]], &cfg).unwrap();
+        scalar.step([2.0, -1.0], &cfg);
+        assert!((gpu[0].q1 - scalar.q1).abs() < 1e-6);
+        assert!((gpu[0].q2 - scalar.q2).abs() < 1e-6);
     }
 }
