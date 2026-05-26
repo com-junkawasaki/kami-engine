@@ -16,6 +16,16 @@ The SDK is **three.js-free** at every layer (runtime, types, declared deps, buil
 
 ## Install
 
+The SDK publishes to **GitHub Packages** (`https://npm.pkg.github.com`), matching the sibling `@etzhayyim/*` package convention. Configure your project's `.npmrc` to point `@etzhayyim` at GH Packages first:
+
+```
+# .npmrc
+@etzhayyim:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+`GITHUB_TOKEN` needs `read:packages` scope. Then install:
+
 ```bash
 pnpm add @etzhayyim/kami-engine-sdk svelte
 ```

@@ -95,6 +95,10 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
   "peerDependencies": {
     "svelte": "^5.0.0",
     "@langchain/langgraph": ">=1.0.0",
