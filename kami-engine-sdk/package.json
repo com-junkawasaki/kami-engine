@@ -52,7 +52,7 @@
       "default": "./dist/genko/stores/doc.svelte.js"
     },
     "./genko/components": {
-      "types": "./dist/genko/components/index.d.ts",
+      "types": "./dist/genko/components/NodeTree.svelte.d.ts",
       "svelte": "./dist/genko/components/NodeTree.svelte",
       "default": "./dist/genko/components/NodeTree.svelte"
     },
