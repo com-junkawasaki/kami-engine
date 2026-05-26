@@ -79,7 +79,10 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHARTER-RIDER.md",
+    "CHANGELOG.md",
+    "NOTICE"
   ],
   "scripts": {
     "build": "svelte-package -i src/lib",
