@@ -10,9 +10,10 @@ import { createBoneController, type BoneController } from './createBoneControlle
 import { createMotionPlayer, type MotionPlayer } from './createMotionPlayer.svelte.js';
 import { CHARACTER_PRESETS, applyCharacterColors, type CharacterPreset } from '../data/character-presets.js';
 
-/** Options for creating a dual-engine VRM viewer. */
+/** Options for creating a VRM viewer (KAMI Engine, wgpu via WASM). */
 export interface CreateVrmEngineOpts {
-  /** Canvas element ID for Three.js (WebGL). */
+  /** Canvas element ID (legacy name retained for API stability — the
+   *  three.js / WebGL canvas was removed on 2026-05-26). */
   canvasId: string;
   /** Canvas element ID for KAMI Engine (WebGPU). If omitted, uses `canvasId + '-kami'`. */
   kamiCanvasId?: string;
@@ -37,7 +38,10 @@ export interface CreateVrmEngineOpts {
 }
 
 /**
- * Create a dual-engine VRM viewer (KAMI WebGPU + Three.js WebGL).
+ * Create a VRM viewer (KAMI Engine — Rust + wgpu via WASM,
+ * per ADR-0031). The three.js / WebGL path was removed on 2026-05-26
+ * to enforce the religious-corp "独自レンダラ禁止 — kami-render wgpu
+ * PBR pipeline が唯一" invariant (40-engine/kami-engine/CLAUDE.md).
  *
  * Headless builder — no DOM dependency. Manages engine lifecycle, morph
  * targets, bone rotations, motion playback, and animation loop.
@@ -60,7 +64,6 @@ export function createVrmEngine(opts: CreateVrmEngineOpts) {
 
   let state = $state<DualEngineState>({
     kami: null,
-    three: null,
     vrmUrl: opts.vrmUrl,
     loading: true,
     error: null,
@@ -70,12 +73,10 @@ export function createVrmEngine(opts: CreateVrmEngineOpts) {
   let animFrameId: number | null = null;
   let time = 0;
 
-  const morphCtrl: MorphController = createMorphController({
-    kami: null, three: null,
-  });
+  const morphCtrl: MorphController = createMorphController({ kami: null });
 
   const boneCtrl: BoneController = createBoneController({
-    kami: null, three: null,
+    kami: null,
     enforceConstraints: opts.enforceConstraints ?? true,
   });
 
@@ -133,10 +134,9 @@ export function createVrmEngine(opts: CreateVrmEngineOpts) {
     }
   }
 
-  // three.js path removed (see ADR: kami-engine VRM three.js-free, 2026-04-18).
-  // KAMI wgpu handles rendering end-to-end; motion/morph are driven via the
-  // WASM exports. The field `state.three` is retained for backwards type
-  // compatibility but always null.
+  // three.js path removed entirely (ADR-0031, 2026-04-18 + SDK three-free
+  // cutover 2026-05-26). KAMI wgpu handles rendering end-to-end; motion /
+  // morph / bone state are driven via the WASM exports above.
 
   let resizeObserver: ResizeObserver | null = null;
 
@@ -174,12 +174,11 @@ export function createVrmEngine(opts: CreateVrmEngineOpts) {
 
     try {
       state.kami = engineList.includes('kami') ? await initKami() : null;
-      state.three = null;
       state.loading = false;
 
       // Wire up controllers
-      morphCtrl.updateEngines(state.kami, null);
-      boneCtrl.updateEngines(state.kami, null);
+      morphCtrl.updateEngines(state.kami);
+      boneCtrl.updateEngines(state.kami);
 
       startAnimLoop();
 
@@ -200,21 +199,17 @@ export function createVrmEngine(opts: CreateVrmEngineOpts) {
   }
 
   /**
-   * Apply a character preset (colors + expression + pose).
+   * Apply a character preset (expression + pose).
    *
-   * Sets VRM material colors, expression morphs, and bone rotations.
+   * Sets VRM expression morphs (by name) and bone rotations. Material-
+   * color tinting (formerly `applyCharacterColors(vrm.scene, ...)`) is
+   * not yet wired through the KAMI WASM exports; tracked as follow-up.
    */
   function applyCharacter(preset: CharacterPreset) {
-    const vrm = (state.three as any)?.vrm;
-    if (vrm) {
-      applyCharacterColors(vrm.scene, preset.colors);
-      // Apply expression via expressionManager (Bluesky VRM standard names)
-      morphCtrl.resetAll();
-      for (const [name, weight] of Object.entries(preset.expr)) {
-        vrm.expressionManager?.setValue(name, weight);
-      }
+    morphCtrl.resetAll();
+    for (const [name, weight] of Object.entries(preset.expr)) {
+      state.kami?.setVrmMorphByName?.(name, weight);
     }
-    // Apply pose
     boneCtrl.resetAll();
     for (const [bone, axes] of Object.entries(preset.pose)) {
       for (const [axis, deg] of Object.entries(axes)) {
@@ -228,9 +223,7 @@ export function createVrmEngine(opts: CreateVrmEngineOpts) {
     if (animFrameId !== null) cancelAnimationFrame(animFrameId);
     resizeObserver?.disconnect();
     resizeObserver = null;
-    (state.three as any)?.dispose?.();
     state.kami = null;
-    state.three = null;
   }
 
   return {

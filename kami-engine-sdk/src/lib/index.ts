@@ -27,7 +27,6 @@ export {
 export type {
   DualEngineState,
   KamiWasmExports,
-  ThreeVrmHandle,
   EngineCapabilities,
   EngineMemoryBudget,
 } from './types/engine.js';

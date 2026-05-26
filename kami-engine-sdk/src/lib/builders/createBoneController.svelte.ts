@@ -1,11 +1,10 @@
 import type { HumanoidBoneName, RotationAxis, JointLimitsMap, PosePreset } from '../types/bone.js';
-import type { KamiWasmExports, ThreeVrmHandle } from '../types/engine.js';
+import type { KamiWasmExports } from '../types/engine.js';
 import { JOINT_LIMITS, clampBoneDeg } from '../data/joint-limits.js';
 
 /** Options for creating a bone controller. */
 export interface BoneControllerOpts {
   kami: KamiWasmExports | null;
-  three: ThreeVrmHandle | null;
   jointLimits?: JointLimitsMap;
   enforceConstraints?: boolean;
 }
@@ -23,8 +22,11 @@ const ANIMATED_BONES: string[] = [
 /**
  * Headless bone rotation controller with anatomical joint clamping.
  *
- * Manages per-bone Euler angle rotations and syncs to the Three.js
- * VRM humanoid. Optionally delegates clamping to Rust WASM when available.
+ * Manages per-bone Euler angle rotations and syncs to the KAMI Engine
+ * VRM humanoid (Rust + wgpu via WASM, ADR-0031). Clamping is delegated
+ * to Rust WASM when available, otherwise falls back to the TS
+ * `clampBoneDeg` table. The three.js sync path was removed on
+ * 2026-05-26 when the SDK went three-free.
  */
 export function createBoneController(opts: BoneControllerOpts) {
   const limits = opts.jointLimits ?? JOINT_LIMITS;
@@ -36,7 +38,6 @@ export function createBoneController(opts: BoneControllerOpts) {
     let deg = degrees;
 
     if (enforce) {
-      // Prefer Rust WASM clamping when available
       if (opts.kami?.clampBone) {
         deg = opts.kami.clampBone(name, axis, degrees);
       } else {
@@ -44,21 +45,20 @@ export function createBoneController(opts: BoneControllerOpts) {
       }
     }
 
-    // Update state
     const current = rotations.get(name) ?? { x: 0, y: 0, z: 0 };
     current[axis] = deg;
     rotations.set(name, current);
 
-    // Push to Three.js
-    const vrm = opts.three?.vrm as any;
-    if (vrm?.humanoid) {
-      const node = vrm.humanoid.getNormalizedBoneNode(name);
-      if (node) {
-        const r = deg * Math.PI / 180;
-        if (axis === 'x') node.rotation.x = r;
-        else if (axis === 'y') node.rotation.y = r;
-        else node.rotation.z = r;
-      }
+    if (opts.kami?.setVrmBoneRotation) {
+      const r = deg * Math.PI / 180;
+      const half = r * 0.5;
+      const s = Math.sin(half);
+      const c = Math.cos(half);
+      let qx = 0, qy = 0, qz = 0;
+      if (axis === 'x') qx = s;
+      else if (axis === 'y') qy = s;
+      else qz = s;
+      opts.kami.setVrmBoneRotation(name, qx, qy, qz, c);
     }
   }
 
@@ -74,20 +74,13 @@ export function createBoneController(opts: BoneControllerOpts) {
 
   /** Reset all bone rotations to 0. */
   function resetAll() {
-    const vrm = opts.three?.vrm as any;
-    if (vrm?.humanoid) {
-      for (const boneName of ANIMATED_BONES) {
-        const node = vrm.humanoid.getNormalizedBoneNode(boneName);
-        if (node) node.rotation.set(0, 0, 0);
-      }
-    }
+    opts.kami?.resetVrmPose?.();
     rotations = new Map();
   }
 
-  /** Update engine references (after late init). */
-  function updateEngines(kami: KamiWasmExports | null, three: ThreeVrmHandle | null) {
+  /** Update engine reference (after late init). */
+  function updateEngines(kami: KamiWasmExports | null) {
     opts.kami = kami;
-    opts.three = three;
   }
 
   return {

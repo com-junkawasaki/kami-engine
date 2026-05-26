@@ -27,21 +27,14 @@ export interface KamiWasmExports {
   composeVrmWithPreset?(base: Uint8Array, preset: Uint8Array, category: string): Uint8Array;
 }
 
-/** Three.js VRM handle with renderer, scene, camera. */
-export interface ThreeVrmHandle {
-  vrm: unknown;
-  scene: unknown;
-  camera: unknown;
-  renderer: unknown;
-  controls: unknown;
-  clock: unknown;
-  dispose(): void;
-}
-
-/** Dual-engine state shared between KAMI (WebGPU) and Three.js (WebGL). */
+/** VRM engine state. Sole renderer is KAMI Engine (Rust + wgpu via WASM)
+ *  per ADR-0031 (`kami-engine VRM three.js-free`, 2026-04-18). The dual-
+ *  engine three.js path was removed entirely on 2026-05-26 (SDK three-free
+ *  invariant) — see ADR-0031 + 40-engine/kami-engine/CLAUDE.md "独自レン
+ *  ダラ禁止". The `DualEngineState` name is preserved (despite no longer
+ *  being dual) for downstream API compatibility; the `three` field is gone. */
 export interface DualEngineState {
   kami: KamiWasmExports | null;
-  three: ThreeVrmHandle | null;
   vrmUrl: string;
   loading: boolean;
   error: string | null;

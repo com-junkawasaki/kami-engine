@@ -60,39 +60,63 @@ export function createConversationController(opts: ConversationControllerOpts) {
   let convoHistory: { role: string; content: string }[] = [];
   let idleIntervalId: ReturnType<typeof setInterval> | null = null;
 
-  /** Smooth expression transition (ease-out-quad, 500ms). */
+  /** Smooth expression transition (ease-out-quad, 500ms).
+   *  Drives morph weights through KAMI WASM (`setVrmMorphByName`); the
+   *  three.js `expressionManager.getValue/setValue` path was removed on
+   *  2026-05-26. Per-frame "current" weights are tracked in `exprCache`
+   *  because the WASM exports do not expose a getter. */
+  const exprCache: Record<string, number> = { happy: 0, angry: 0, sad: 0, surprised: 0, relaxed: 0 };
   function smoothExpr(target: Record<string, number>, duration = 500) {
-    const vrm = (opts.engine.state.three as any)?.vrm;
-    if (!vrm?.expressionManager) return;
+    const kami = opts.engine.state.kami;
+    if (!kami?.setVrmMorphByName) return;
 
-    const names = ['happy', 'angry', 'sad', 'surprised', 'relaxed'];
-    const start: Record<string, number> = {};
-    for (const n of names) start[n] = vrm.expressionManager.getValue(n) ?? 0;
+    const names = Object.keys(exprCache);
+    const start: Record<string, number> = { ...exprCache };
 
     const t0 = performance.now();
     function tick() {
       const p = Math.min(1, (performance.now() - t0) / duration);
       const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
       for (const n of names) {
-        vrm.expressionManager.setValue(n, start[n] + ((target[n] ?? 0) - start[n]) * e);
+        const v = start[n] + ((target[n] ?? 0) - start[n]) * e;
+        exprCache[n] = v;
+        kami!.setVrmMorphByName?.(n, v);
       }
       if (p < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
   }
 
-  /** Smooth pose transition (ease-out-quad, 600ms). */
+  /** Euler→quaternion (XYZ intrinsic) for KAMI `setVrmBoneRotation`. */
+  function eulerToQuat(x: number, y: number, z: number): [number, number, number, number] {
+    const hx = x * 0.5, hy = y * 0.5, hz = z * 0.5;
+    const cx = Math.cos(hx), sx = Math.sin(hx);
+    const cy = Math.cos(hy), sy = Math.sin(hy);
+    const cz = Math.cos(hz), sz = Math.sin(hz);
+    return [
+      sx * cy * cz + cx * sy * sz,
+      cx * sy * cz - sx * cy * sz,
+      cx * cy * sz + sx * sy * cz,
+      cx * cy * cz - sx * sy * sz,
+    ];
+  }
+
+  /** Smooth pose transition (ease-out-quad, 600ms).
+   *  Drives bone rotations through KAMI WASM (`setVrmBoneRotation`); the
+   *  three.js `humanoid.getNormalizedBoneNode().rotation` path was removed
+   *  on 2026-05-26. Per-frame "current" Euler angles are tracked in
+   *  `poseCache` because the WASM exports do not expose a getter. */
+  const poseCache: Record<string, { x: number; y: number; z: number }> = {};
   function smoothPose(poseName: ConversationPose, duration = 600) {
-    const vrm = (opts.engine.state.three as any)?.vrm;
-    if (!vrm?.humanoid) return;
+    const kami = opts.engine.state.kami;
+    if (!kami?.setVrmBoneRotation) return;
 
     const targetPose = CONVERSATION_POSE_MAP[poseName] ?? CONVERSATION_POSE_MAP.natural;
     const boneNames = ['head', 'neck', 'spine', 'chest', 'leftUpperArm', 'leftLowerArm', 'rightUpperArm', 'rightLowerArm', 'hips'];
 
     const startRot: Record<string, { x: number; y: number; z: number }> = {};
     for (const b of boneNames) {
-      const node = vrm.humanoid.getNormalizedBoneNode(b);
-      if (node) startRot[b] = { x: node.rotation.x, y: node.rotation.y, z: node.rotation.z };
+      startRot[b] = poseCache[b] ?? { x: 0, y: 0, z: 0 };
     }
 
     const t0 = performance.now();
@@ -101,13 +125,15 @@ export function createConversationController(opts: ConversationControllerOpts) {
       const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
 
       for (const b of boneNames) {
-        const node = vrm.humanoid.getNormalizedBoneNode(b);
-        if (!node || !startRot[b]) continue;
         const target = targetPose[b] ?? {};
+        const cur = { x: 0, y: 0, z: 0 };
         for (const axis of ['x', 'y', 'z'] as RotationAxis[]) {
           const targetRad = ((target[axis] ?? 0) * Math.PI) / 180;
-          node.rotation[axis] = startRot[b][axis] + (targetRad - startRot[b][axis]) * e;
+          cur[axis] = startRot[b][axis] + (targetRad - startRot[b][axis]) * e;
         }
+        poseCache[b] = cur;
+        const [qx, qy, qz, qw] = eulerToQuat(cur.x, cur.y, cur.z);
+        kami!.setVrmBoneRotation?.(b, qx, qy, qz, qw);
       }
       if (p < 1) requestAnimationFrame(tick);
     }
@@ -226,15 +252,17 @@ export function createConversationController(opts: ConversationControllerOpts) {
     busy = false;
   }
 
-  /** Micro idle expression (subtle movement without LLM call). */
+  /** Micro idle expression (subtle head sway without LLM call).
+   *  Drives `head` bone Z-axis via KAMI `setVrmBoneRotation` (the
+   *  three.js direct rotation manipulation was removed on 2026-05-26). */
   function idleMicro() {
-    const vrm = (opts.engine.state.three as any)?.vrm;
-    if (!vrm?.humanoid) return;
-    const head = vrm.humanoid.getNormalizedBoneNode('head');
-    if (head) {
-      const t = performance.now() / 1000;
-      head.rotation.z = Math.sin(t * 0.3) * 0.03;
-    }
+    const kami = opts.engine.state.kami;
+    if (!kami?.setVrmBoneRotation) return;
+    const t = performance.now() / 1000;
+    const z = Math.sin(t * 0.3) * 0.03;
+    const half = z * 0.5;
+    kami.setVrmBoneRotation('head', 0, 0, Math.sin(half), Math.cos(half));
+    poseCache.head = { ...(poseCache.head ?? { x: 0, y: 0, z: 0 }), z };
   }
 
   /** Start autonomous idle behavior loop. */
