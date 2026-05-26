@@ -10,6 +10,7 @@ export {
   PartPicker,
   VoicePanel,
   EmotionBars,
+  IsekaiCanvas,
 } from './components/index.js';
 
 // Builders (re-exported for convenience)

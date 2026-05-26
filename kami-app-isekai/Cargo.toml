@@ -13,10 +13,15 @@ kami-pipelines = { path = "../kami-pipelines" }
 kami-dec = { path = "../kami-dec" }
 kami-render = { path = "../kami-render" }
 kami-terrain = { path = "../kami-terrain" }
+# Omniverse / PhysX / OpenUSD nv-compat facade (ADR-2605261800 §D10.3).
+kami-usd = { path = "../kami-usd" }
+kami-genesis = { path = "../kami-genesis" }
+kami-articulated = { path = "../kami-articulated" }
 glam = { workspace = true }
 bytemuck = { workspace = true }
 hecs = { workspace = true }
 log = { workspace = true }
+serde_json = { workspace = true }
 wgpu = "24"
 
 [target.'cfg(target_family = "wasm")'.dependencies]

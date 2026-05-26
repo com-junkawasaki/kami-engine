@@ -21,6 +21,7 @@
 use kami_app::{CameraMode, InputMode, KamiApp, Position};
 use log::Level;
 
+pub mod omniverse;
 pub mod pipelines;
 
 #[cfg(target_family = "wasm")]
@@ -1115,7 +1116,7 @@ fn isekai_palette() -> kami_pipelines::VoxelPalette {
 /// silhouette roughly so walking on voxels feels continuous with the
 /// PBR ground below. Only chunks whose vertical slab intersects the
 /// height surface contain solid voxels.
-fn build_voxel_world(
+pub(crate) fn build_voxel_world(
     ctx: &kami_render::RenderContext,
 ) -> kami_pipelines::VoxelChunkAdapter {
     let palette = isekai_palette();
@@ -1178,7 +1179,7 @@ fn simple_fbm(x: f32, z: f32) -> f32 {
 /// window (adapter treats pre-authored chunks identically to
 /// generated ones — in practice the house is far enough from spawn
 /// that it will get unloaded if the player walks away).
-fn build_demo_house(
+pub(crate) fn build_demo_house(
     ctx: &kami_render::RenderContext,
     voxels: &kami_pipelines::VoxelChunkAdapter,
 ) {
