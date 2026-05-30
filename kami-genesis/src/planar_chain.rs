@@ -421,6 +421,90 @@ mod tests {
         }
     }
 
+    // ── Analytical-solution validation ─────────────────────────────────────
+    //
+    // These are textbook closed-form results that ANY correct rigid-body
+    // engine — PhysX / Isaac Sim included — must reproduce. Matching them is
+    // the clean-room evidence that kami-genesis agrees with NVIDIA on the same
+    // physics, without running NVIDIA. (ADR-2605261800 §D10.1; G5 numeric
+    // cross-check against an Isaac reference CSV is a separate offline path.)
+
+    #[test]
+    fn uniform_rod_horizontal_initial_angular_accel_is_3g_over_2l() {
+        // A uniform rod pivoted at one end, released from horizontal, has
+        // initial angular acceleration α = 3g / (2L) (Goldstein, rigid-body
+        // rotation about a fixed axis: τ = m·g·(L/2), I_end = m·L²/3 ⇒
+        // α = τ/I = 3g/2L). Independent of mass.
+        let cfg = PlanarChainConfig::uniform(1); // L=1, m=1, g=9.81
+        let mut s = PlanarChainState::zeros(1);
+        s.q[0] = std::f32::consts::FRAC_PI_2; // horizontal (+x)
+        // One step from rest: qdot ≈ α·dt; recover α = qdot/dt.
+        s.step(&[0.0], &cfg);
+        let alpha_measured = s.qdot[0] / cfg.dt;
+        let alpha_expected = -3.0 * cfg.gravity / (2.0 * cfg.lengths[0]); // toward q=0
+        let rel = (alpha_measured - alpha_expected).abs() / alpha_expected.abs();
+        assert!(
+            rel < 0.02,
+            "horizontal-rod α: measured={alpha_measured:.4}, expected={alpha_expected:.4} (rel {rel:.4})"
+        );
+    }
+
+    #[test]
+    fn uniform_rod_bottom_speed_matches_energy_conservation() {
+        // Released from horizontal (q=π/2), the rod's COM falls by lc = L/2.
+        // Energy conservation: ½·I_end·ω² = m·g·(L/2) ⇒ ω_bottom = √(3g/L)
+        // when it passes through the downward vertical (q=0).
+        // For L=1, g=9.81: ω = √29.43 ≈ 5.4249 rad/s.
+        let cfg = PlanarChainConfig::uniform(1);
+        let mut s = PlanarChainState::zeros(1);
+        s.q[0] = std::f32::consts::FRAC_PI_2;
+        // Integrate until the rod first crosses the bottom (q goes ≤ 0).
+        let mut prev_q = s.q[0];
+        let mut omega_at_bottom = 0.0;
+        for _ in 0..2000 {
+            s.step(&[0.0], &cfg);
+            if prev_q > 0.0 && s.q[0] <= 0.0 {
+                omega_at_bottom = s.qdot[0].abs();
+                break;
+            }
+            prev_q = s.q[0];
+        }
+        let omega_expected = (3.0 * cfg.gravity / cfg.lengths[0]).sqrt();
+        let rel = (omega_at_bottom - omega_expected).abs() / omega_expected;
+        assert!(
+            rel < 0.02,
+            "bottom speed ω: measured={omega_at_bottom:.4}, expected={omega_expected:.4} (rel {rel:.4})"
+        );
+    }
+
+    #[test]
+    fn large_swing_energy_drift_bounded() {
+        // A frictionless pendulum released from horizontal must conserve total
+        // mechanical energy. Semi-implicit Euler (symplectic) keeps the drift
+        // bounded (no secular growth) over a multi-second rollout.
+        let cfg = PlanarChainConfig::uniform(2);
+        let mut s = PlanarChainState::zeros(2);
+        s.q[0] = std::f32::consts::FRAC_PI_2;
+        let e0 = s.energy(&cfg);
+        let mut e_min = e0;
+        let mut e_max = e0;
+        for _ in 0..(3.0 / cfg.dt) as usize {
+            s.step(&[0.0, 0.0], &cfg);
+            let e = s.energy(&cfg);
+            e_min = e_min.min(e);
+            e_max = e_max.max(e);
+            assert!(e.is_finite(), "energy non-finite");
+        }
+        // Peak-to-peak energy oscillation stays small relative to the kinetic
+        // scale (|PE| swing ~ m·g·L). Symplectic ⇒ bounded, not growing.
+        let scale = (cfg.masses.iter().sum::<f32>()
+            * cfg.gravity
+            * cfg.lengths.iter().sum::<f32>())
+        .max(1.0);
+        let drift = (e_max - e_min) / scale;
+        assert!(drift < 0.05, "energy drift too large: {drift:.4} (e0={e0:.4})");
+    }
+
     #[test]
     fn mass_matrix_is_symmetric_pd() {
         // For random-but-bounded q, M should be symmetric and have positive
