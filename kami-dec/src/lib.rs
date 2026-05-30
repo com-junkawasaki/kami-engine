@@ -1339,4 +1339,74 @@ mod tests {
         // +X neighbour is in the next chunk.
         assert!(f.get(CHUNK_SIZE as i32, 0, 0) > 5.0);
     }
+
+    // ── Conservation-law validation (fluid/heat: fire, water, air, wind) ───
+    //
+    // Closed-form properties any correct diffusion + incompressible-flow
+    // solver must satisfy — clean-room evidence that the kami-dec fields obey
+    // the same physics NVIDIA Flow / PhysX-fluid obey, shown without running
+    // NVIDIA. Pixel-identical match across different algorithms is impossible
+    // and is never claimed (ADR-2605261800).
+
+    fn field_total(s: &ScalarField) -> f32 {
+        let mut total = 0.0;
+        s.for_each_nonzero(0.0, |_, _, _, v| total += v);
+        total
+    }
+
+    #[test]
+    fn heat_diffusion_conserves_total_without_decay() {
+        // Pure diffusion (decay=0): the 7-point Laplacian sums to zero, so the
+        // total heat Σ T is invariant (up to the ~1e-4 prune threshold) while
+        // the blob spreads. This is the discrete heat equation's mass law.
+        let mut s = ScalarField::new();
+        s.set(8, 8, 8, 100.0);
+        let t0 = field_total(&s);
+        for _ in 0..40 {
+            s.diffuse(0.1, 0.05, 0.0); // α·dt = 0.005, well under CFL 1/6
+        }
+        let t1 = field_total(&s);
+        let rel = (t1 - t0).abs() / t0;
+        assert!(rel < 2e-3, "heat not conserved: t0={t0:.4} t1={t1:.4} (rel {rel:.5})");
+        let mut cells = 0usize;
+        s.for_each_nonzero(0.01, |_, _, _, _| cells += 1);
+        assert!(cells > 1, "blob did not diffuse: {cells} cell(s)");
+    }
+
+    #[test]
+    fn heat_diffusion_with_decay_decreases_monotonically() {
+        // decay>0 models radiative loss: Σ T strictly non-increasing each
+        // step, never negative.
+        let mut s = ScalarField::new();
+        s.set(8, 8, 8, 100.0);
+        let mut prev = field_total(&s);
+        for _ in 0..30 {
+            s.diffuse(0.1, 0.05, 0.5);
+            let now = field_total(&s);
+            assert!(now <= prev + 1e-3, "decay increased total: {prev} -> {now}");
+            assert!(now >= -1e-4, "total went negative: {now}");
+            prev = now;
+        }
+        assert!(prev < 100.0, "decay did not reduce total: {prev}");
+    }
+
+    #[test]
+    fn helmholtz_projection_is_near_divergence_free() {
+        // Incompressibility ∇·u ≈ 0: after projection the squared-divergence
+        // L2 must collapse to a small fraction of the unprojected field.
+        let mut wind = EdgeField::new();
+        for i in 4..12 {
+            wind.set(i, 8, 8, 0, (i as f32 - 8.0) * 0.5);
+            wind.set(8, i, 8, 1, (i as f32 - 8.0) * 0.3);
+            wind.set(8, 8, i, 2, (i as f32 - 8.0) * 0.4);
+        }
+        let mut d0 = 0.0;
+        div(&wind).for_each_nonzero(0.0, |_, _, _, v| d0 += v * v);
+        project_divergence_free(&mut wind, 60);
+        let mut d1 = 0.0;
+        div(&wind).for_each_nonzero(0.0, |_, _, _, v| d1 += v * v);
+        assert!(d0 > 0.0, "test field had no divergence to begin with");
+        let ratio = d1 / d0;
+        assert!(ratio < 0.2, "projection left too much divergence: after/before = {ratio:.4}");
+    }
 }
