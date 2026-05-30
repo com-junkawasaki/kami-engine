@@ -258,6 +258,29 @@ impl Articulation {
         }
     }
 
+    /// Reset every DOF to the zero pose with zero velocity, for any topology.
+    /// Mirrors `isaacsim.core.api.World.reset()` returning registered
+    /// articulations to their default (zero) joint state, and clears any
+    /// pending per-step torque/force action.
+    pub fn reset_to_zero(&mut self) {
+        match &mut self.topology {
+            ArticulationTopology::Cartpole { state, .. } => {
+                *state = CartpoleState::default();
+            }
+            ArticulationTopology::DoublePendulum { state, .. } => {
+                *state = DoublePendulumState::default();
+            }
+            ArticulationTopology::PlanarChain { state, cfg, .. } => {
+                *state = PlanarChainState::zeros(cfg.n);
+            }
+        }
+        self.applied_action_cartpole = 0.0;
+        self.applied_action_double_pendulum = [0.0, 0.0];
+        for t in self.applied_action_planar.iter_mut() {
+            *t = 0.0;
+        }
+    }
+
     /// Flat joint positions (Cartpole: [x, theta]; DP: [q1, q2];
     /// PlanarChain: [q0, q1, …]).
     pub fn joint_positions(&self) -> Vec<f32> {
