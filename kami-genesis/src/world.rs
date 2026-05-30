@@ -7,6 +7,7 @@
 use crate::cartpole::{CartpoleConfig, CartpoleState};
 use crate::double_pendulum::{DoublePendulumConfig, DoublePendulumState};
 use crate::jacobian::{Jacobian, cartpole_link_jacobian, dp_link_jacobian};
+use crate::planar_chain::{PlanarChainConfig, PlanarChainState};
 use glam::{Quat, Vec3};
 use kami_articulated::{ArticulatedSystem, JointKind};
 use thiserror::Error;
@@ -122,12 +123,22 @@ pub struct Articulation {
     topology: ArticulationTopology,
     applied_action_cartpole: f32,
     applied_action_double_pendulum: [f32; 2],
+    applied_action_planar: Vec<f32>,
 }
 
 #[derive(Debug)]
 enum ArticulationTopology {
     Cartpole { state: CartpoleState, cfg: CartpoleConfig },
     DoublePendulum { state: DoublePendulumState, cfg: DoublePendulumConfig },
+    /// N≥3 serial revolute chain (planar reduced-coordinate). Generalizes
+    /// DoublePendulum to arbitrary link counts via RNEA bias + CRBA mass
+    /// matrix + LDLᵀ solve (see `planar_chain`). The ordered `links` are the
+    /// child link names of each revolute joint, used by `link_state` FK.
+    PlanarChain {
+        state: PlanarChainState,
+        cfg: PlanarChainConfig,
+        links: Vec<String>,
+    },
 }
 
 impl Articulation {
@@ -138,12 +149,19 @@ impl Articulation {
     ) -> Result<Self, WorldError> {
         let topology = detect_topology(&sys, gravity, dt)?;
         let name = sys.name.clone();
+        // Pre-size the planar torque buffer to the joint count so callers can
+        // index it before the first set_joint_torques.
+        let n_planar = match &topology {
+            ArticulationTopology::PlanarChain { cfg, .. } => cfg.n as usize,
+            _ => 0,
+        };
         Ok(Articulation {
             name,
             system: sys,
             topology,
             applied_action_cartpole: 0.0,
             applied_action_double_pendulum: [0.0, 0.0],
+            applied_action_planar: vec![0.0; n_planar],
         })
     }
 
@@ -159,6 +177,18 @@ impl Articulation {
                 state.step(action, cfg);
                 self.applied_action_double_pendulum = [0.0, 0.0];
             }
+            ArticulationTopology::PlanarChain { state, cfg, .. } => {
+                // PlanarChainState::step takes (tau, cfg). Torque is consumed
+                // (zeroed) each step to mirror PxArticulation drive semantics.
+                let n = cfg.n as usize;
+                if self.applied_action_planar.len() != n {
+                    self.applied_action_planar.resize(n, 0.0);
+                }
+                state.step(&self.applied_action_planar, cfg);
+                for t in self.applied_action_planar.iter_mut() {
+                    *t = 0.0;
+                }
+            }
         }
     }
 
@@ -168,7 +198,10 @@ impl Articulation {
         self.applied_action_cartpole = force;
     }
 
-    /// Set joint torques for a double pendulum articulation [shoulder, elbow].
+    /// Set joint torques for an articulation. Cartpole consumes torques[0] as
+    /// the cart force; DoublePendulum consumes [shoulder, elbow]; PlanarChain
+    /// consumes one torque per joint (extra entries ignored, missing → 0).
+    /// Mirrors `PxArticulationReducedCoordinate::setJointDriveTarget` per DOF.
     pub fn set_joint_torques(&mut self, torques: &[f32]) {
         match &mut self.topology {
             ArticulationTopology::Cartpole { .. } => {
@@ -179,6 +212,13 @@ impl Articulation {
             ArticulationTopology::DoublePendulum { .. } => {
                 if torques.len() >= 2 {
                     self.applied_action_double_pendulum = [torques[0], torques[1]];
+                }
+            }
+            ArticulationTopology::PlanarChain { cfg, .. } => {
+                let n = cfg.n as usize;
+                self.applied_action_planar.resize(n, 0.0);
+                for i in 0..n {
+                    self.applied_action_planar[i] = torques.get(i).copied().unwrap_or(0.0);
                 }
             }
         }
@@ -216,15 +256,18 @@ impl Articulation {
         }
     }
 
-    /// Flat joint positions (Cartpole: [x, theta]; DP: [q1, q2]).
+    /// Flat joint positions (Cartpole: [x, theta]; DP: [q1, q2];
+    /// PlanarChain: [q0, q1, …]).
     pub fn joint_positions(&self) -> Vec<f32> {
         match &self.topology {
             ArticulationTopology::Cartpole { state, .. } => vec![state.x, state.theta],
             ArticulationTopology::DoublePendulum { state, .. } => vec![state.q1, state.q2],
+            ArticulationTopology::PlanarChain { state, .. } => state.q.clone(),
         }
     }
 
-    /// Flat joint velocities (Cartpole: [x_dot, theta_dot]; DP: [q1_dot, q2_dot]).
+    /// Flat joint velocities (Cartpole: [x_dot, theta_dot]; DP: [q1_dot, q2_dot];
+    /// PlanarChain: [qdot0, qdot1, …]).
     pub fn joint_velocities(&self) -> Vec<f32> {
         match &self.topology {
             ArticulationTopology::Cartpole { state, .. } => {
@@ -233,6 +276,7 @@ impl Articulation {
             ArticulationTopology::DoublePendulum { state, .. } => {
                 vec![state.q1_dot, state.q2_dot]
             }
+            ArticulationTopology::PlanarChain { state, .. } => state.qdot.clone(),
         }
     }
 
@@ -247,6 +291,9 @@ impl Articulation {
             ArticulationTopology::DoublePendulum { state, cfg } => {
                 dp_link_jacobian(state.q1, state.q2, link_name, cfg)
             }
+            // Analytic Jacobian for the N-link planar chain is a future R1.x
+            // item; the planar_chain solver does not yet expose it.
+            ArticulationTopology::PlanarChain { .. } => None,
         }
     }
 
@@ -272,8 +319,65 @@ impl Articulation {
             ArticulationTopology::DoublePendulum { state, cfg } => {
                 double_pendulum_link_state(state, cfg, link_name)
             }
+            ArticulationTopology::PlanarChain { state, cfg, links } => {
+                planar_chain_link_state(state, cfg, links, link_name)
+            }
         }
     }
+}
+
+/// Forward kinematics for the planar chain (same convention as the double
+/// pendulum: q=0 hangs along -z, each revolute about world +y, COM at link
+/// half-length). `link_name` is matched against the ordered child link names;
+/// a base/world name resolves to the origin.
+fn planar_chain_link_state(
+    s: &PlanarChainState,
+    cfg: &PlanarChainConfig,
+    links: &[String],
+    link_name: &str,
+) -> Option<LinkState> {
+    if link_name == "world" || link_name == "base" {
+        return Some(LinkState::at_origin());
+    }
+    let idx = links.iter().position(|l| l == link_name)?;
+    let n = cfg.n as usize;
+
+    // Recurse joint-to-joint, accumulating cumulative angle, joint position,
+    // and joint linear velocity in the x-z plane.
+    let mut theta = 0.0_f32; // cumulative angle from vertical
+    let mut omega = 0.0_f32; // cumulative angular velocity
+    let mut jx = 0.0_f32; // joint position
+    let mut jz = 0.0_f32;
+    let mut vx = 0.0_f32; // joint linear velocity
+    let mut vz = 0.0_f32;
+
+    for i in 0..n {
+        theta += s.q[i];
+        omega += s.qdot[i];
+        let l = cfg.lengths[i];
+        let lc = l * 0.5;
+        let (st, ct) = (theta.sin(), theta.cos());
+        // Direction of this link (q=0 → -z), its COM, and the next joint.
+        // pos(angle): d/dθ (sinθ, -cosθ) = (cosθ, sinθ).
+        if i == idx {
+            let com_x = jx + lc * st;
+            let com_z = jz - lc * ct;
+            let com_vx = vx + lc * ct * omega;
+            let com_vz = vz + lc * st * omega;
+            return Some(LinkState {
+                position: Vec3::new(com_x, 0.0, com_z),
+                orientation: Quat::from_axis_angle(Vec3::Y, theta),
+                linear_velocity: Vec3::new(com_vx, 0.0, com_vz),
+                angular_velocity: Vec3::new(0.0, omega, 0.0),
+            });
+        }
+        // Advance to the next joint (full link length).
+        jx += l * st;
+        jz += -l * ct;
+        vx += l * ct * omega;
+        vz += l * st * omega;
+    }
+    None
 }
 
 fn cartpole_link_state(s: &CartpoleState, _cfg: &CartpoleConfig, link: &str) -> Option<LinkState> {
@@ -421,6 +525,61 @@ fn detect_topology(
             state: DoublePendulumState::default(),
             cfg,
         });
+    }
+
+    // PlanarChain signature: a serial revolute chain of N≥3 joints, no
+    // prismatic. joint[0] roots at the base; joint[k].parent == joint[k-1].child.
+    let is_serial_revolute_chain = no_prismatic
+        && revolutes.len() >= 3
+        && revolutes.len() == total_dofs
+        && revolutes
+            .windows(2)
+            .all(|w| w[1].parent == w[0].child);
+    if is_serial_revolute_chain {
+        let n = revolutes.len();
+        let mut masses = Vec::with_capacity(n);
+        let mut lengths = Vec::with_capacity(n);
+        let mut links = Vec::with_capacity(n);
+        for (i, j) in revolutes.iter().enumerate() {
+            links.push(j.child.clone());
+            // Link mass from the child link's inertia.
+            let m = sys
+                .links
+                .iter()
+                .find(|l| l.name == j.child)
+                .map(|l| l.inertia.mass)
+                .unwrap_or(0.1)
+                .max(1e-3);
+            masses.push(m);
+            // Link length ≈ distance to the next joint origin; the last link
+            // uses 2×|child COM| (uniform-rod assumption).
+            let len = if i + 1 < n {
+                revolutes[i + 1].origin.xyz.length()
+            } else {
+                sys.links
+                    .iter()
+                    .find(|l| l.name == j.child)
+                    .map(|l| l.inertia.com.xyz.length() * 2.0)
+                    .unwrap_or(0.1)
+            }
+            .max(1e-3);
+            lengths.push(len);
+        }
+        let effort_limit = revolutes
+            .iter()
+            .map(|j| j.effort)
+            .fold(0.0_f32, f32::max)
+            .max(1.0);
+        let cfg = PlanarChainConfig {
+            n: n as u32,
+            masses,
+            lengths,
+            gravity,
+            effort_limit,
+            dt,
+        };
+        let state = PlanarChainState::zeros(n as u32);
+        return Ok(ArticulationTopology::PlanarChain { state, cfg, links });
     }
 
     if has_prismatic_to_world && has_one_revolute && total_dofs == 2 {
