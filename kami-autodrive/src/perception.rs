@@ -126,6 +126,22 @@ impl OccupancyGrid {
             .collect()
     }
 
+    /// True iff the straight segment `a..b` stays on free, in-bounds cells
+    /// (sampled at sub-cell spacing).
+    pub fn line_clear(&self, a: Vec2, b: Vec2) -> bool {
+        let len = (b - a).length();
+        let steps = (len / (self.res * 0.5)).ceil().max(1.0) as usize;
+        for k in 0..=steps {
+            let p = a.lerp(b, k as f32 / steps as f32);
+            match self.world_to_cell(p) {
+                Some((x, y)) if self.is_occupied(x, y) => return false,
+                None => return false,
+                _ => {}
+            }
+        }
+        true
+    }
+
     /// Nearest free cell to `p` (spiral search), as a `GridPos`. Used to snap a
     /// start/goal that lands on (or just inside) an inflated obstacle.
     pub fn nearest_free(&self, p: Vec2) -> Option<GridPos> {

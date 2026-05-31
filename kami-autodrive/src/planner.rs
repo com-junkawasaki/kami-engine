@@ -46,19 +46,9 @@ fn simplify(pts: &[Vec2], grid: &OccupancyGrid) -> Vec<Vec2> {
 }
 
 /// Sample the segment `a..b` at sub-cell spacing; clear iff no sample lands on
-/// an occupied cell.
+/// an occupied cell. Thin alias over [`OccupancyGrid::line_clear`].
 fn segment_clear(a: Vec2, b: Vec2, grid: &OccupancyGrid) -> bool {
-    let len = (b - a).length();
-    let steps = (len / (grid.res * 0.5)).ceil().max(1.0) as usize;
-    for k in 0..=steps {
-        let p = a.lerp(b, k as f32 / steps as f32);
-        match grid.world_to_cell(p) {
-            Some((x, y)) if grid.is_occupied(x, y) => return false,
-            None => return false,
-            _ => {}
-        }
-    }
-    true
+    grid.line_clear(a, b)
 }
 
 #[cfg(test)]

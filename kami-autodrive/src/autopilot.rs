@@ -49,6 +49,12 @@ pub struct AutopilotConfig {
     pub lateral_accel: f32,
     /// Safety-margin factor on the kinematic braking distance.
     pub brake_margin: f32,
+    /// When `true`, the occupancy grid is cleared and rebuilt from the current
+    /// sweep every tick, so **moving** obstacles (other agents) are tracked
+    /// without smearing a trail. When `false`, the grid accumulates — better
+    /// for a static world with occlusion/limited range. A 360° lidar makes the
+    /// fresh-each-tick default sound.
+    pub dynamic_obstacles: bool,
 }
 
 impl AutopilotConfig {
@@ -64,6 +70,7 @@ impl AutopilotConfig {
             emergency_cone: 0.35,
             lateral_accel: 3.0,
             brake_margin: 1.6,
+            dynamic_obstacles: true,
         }
     }
 }
@@ -145,7 +152,10 @@ impl Autopilot {
             return Command::stop();
         }
 
-        // 1. Perception — accumulate the sweep into the persistent map.
+        // 1. Perception — refresh (dynamic) or accumulate (static) the map.
+        if self.cfg.dynamic_obstacles {
+            self.grid.clear();
+        }
         self.grid.ingest_lidar(lidar, sensor, self.cfg.z_band);
 
         // 2. Reactive emergency stop, independent of the planner.
@@ -158,9 +168,16 @@ impl Autopilot {
             return Command::stop();
         }
 
-        // 3. (Re)plan if needed.
+        // 3. (Re)plan if needed: no path, the period elapsed, or the current
+        //    path is now blocked (e.g. a moving obstacle drifted onto it).
+        //    The block test runs on the raw grid (cheap); inflation — the
+        //    expensive step — is deferred to the replan branch only.
         self.steps_since_replan = self.steps_since_replan.saturating_add(1);
-        let need_replan = self.path.len() < 2 || self.steps_since_replan >= self.cfg.replan_period;
+        let path_blocked = self.path.len() >= 2
+            && self.path.windows(2).any(|w| !self.grid.line_clear(w[0], w[1]));
+        let need_replan = self.path.len() < 2
+            || path_blocked
+            || self.steps_since_replan >= self.cfg.replan_period;
         if need_replan {
             let inflated = self.grid.inflated(self.cfg.limits.footprint_radius);
             match planner::plan(&inflated, pose.pos(), goal) {
@@ -169,8 +186,9 @@ impl Autopilot {
                     self.steps_since_replan = 0;
                 }
                 _ => {
-                    // Keep the prior path if we still have one; else stop.
-                    if self.path.len() < 2 {
+                    // No route this tick. If the prior path is also blocked,
+                    // hold position rather than drive into the obstacle.
+                    if self.path.len() < 2 || path_blocked {
                         self.state = DriveState::Blocked;
                         return Command::stop();
                     }
