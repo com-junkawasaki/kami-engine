@@ -116,6 +116,24 @@ pub struct Autopilot {
     best_dist: f32,
     /// Recoveries attempted since the last real progress toward the goal.
     recoveries_since_progress: u32,
+    /// Telemetry snapshot from the most recent tick.
+    last_pose: Pose2,
+    last_target_speed: f32,
+    last_cross_track: f32,
+}
+
+/// Read-only autopilot status for HUD / logging / monitoring.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Telemetry {
+    pub state: DriveState,
+    /// Straight-line distance from the last pose to the goal (∞ if no goal).
+    pub distance_to_goal: f32,
+    /// Lateral deviation of the last pose from the planned path (m).
+    pub cross_track_error: f32,
+    /// Speed the controller was aiming for last tick (m/s).
+    pub target_speed: f32,
+    /// Number of waypoints in the current plan.
+    pub path_waypoints: usize,
 }
 
 impl Autopilot {
@@ -142,6 +160,9 @@ impl Autopilot {
             recovery_steer: 0.0,
             best_dist: f32::INFINITY,
             recoveries_since_progress: 0,
+            last_pose: start,
+            last_target_speed: 0.0,
+            last_cross_track: 0.0,
         }
     }
 
@@ -172,6 +193,21 @@ impl Autopilot {
         &self.grid
     }
 
+    /// Read-only status snapshot from the most recent tick.
+    pub fn telemetry(&self) -> Telemetry {
+        let distance_to_goal = match self.goal {
+            Some(g) => self.last_pose.pos().distance(g),
+            None => f32::INFINITY,
+        };
+        Telemetry {
+            state: self.state,
+            distance_to_goal,
+            cross_track_error: self.last_cross_track,
+            target_speed: self.last_target_speed,
+            path_waypoints: self.path.len(),
+        }
+    }
+
     /// One control tick. `pose`/`speed` are the plant's current state; `lidar`
     /// is this tick's sweep with the sensor at `sensor` (planar pose).
     pub fn step(
@@ -199,6 +235,7 @@ impl Autopilot {
         sensor: Pose2,
         dt: f32,
     ) -> Command {
+        self.last_pose = pose;
         let Some(goal) = self.goal else {
             self.state = DriveState::Idle;
             return Command::stop();
@@ -295,6 +332,10 @@ impl Autopilot {
             DriveState::Cruise
         };
 
+        // Telemetry: record target speed + cross-track error for this tick.
+        self.last_target_speed = target_speed;
+        self.last_cross_track = cross_track_error(pose.pos(), &self.path);
+
         // Progress this tick — clear the stuck count, and on *substantial*
         // progress toward the goal, reset the recovery-attempt budget.
         self.stuck_ticks = 0;
@@ -363,4 +404,25 @@ impl Autopilot {
     fn braking_distance(&self, speed: f32) -> f32 {
         self.cfg.brake_margin * speed * speed / (2.0 * self.cfg.limits.max_decel.max(0.1))
     }
+}
+
+/// Lateral deviation of `p` from a path polyline = min point-to-segment
+/// distance over its segments (0 for a path with fewer than 2 points).
+fn cross_track_error(p: Vec2, path: &[Vec2]) -> f32 {
+    if path.len() < 2 {
+        return 0.0;
+    }
+    path.windows(2)
+        .map(|w| point_segment_distance(p, w[0], w[1]))
+        .fold(f32::INFINITY, f32::min)
+}
+
+fn point_segment_distance(p: Vec2, a: Vec2, b: Vec2) -> f32 {
+    let ab = b - a;
+    let len2 = ab.length_squared();
+    if len2 < 1e-9 {
+        return p.distance(a);
+    }
+    let t = ((p - a).dot(ab) / len2).clamp(0.0, 1.0);
+    p.distance(a + ab * t)
 }

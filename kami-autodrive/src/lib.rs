@@ -44,7 +44,7 @@ pub mod types;
 #[cfg(feature = "soft-body-car")]
 pub mod vehicle_adapter;
 
-pub use autopilot::{Autopilot, AutopilotConfig, DriveState};
+pub use autopilot::{Autopilot, AutopilotConfig, DriveState, Telemetry};
 pub use classes::{VehicleClass, VehicleLimits};
 pub use control::{PurePursuit, SpeedController};
 pub use dynamics::{FixedWing, Multirotor, ShipHydro};
