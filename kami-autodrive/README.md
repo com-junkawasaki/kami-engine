@@ -28,6 +28,7 @@ closed perception → planning → control loop. See ADR-2606010600.
 | `plant` | `Plant` trait (the GNC↔body seam) + kinematic `BicycleModel` (with reverse) |
 | `dynamics` | High-fidelity non-car plants: `ShipHydro`, `FixedWing`, `Multirotor` |
 | `autopilot` | `Autopilot` + `DriveState` machine + `Telemetry` |
+| `estimator` | `StateEstimator`: IMU/odometry dead-reckoning + complementary-filter correction toward sparse absolute fixes |
 | `fleet` | `Fleet` / `FleetAgent`: N agents, each sensing the others, with priority right-of-way |
 | `vehicle_adapter` | `SoftBodyCar` — drive a real `kami_vehicle` sedan (feature `soft-body-car`) |
 
@@ -76,7 +77,8 @@ grid each tick. `Fleet` drives many agents that sense each other.
 - Reactive emergency braking + goal-approach deceleration + latched arrival
 - Multi-agent right-of-way yielding (`Fleet`)
 - Telemetry (state / distance-to-goal / cross-track error / target speed)
-- Verified on a dense city street-grid and under noisy lidar
+- Dead-reckoning state estimation that survives absolute-fix dropout
+- Verified on a dense city street-grid, under noisy lidar, and with lidar+camera fusion
 
 ## Honest limitations (future work)
 
