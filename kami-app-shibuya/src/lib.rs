@@ -591,6 +591,77 @@ pub async fn run_splat_viewer_v1(canvas_id: &str) -> Result<(), JsValue> {
     app.run().await.map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
+/// #3 — Splat backdrop + live physics: the real Mapillary-SfM cloud as the
+/// visual world, with kami-genesis floating-base agents doing full physics on a
+/// ground plane inside it. (Pairs the GsplatAdapter overlay with the
+/// ContactWorld sim — a coarse "physics on a captured city" integration.)
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub async fn run_splat_physics_v1(canvas_id: &str) -> Result<(), JsValue> {
+    console_error_panic_hook::set_once();
+    let _ = console_log::init_with_level(log::Level::Info);
+
+    let app = KamiApp::new_web(canvas_id)
+        .await
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .with_label("splat")
+        .with_hud_publish(true)
+        .with_camera(CameraMode::Orbit { target: Vec3::new(0.0, 6.0, 0.0), distance: 150.0, yaw: 0.6, pitch: 0.25 })
+        .with_input(InputMode::OrbitMouse);
+
+    let ctx = app.render_context();
+    let sky = kami_pipelines::SkyAdapter::new(ctx);
+    let cad = kami_pipelines::CadSceneAdapter::new(ctx);
+    let gsplat = GsplatAdapter::new(ctx);
+    SPLAT.with(|s| *s.borrow_mut() = Some(gsplat.clone()));
+
+    let to_render = Mat4::from_rotation_x(-std::f32::consts::FRAC_PI_2);
+    let (ap, an, ai) = unit_box();
+
+    // Ground plane the agents rest on (render y = 0).
+    let mut ground = MeshAcc::new();
+    ground.add_box(Mat4::from_translation(Vec3::new(0.0, -0.05, 0.0)) * Mat4::from_scale(Vec3::new(70.0, 0.1, 70.0)));
+    push_mesh(ctx, &cad, "ground", &ground, [0.22, 0.22, 0.26]);
+
+    // A handful of physics agents on the ground inside the splat.
+    let mut agents: Vec<Agent> = Vec::new();
+    let mut agent_batch: Vec<(usize, Vec<[f32; 3]>)> = Vec::new();
+    for k in 0..4 {
+        let size = Vec3::new(3.0, 1.6, 1.4);
+        let mut a = Agent::new(size, 900.0, vec![], AGENT_COLORS[k % 6]);
+        a.steer_phase = k as f32 * 1.7;
+        let ang = k as f32 * 1.57;
+        a.place(Vec3::new(8.0 * ang.cos(), 8.0 * ang.sin(), 3.0), ang);
+        let lp: Vec<[f32; 3]> = ap.iter().map(|v| [v[0] * size.x, v[1] * size.y, v[2] * size.z]).collect();
+        let idx = cad.batch_count();
+        cad.push_triangles(ctx, format!("agent_{k}"), format!("Agent {k}"), &lp, &an, &ai, a.color, to_render * a.body_world());
+        agent_batch.push((idx, lp));
+        agents.push(a);
+    }
+
+    let render = cad.clone();
+    let mut step: u64 = 0;
+    let app = app
+        .with_pipeline(sky)
+        .with_pipeline(cad)
+        .with_pipeline(gsplat)
+        .on_update(move |_world, camera, _dt| {
+            { let rc = camera.as_render_mut(); rc.near = 0.5; rc.far = 3000.0; }
+            for _ in 0..2 {
+                let t = step as f32 * DT;
+                for a in agents.iter_mut() { a.step(t); }
+                step += 1;
+            }
+            for (k, a) in agents.iter().enumerate() {
+                let (idx, lp) = &agent_batch[k];
+                render.replace_batch_world(*idx, lp, &an, &ai, a.color, to_render * a.body_world());
+            }
+        });
+
+    log::info!("[splat-physics] backend={:?}", app.backend());
+    app.run().await.map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
 #[cfg(target_family = "wasm")]
 fn push_mesh(
     ctx: &RenderContext,
