@@ -19,6 +19,9 @@ use crate::autopilot::{Autopilot, DriveState};
 use crate::plant::Plant;
 use crate::types::Pose2;
 
+/// Range (m) within which a closing head-on encounter triggers lane discipline.
+const NEGOTIATE_RANGE: f32 = 45.0;
+
 /// One member of a [`Fleet`].
 pub struct FleetAgent {
     pub plant: Box<dyn Plant>,
@@ -88,18 +91,40 @@ impl Fleet {
             .collect();
 
         for i in 0..self.agents.len() {
-            let (_, _, my_prio) = snap[i];
+            let (me, my_r, my_prio) = snap[i];
             let mut scene = self.static_scene.clone();
             for (j, &(p, r, prio)) in snap.iter().enumerate() {
                 if j == i {
                     continue;
                 }
-                let yields = prio > my_prio || (prio == my_prio && j < i);
-                if yields {
+                let rel = p.pos() - me.pos();
+                let dist = rel.length();
+                let ahead = dist > 1e-3 && rel.normalize().dot(me.forward()) > 0.5;
+                let closing = me.forward().dot(p.forward()) < -0.3;
+
+                if ahead && closing && dist < NEGOTIATE_RANGE {
+                    // Head-on: lane discipline. The real agent with an extra
+                    // pass-clearance margin (so we route WIDE right of it),
+                    // plus a "lane wall" to OUR left that blocks a left pass.
+                    // Both agents do this symmetrically ⇒ they pass right-to-right.
                     scene.add(Primitive::Sphere {
                         center: Vec3::new(p.x, p.y, self.mount_z),
+                        radius: r + 1.0,
+                    });
+                    let wall = p.pos() + me.left() * (2.0 * (my_r + r));
+                    scene.add(Primitive::Sphere {
+                        center: Vec3::new(wall.x, wall.y, self.mount_z),
                         radius: r,
                     });
+                } else {
+                    // Crossing / overtaking: priority + index right-of-way.
+                    let yields = prio > my_prio || (prio == my_prio && j < i);
+                    if yields {
+                        scene.add(Primitive::Sphere {
+                            center: Vec3::new(p.x, p.y, self.mount_z),
+                            radius: r,
+                        });
+                    }
                 }
             }
             let agent = &mut self.agents[i];

@@ -75,7 +75,7 @@ grid each tick. `Fleet` drives many agents that sense each other.
 - Lidar **and** depth-camera perception (multi-modal fusion)
 - Static + **dynamic** obstacles (fresh-each-tick map + path-blocked replan)
 - Reactive emergency braking (fused over lidar **and** depth cameras) + goal-approach deceleration + latched arrival
-- Multi-agent right-of-way yielding (`Fleet`), including **heterogeneous** fleets (car + drone + ship sharing a world)
+- Multi-agent coordination (`Fleet`): priority right-of-way, **head-on lane discipline**, and **heterogeneous** fleets (car + drone + ship sharing a world)
 - Telemetry (state / distance-to-goal / cross-track error / target speed)
 - Dead-reckoning state estimation that survives absolute-fix dropout
 - Verified on a dense city street-grid, under noisy lidar, and with lidar+camera fusion
@@ -86,8 +86,9 @@ grid each tick. `Fleet` drives many agents that sense each other.
 - Fixed-wing holds cruise altitude and **cannot hover**; it reaches a waypoint
   by flying to it and **loitering** (orbiting within a turn radius), since it
   can't capture a point — realistic for a fixed-wing, but not a precise stop.
-- Multi-agent is decentralised yielding, **not** cooperative negotiation; two
-  agents head-on in the *same* lane can still deadlock.
+- Multi-agent is decentralised (priority right-of-way + head-on lane
+  discipline), **not** cooperative trajectory negotiation; dense gridlock with
+  many agents in a tight space can still stall.
 - Reverse K-turn recovery exists but is **opt-in / off by default**
   (`stuck_limit = 0`); it backs out safely and gives up bounded, but does not
   yet reliably escape arbitrary tight corners.

@@ -51,6 +51,20 @@ fn perpendicular_crossing_stays_collision_free() {
 }
 
 #[test]
+fn head_on_lane_discipline_passes_without_collision() {
+    // Two agents swap positions along the same line (a head-on conflict that
+    // previously collided). Lane discipline makes both bias right, so they pass
+    // right-to-right and both reach their goals.
+    let a = car_agent(Pose2::new(0.0, 0.0, 0.0), Vec2::new(40.0, 0.0), 0);
+    let b = car_agent(Pose2::new(40.0, 0.0, std::f32::consts::PI), Vec2::new(0.0, 0.0), 0);
+    let mut fleet = Fleet::new(vec![a, b]);
+    let min_sep = run(&mut fleet, 3000);
+
+    assert!(fleet.all_arrived(), "both head-on agents should pass and arrive");
+    assert!(min_sep > 0.0, "lane discipline should avoid the collision (min sep {min_sep:.2} m)");
+}
+
+#[test]
 fn overtakes_a_parked_agent_on_the_path() {
     // B is parked squarely on A's straight line and has the right of way; the
     // moving A (lower priority) must route around it.
