@@ -2,7 +2,7 @@
 //! `step()` and runs a small driving state machine.
 
 use glam::Vec2;
-use kami_sensor_sim::LidarReturn;
+use kami_sensor_sim::{Camera, DepthImage, LidarReturn};
 
 use crate::classes::{VehicleClass, VehicleLimits};
 use crate::control::{curvature_speed_limit, PurePursuit, SpeedController};
@@ -55,6 +55,9 @@ pub struct AutopilotConfig {
     /// for a static world with occlusion/limited range. A 360° lidar makes the
     /// fresh-each-tick default sound.
     pub dynamic_obstacles: bool,
+    /// **World-frame** height band (m above ground) kept from depth-camera
+    /// back-projection — rejects the ground plane and overhead structure.
+    pub camera_z_band: (f32, f32),
 }
 
 impl AutopilotConfig {
@@ -71,6 +74,7 @@ impl AutopilotConfig {
             lateral_accel: 3.0,
             brake_margin: 1.6,
             dynamic_obstacles: true,
+            camera_z_band: (0.3, 2.5),
         }
     }
 }
@@ -141,6 +145,23 @@ impl Autopilot {
         sensor: Pose2,
         dt: f32,
     ) -> Command {
+        self.step_multimodal(pose, speed, lidar, &[], sensor, dt)
+    }
+
+    /// Multi-modal control tick: fuse the lidar sweep **and** zero or more
+    /// pinhole depth cameras into the occupancy map this tick. Reactive
+    /// emergency braking still uses the lidar forward cone, so a camera-only
+    /// configuration plans/routes but has no sub-planner reflex — pair a camera
+    /// with at least a forward lidar for the reactive layer.
+    pub fn step_multimodal(
+        &mut self,
+        pose: Pose2,
+        speed: f32,
+        lidar: &[LidarReturn],
+        cameras: &[(&DepthImage, &Camera)],
+        sensor: Pose2,
+        dt: f32,
+    ) -> Command {
         let Some(goal) = self.goal else {
             self.state = DriveState::Idle;
             return Command::stop();
@@ -152,11 +173,15 @@ impl Autopilot {
             return Command::stop();
         }
 
-        // 1. Perception — refresh (dynamic) or accumulate (static) the map.
+        // 1. Perception — refresh (dynamic) or accumulate (static) the map,
+        //    fusing lidar + every depth camera into one occupancy grid.
         if self.cfg.dynamic_obstacles {
             self.grid.clear();
         }
         self.grid.ingest_lidar(lidar, sensor, self.cfg.z_band);
+        for (depth, camera) in cameras {
+            self.grid.ingest_camera_depth(depth, camera, self.cfg.camera_z_band);
+        }
 
         // 2. Reactive emergency stop, independent of the planner.
         let stop_dist = self.braking_distance(speed);

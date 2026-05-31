@@ -7,9 +7,9 @@
 //! inflated by the vehicle footprint so the planner can treat the robot as a
 //! point.
 
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 use kami_pathfind::{CostGrid, GridPos};
-use kami_sensor_sim::LidarReturn;
+use kami_sensor_sim::{Camera, DepthImage, LidarReturn};
 
 use crate::types::Pose2;
 
@@ -80,6 +80,37 @@ impl OccupancyGrid {
             }
             let world = sensor.to_world(Vec2::new(p.x, p.y));
             self.mark_world(world);
+        }
+    }
+
+    /// Ingest a depth image from a pinhole [`Camera`] (RGB-D / stereo costmap
+    /// path, complementary to lidar). Each finite-depth pixel is back-projected
+    /// through the intrinsics to a camera-frame point, transformed to the world
+    /// (z-up), height-filtered by `world_z_band` (drop ground + overhead), and
+    /// rasterised to occupancy.
+    pub fn ingest_camera_depth(
+        &mut self,
+        depth: &DepthImage,
+        camera: &Camera,
+        world_z_band: (f32, f32),
+    ) {
+        let intr = camera.intrinsics;
+        let cam_to_world = camera.view.inverse();
+        for v in 0..depth.height {
+            for u in 0..depth.width {
+                let d = depth.pixels[(v * depth.width + u) as usize];
+                if !d.is_finite() {
+                    continue;
+                }
+                // Pixel + depth -> camera frame (+x right, +y down, +z forward).
+                let x = (u as f32 + 0.5 - intr.cx) * d / intr.fx;
+                let y = (v as f32 + 0.5 - intr.cy) * d / intr.fy;
+                let w = cam_to_world.transform_point3(Vec3::new(x, y, d));
+                if w.z < world_z_band.0 || w.z > world_z_band.1 {
+                    continue;
+                }
+                self.mark_world(Vec2::new(w.x, w.y));
+            }
         }
     }
 
@@ -264,5 +295,62 @@ mod tests {
         // A hit well above the band must be dropped (overhead clutter).
         let returns = [hit(Vec3::new(4.0, 0.0, 9.0), 4.0)];
         assert!(forward_clearance(&returns, 0.5, (-1.0, 1.5)).is_none());
+    }
+
+    #[test]
+    fn camera_depth_back_projects_to_occupancy() {
+        use kami_sensor_sim::{Camera, CameraIntrinsics};
+
+        // Camera at (0,0,1) looking down +x (world z-up).
+        let intr = CameraIntrinsics::from_hfov(160, 120, 70f32.to_radians());
+        let mut cam = Camera::new("c", "/c", intr);
+        cam.look_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(10.0, 0.0, 1.0), Vec3::new(0.0, 0.0, 1.0));
+
+        // A box face at x=8, sampled on a y×z grid within the obstacle band.
+        let mut pts = Vec::new();
+        let mut y = -1.0;
+        while y <= 1.0 {
+            let mut z = 0.5;
+            while z <= 2.0 {
+                pts.push(Vec3::new(8.0, y, z));
+                z += 0.1;
+            }
+            y += 0.1;
+        }
+        let depth = cam.render_points_to_depth_image(&pts);
+        assert!(depth.populated_count() > 0, "camera should see the box");
+
+        let mut grid = OccupancyGrid::centered(Vec2::new(5.0, 0.0), 12.0, 0.25);
+        grid.ingest_camera_depth(&depth, &cam, (0.3, 2.5));
+
+        // The back-projected box face should mark occupancy near (8, 0).
+        let (cx, cy) = grid.world_to_cell(Vec2::new(8.0, 0.0)).unwrap();
+        let mut any = false;
+        for dy in -2i32..=2 {
+            for dx in -2i32..=2 {
+                let x = (cx as i32 + dx) as usize;
+                let yy = (cy as i32 + dy) as usize;
+                if grid.is_occupied(x, yy) {
+                    any = true;
+                }
+            }
+        }
+        assert!(any, "depth back-projection should mark the box near x=8");
+    }
+
+    #[test]
+    fn camera_depth_height_band_rejects_overhead() {
+        use kami_sensor_sim::{Camera, CameraIntrinsics};
+        let intr = CameraIntrinsics::from_hfov(160, 120, 70f32.to_radians());
+        let mut cam = Camera::new("c", "/c", intr);
+        cam.look_at(Vec3::new(0.0, 0.0, 1.0), Vec3::new(10.0, 0.0, 1.0), Vec3::new(0.0, 0.0, 1.0));
+        // A gantry far above the band (world z≈6).
+        let pts: Vec<Vec3> = (0..20).map(|i| Vec3::new(8.0, -1.0 + 0.1 * i as f32, 6.0)).collect();
+        let depth = cam.render_points_to_depth_image(&pts);
+
+        let mut grid = OccupancyGrid::centered(Vec2::new(5.0, 0.0), 12.0, 0.25);
+        grid.ingest_camera_depth(&depth, &cam, (0.3, 2.5));
+        assert_eq!(grid.to_cost_grid().iter().flatten().filter(|c| **c == 0).count(), 0,
+            "overhead structure must not appear in the ground costmap");
     }
 }
