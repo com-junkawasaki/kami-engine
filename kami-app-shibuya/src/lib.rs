@@ -550,6 +550,47 @@ pub async fn run_shibuya_v1(canvas_id: &str) -> Result<(), JsValue> {
     app.run().await.map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
+/// Standalone 3-D Gaussian-Splat viewer: sky + GsplatAdapter, orbit camera
+/// framed on a cloud centred at the origin (radius ≈ 60, normalised by
+/// `opensfm_to_splat.py`). The JS shell loads a `.splat` via `shibuyaLoadSplat`.
+/// Used to view REAL Mapillary-SfM point clouds (Tsuru / Boston / …).
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub async fn run_splat_viewer_v1(canvas_id: &str) -> Result<(), JsValue> {
+    console_error_panic_hook::set_once();
+    let _ = console_log::init_with_level(log::Level::Info);
+
+    let app = KamiApp::new_web(canvas_id)
+        .await
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .with_label("splat")
+        .with_hud_publish(true)
+        .with_camera(CameraMode::Orbit {
+            target: Vec3::ZERO,
+            distance: 170.0,
+            yaw: 0.6,
+            pitch: 0.22,
+        })
+        .with_input(InputMode::OrbitMouse);
+
+    let ctx = app.render_context();
+    let sky = kami_pipelines::SkyAdapter::new(ctx);
+    let gsplat = GsplatAdapter::new(ctx);
+    SPLAT.with(|s| *s.borrow_mut() = Some(gsplat.clone()));
+
+    let app = app
+        .with_pipeline(sky)
+        .with_pipeline(gsplat)
+        .on_update(move |_world, camera, _dt| {
+            let rc = camera.as_render_mut();
+            rc.near = 0.5;
+            rc.far = 3000.0;
+        });
+
+    log::info!("[splat-viewer] backend={:?}", app.backend());
+    app.run().await.map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
 #[cfg(target_family = "wasm")]
 fn push_mesh(
     ctx: &RenderContext,
