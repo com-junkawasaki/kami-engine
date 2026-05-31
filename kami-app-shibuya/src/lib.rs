@@ -24,9 +24,55 @@ use kami_pipelines::unit_box;
 use serde::Deserialize;
 
 #[cfg(target_family = "wasm")]
+use kami_pipelines::{GsplatAdapter, GsplatFormat};
+#[cfg(target_family = "wasm")]
 use kami_render::RenderContext;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
+
+// 3-D Gaussian-Splat overlay handle, set during `run_shibuya_v1`, driven by the
+// JS load/clear hooks. The detailed splat comes from `trainGsplatFromMapillary`
+// (Mapillary→COLMAP→gsplat, ADR-2605092800); a coarse placeholder ships for the
+// render-path proof.
+#[cfg(target_family = "wasm")]
+thread_local! {
+    static SPLAT: std::cell::RefCell<Option<GsplatAdapter>> = const { std::cell::RefCell::new(None) };
+}
+
+/// JS hook: load a `.splat` (antimatter15 32-byte) cloud into the 3DGS overlay.
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_name = shibuyaLoadSplat)]
+pub fn shibuya_load_splat(bytes: &[u8]) -> bool {
+    SPLAT.with(|s| {
+        s.borrow()
+            .as_ref()
+            .map(|a| a.upsert_from_bytes("shibuya", bytes, GsplatFormat::Splat).is_ok())
+            .unwrap_or(false)
+    })
+}
+
+/// JS hook: load a `.ply` (gsplat training output) cloud into the 3DGS overlay.
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_name = shibuyaLoadSplatPly)]
+pub fn shibuya_load_splat_ply(bytes: &[u8]) -> bool {
+    SPLAT.with(|s| {
+        s.borrow()
+            .as_ref()
+            .map(|a| a.upsert_from_bytes("shibuya", bytes, GsplatFormat::Ply).is_ok())
+            .unwrap_or(false)
+    })
+}
+
+/// JS hook: remove the 3DGS overlay (back to the box city).
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen(js_name = shibuyaClearSplat)]
+pub fn shibuya_clear_splat() {
+    SPLAT.with(|s| {
+        if let Some(a) = s.borrow().as_ref() {
+            a.remove("shibuya");
+        }
+    });
+}
 
 const SCENE_JSON: &str =
     include_str!("../../../../70-tools/e7m-sim/scenes/shibuya/shibuya_scramble.scene.json");
@@ -357,6 +403,9 @@ pub async fn run_shibuya_v1(canvas_id: &str) -> Result<(), JsValue> {
     let ctx = app.render_context();
     let sky = kami_pipelines::SkyAdapter::new(ctx);
     let cad = kami_pipelines::CadSceneAdapter::new(ctx);
+    // 3-D Gaussian-Splat overlay (empty until a .splat/.ply is loaded via JS).
+    let gsplat = GsplatAdapter::new(ctx);
+    SPLAT.with(|s| *s.borrow_mut() = Some(gsplat.clone()));
 
     // sim (z-up) → render (y-up); recentre the block on the origin.
     let to_render = Mat4::from_rotation_x(-std::f32::consts::FRAC_PI_2)
@@ -463,6 +512,7 @@ pub async fn run_shibuya_v1(canvas_id: &str) -> Result<(), JsValue> {
     let app = app
         .with_pipeline(sky)
         .with_pipeline(cad)
+        .with_pipeline(gsplat)
         .on_update(move |_world, camera, _dt| {
             // The default far plane (256 m) clips this ~900 m city block; widen
             // the frustum so the whole scene is visible (reset each frame in
