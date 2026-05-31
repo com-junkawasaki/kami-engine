@@ -131,3 +131,58 @@ fn menger_curvature(a: Vec2, b: Vec2, c: Vec2) -> f32 {
         2.0 * area2 / denom
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pp() -> PurePursuit {
+        PurePursuit { lookahead: 3.0, lookahead_gain: 0.0, turn_radius_ref: 4.0 }
+    }
+
+    #[test]
+    fn pursuit_steers_left_toward_a_left_target() {
+        let pose = Pose2::new(0.0, 0.0, 0.0); // facing +x
+        let path = [Vec2::new(0.0, 0.0), Vec2::new(5.0, 5.0)];
+        let (steer, _) = pp().steer(pose, 0.0, &path);
+        assert!(steer > 0.0, "left target → positive (left) steer, got {steer}");
+    }
+
+    #[test]
+    fn pursuit_hard_turns_when_target_is_behind() {
+        let pose = Pose2::new(0.0, 0.0, 0.0); // facing +x
+        let left_behind = [Vec2::new(0.0, 0.0), Vec2::new(-5.0, 1.0)];
+        let right_behind = [Vec2::new(0.0, 0.0), Vec2::new(-5.0, -1.0)];
+        assert_eq!(pp().steer(pose, 0.0, &left_behind).0, 1.0);
+        assert_eq!(pp().steer(pose, 0.0, &right_behind).0, -1.0);
+    }
+
+    #[test]
+    fn speed_controller_throttles_then_brakes() {
+        let mut sc = SpeedController::new(0.6, 0.0, 0.0);
+        let (thr, brk) = sc.update(10.0, 0.0, 0.1);
+        assert!(thr > 0.0 && brk == 0.0, "under-speed → throttle");
+        let (thr, brk) = sc.update(0.0, 5.0, 0.1);
+        assert!(thr == 0.0 && brk > 0.0, "over-speed → brake");
+    }
+
+    #[test]
+    fn menger_curvature_matches_known_values() {
+        // Collinear → zero curvature.
+        let k0 = menger_curvature(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(2.0, 0.0));
+        assert!(k0 < 1e-6, "collinear curvature {k0}");
+        // Three points on a radius-2 circle → curvature 0.5.
+        let k = menger_curvature(Vec2::new(2.0, 0.0), Vec2::new(0.0, 2.0), Vec2::new(-2.0, 0.0));
+        assert!((k - 0.5).abs() < 1e-5, "R=2 circle curvature {k}");
+    }
+
+    #[test]
+    fn curvature_speed_limit_slows_in_a_bend() {
+        let path = [Vec2::new(2.0, 0.0), Vec2::new(0.0, 2.0), Vec2::new(-2.0, 0.0)];
+        let v = curvature_speed_limit(&path, 1, 3.0); // a_lat=3, kappa=0.5
+        assert!((v - (3.0f32 / 0.5).sqrt()).abs() < 1e-4, "v={v}");
+        // A straight (degenerate) path imposes no limit.
+        let straight = [Vec2::new(0.0, 0.0), Vec2::new(5.0, 0.0)];
+        assert!(curvature_speed_limit(&straight, 0, 3.0).is_infinite());
+    }
+}

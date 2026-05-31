@@ -179,3 +179,74 @@ pub fn forward_clearance(returns: &[LidarReturn], cone: f32, z_band: (f32, f32))
     }
     nearest.is_finite().then_some(nearest)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use glam::Vec3;
+
+    fn hit(point_sensor: Vec3, range: f32) -> LidarReturn {
+        LidarReturn { range, point_sensor, prim_index: 0 }
+    }
+
+    #[test]
+    fn cell_world_round_trip() {
+        let g = OccupancyGrid::centered(Vec2::new(10.0, -5.0), 20.0, 0.5);
+        for &p in &[Vec2::new(10.0, -5.0), Vec2::new(3.5, 2.0), Vec2::new(-7.0, -12.0)] {
+            let (cx, cy) = g.world_to_cell(p).expect("inside");
+            let c = g.cell_to_world(cx, cy);
+            assert!(c.distance(p) <= 0.5 * std::f32::consts::SQRT_2 + 1e-4, "{p:?} -> {c:?}");
+        }
+    }
+
+    #[test]
+    fn out_of_bounds_is_none() {
+        let g = OccupancyGrid::centered(Vec2::ZERO, 5.0, 0.5);
+        assert!(g.world_to_cell(Vec2::new(100.0, 0.0)).is_none());
+    }
+
+    #[test]
+    fn mark_and_inflate_and_cost_grid() {
+        let mut g = OccupancyGrid::centered(Vec2::ZERO, 10.0, 0.5);
+        g.mark_world(Vec2::new(0.0, 0.0));
+        let (cx, cy) = g.world_to_cell(Vec2::ZERO).unwrap();
+        assert!(g.is_occupied(cx, cy));
+
+        let inflated = g.inflated(1.0); // 2 cells
+        let nbr = g.world_to_cell(Vec2::new(0.8, 0.0)).unwrap();
+        assert!(inflated.is_occupied(nbr.0, nbr.1), "inflation should reach 0.8 m");
+        // Original grid is untouched by inflated().
+        assert!(!g.is_occupied(nbr.0, nbr.1));
+
+        let cost = inflated.to_cost_grid();
+        assert_eq!(cost[cy][cx], 0, "occupied cell is a wall (cost 0)");
+    }
+
+    #[test]
+    fn nearest_free_escapes_an_occupied_cell() {
+        let mut g = OccupancyGrid::centered(Vec2::ZERO, 10.0, 0.5);
+        g.mark_world(Vec2::ZERO);
+        let gp = g.nearest_free(Vec2::ZERO).expect("a free neighbour exists");
+        assert!(!g.is_occupied(gp.x as usize, gp.y as usize));
+    }
+
+    #[test]
+    fn forward_clearance_picks_nearest_in_cone() {
+        let pose = Pose2::new(0.0, 0.0, 0.0);
+        let returns = [
+            hit(Vec3::new(8.0, 0.0, 0.0), 8.0),  // ahead, far
+            hit(Vec3::new(3.0, 0.2, 0.0), 3.0),  // ahead, near
+            hit(Vec3::new(0.0, 5.0, 0.0), 5.0),  // 90° abeam — outside cone
+        ];
+        let _ = pose;
+        let c = forward_clearance(&returns, 0.35, (-1.0, 1.0)).unwrap();
+        assert!((c - 3.0).abs() < 0.05, "nearest in cone ≈ 3 m, got {c}");
+    }
+
+    #[test]
+    fn forward_clearance_height_band_rejects() {
+        // A hit well above the band must be dropped (overhead clutter).
+        let returns = [hit(Vec3::new(4.0, 0.0, 9.0), 4.0)];
+        assert!(forward_clearance(&returns, 0.5, (-1.0, 1.5)).is_none());
+    }
+}

@@ -92,3 +92,48 @@ pub struct Obstacle {
     pub center: Vec2,
     pub radius: f32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn forward_and_left_are_orthonormal() {
+        let p = Pose2::new(3.0, -1.0, 0.9);
+        assert!((p.forward().length() - 1.0).abs() < 1e-6);
+        assert!((p.left().length() - 1.0).abs() < 1e-6);
+        assert!(p.forward().dot(p.left()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn local_world_round_trip() {
+        let p = Pose2::new(2.0, 5.0, 0.7);
+        let w = Vec2::new(9.0, -4.0);
+        let back = p.to_world(p.to_local(w));
+        assert!(back.distance(w) < 1e-5, "round-trip drift {back:?}");
+    }
+
+    #[test]
+    fn point_dead_ahead_is_positive_x_local() {
+        let p = Pose2::new(0.0, 0.0, std::f32::consts::FRAC_PI_2); // facing +y
+        let local = p.to_local(Vec2::new(0.0, 4.0)); // 4 m ahead
+        assert!(local.x > 3.99 && local.y.abs() < 1e-5, "{local:?}");
+    }
+
+    #[test]
+    fn point_to_the_left_has_positive_y_local() {
+        let p = Pose2::new(0.0, 0.0, 0.0); // facing +x
+        let local = p.to_local(Vec2::new(0.0, 2.0)); // 2 m to the left (+y)
+        assert!(local.y > 1.99, "{local:?}");
+    }
+
+    #[test]
+    fn command_clamp_saturates() {
+        let mut c = Command { throttle: 2.0, brake: -1.0, steer: -3.0, handbrake: 5.0 };
+        c.clamp();
+        assert_eq!(c.throttle, 1.0);
+        assert_eq!(c.brake, 0.0);
+        assert_eq!(c.steer, -1.0);
+        assert_eq!(c.handbrake, 1.0);
+    }
+}

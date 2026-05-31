@@ -315,3 +315,80 @@ impl Plant for Multirotor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::classes::VehicleClass;
+
+    fn full_throttle() -> Command {
+        Command { throttle: 1.0, brake: 0.0, steer: 0.0, handbrake: 0.0 }
+    }
+
+    #[test]
+    fn isa_density_decreases_with_altitude() {
+        assert!((isa_density(0.0) - 1.225).abs() < 1e-3);
+        assert!(isa_density(2000.0) < isa_density(0.0));
+        assert!(isa_density(8000.0) < isa_density(2000.0));
+    }
+
+    #[test]
+    fn ship_surge_reaches_steady_state_near_max_speed() {
+        let limits = VehicleClass::Ship.limits();
+        let mut ship = ShipHydro::new(Pose2::new(0.0, 0.0, 0.0), limits);
+        for _ in 0..1200 {
+            ship.step(full_throttle(), 0.1); // 120 s
+        }
+        // Quadratic drag balances thrust just below max_speed; no overshoot.
+        assert!(ship.u > 0.85 * limits.max_speed, "surge {} < target", ship.u);
+        assert!(ship.u <= limits.max_speed + 0.1, "overshoot {}", ship.u);
+    }
+
+    #[test]
+    fn ship_rudder_has_no_authority_at_rest() {
+        // Rudder moment ∝ u²: a stationary ship cannot yaw (physically real).
+        let mut ship = ShipHydro::new(Pose2::new(0.0, 0.0, 0.0), VehicleClass::Ship.limits());
+        let hard_over = Command { throttle: 0.0, brake: 0.0, steer: 1.0, handbrake: 0.0 };
+        for _ in 0..50 {
+            ship.step(hard_over, 0.1);
+        }
+        assert!(ship.r.abs() < 1e-3 && ship.pose.yaw.abs() < 1e-3, "yawed at rest: r={}", ship.r);
+    }
+
+    #[test]
+    fn fixed_wing_stall_speed_matches_formula() {
+        let plane = FixedWing::new(Pose2::new(0.0, 0.0, 0.0), 0.0, VehicleClass::Aircraft.limits());
+        let rho = isa_density(0.0);
+        let expected = (2.0 * 1200.0 * G / (rho * 16.0 * 1.4)).sqrt();
+        assert!((plane.stall_speed() - expected).abs() < 0.1, "{}", plane.stall_speed());
+    }
+
+    #[test]
+    fn fixed_wing_holds_airspeed_above_stall_under_thrust() {
+        let mut plane = FixedWing::new(Pose2::new(0.0, 0.0, 0.0), 500.0, VehicleClass::Aircraft.limits());
+        let stall = plane.stall_speed();
+        for _ in 0..400 {
+            plane.step(full_throttle(), 1.0 / 30.0);
+        }
+        assert!(plane.airspeed > stall, "airspeed {} dropped below stall {}", plane.airspeed, stall);
+    }
+
+    #[test]
+    fn multirotor_tilts_forward_and_translates_along_heading() {
+        let mut d = Multirotor::new(Pose2::new(0.0, 0.0, 0.0), VehicleClass::Drone.limits());
+        for _ in 0..100 {
+            d.step(full_throttle(), 1.0 / 50.0); // 2 s
+        }
+        assert!(d.tilt > 0.05, "should tilt to translate, tilt={}", d.tilt);
+        assert!(d.pose.x > 1.0 && d.pose.y.abs() < 0.5, "moves +x along heading: {:?}", d.pose);
+    }
+
+    #[test]
+    fn multirotor_holds_position_under_zero_command() {
+        let mut d = Multirotor::new(Pose2::new(4.0, -2.0, 0.3), VehicleClass::Drone.limits());
+        for _ in 0..100 {
+            d.step(Command::coast(), 1.0 / 50.0);
+        }
+        assert!(d.speed() < 0.2, "should not drift when idle, v={}", d.speed());
+    }
+}
