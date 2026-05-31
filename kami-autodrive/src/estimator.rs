@@ -13,6 +13,20 @@ use std::f32::consts::PI;
 use crate::types::Pose2;
 
 /// Unicycle dead-reckoning estimator with complementary-filter correction.
+///
+/// ```
+/// use kami_autodrive::{StateEstimator, Pose2};
+///
+/// let mut est = StateEstimator::new(Pose2::new(0.0, 0.0, 0.0));
+/// // 1 s of straight-line IMU at 2 m/s² (no turn).
+/// for _ in 0..100 {
+///     est.predict(2.0, 0.0, 1.0 / 100.0);
+/// }
+/// assert!((est.speed() - 2.0).abs() < 1e-3);
+/// // An absolute fix snaps the estimate back onto truth.
+/// est.correct(Pose2::new(0.9, 0.0, 0.0), 1.0);
+/// assert!((est.pose().x - 0.9).abs() < 1e-4);
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct StateEstimator {
     pose: Pose2,

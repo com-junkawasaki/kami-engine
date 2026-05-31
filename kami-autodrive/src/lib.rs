@@ -30,6 +30,34 @@
 //! `isaacsim` (Isaac Sim 4.x). Constitutional note: per ADR-2605242000
 //! (wadachi), any real-world deployment is SAE L4-ceiling, Transparent Force
 //! gated; this crate is a simulation/design substrate, not a fielded controller.
+//!
+//! # Example
+//!
+//! Drive a kinematic car to a goal on open ground (empty lidar sweep):
+//!
+//! ```
+//! use kami_autodrive::{Autopilot, AutopilotConfig, BicycleModel, DriveState, Plant, Pose2, VehicleClass};
+//! use glam::Vec2;
+//!
+//! let start = Pose2::new(0.0, 0.0, 0.0);
+//! let mut car = BicycleModel::new(start, VehicleClass::Car.limits());
+//! let mut ap = Autopilot::new(AutopilotConfig::for_class(VehicleClass::Car), start);
+//! ap.set_goal(Vec2::new(20.0, 0.0));
+//!
+//! let dt = 1.0 / 30.0;
+//! for _ in 0..600 {
+//!     let pose = car.pose();
+//!     if ap.state == DriveState::Arrived {
+//!         break;
+//!     }
+//!     // `&[]` is an empty lidar sweep (no obstacles); a real run passes a
+//!     // `kami_sensor_sim` ring sweep taken at `pose`.
+//!     let cmd = ap.step(pose, car.speed(), &[], pose, dt);
+//!     car.step(cmd, dt);
+//! }
+//! assert_eq!(ap.state, DriveState::Arrived);
+//! assert!(car.pose().x > 18.0);
+//! ```
 
 pub mod autopilot;
 pub mod classes;
