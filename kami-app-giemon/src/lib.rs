@@ -8,6 +8,9 @@
 //! Orbit camera + pick-to-highlight. No external assets.
 
 use glam::{Mat4, Quat, Vec3};
+
+pub mod mold_field;
+pub use mold_field::MoldField;
 #[cfg(target_family = "wasm")]
 use kami_app::{CameraMode, InputMode, KamiApp};
 use kami_pipelines::{unit_box, unit_cylinder};
@@ -240,6 +243,284 @@ pub async fn run_giemon_sim_v1(canvas_id: &str) -> Result<(), JsValue> {
         });
 
     log::info!("[giemon-sim] backend={:?}", app.backend());
+    app.run().await.map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+// ── kabitori (黴取り / mold-removal) probe ──────────────────────────────────
+// A slender cleaning manipulator for removing EXISTING mold from confined
+// surfaces (A/C drain pans + blower housings, building gaps, HVAC ducts).
+// Mixed prismatic-feed + revolute-segment articulation loaded from URDF and
+// driven by the same kami-genesis 3-D spatial solver + contact solver as the
+// arm above. The single contact ground plane stands in for the mold-laden
+// surface; the brush head carries a capsule "bristle cross" whose endpoints
+// scrub that plane under Coulomb friction. Clean-room (ADR-2605261800 N1..N9).
+//
+// Honest scope: rigid-body dynamics + ground-plane contact only. The mold
+// biofilm is NOT an erodible material (no FEM/MPM solver in R1.1), and the
+// duct/gap is a single plane (no wall colliders yet). What this validates:
+// reach, contact-force regulation, and brush scrub shear on the target plane.
+
+const KABITORI_URDF: &str =
+    include_str!("../../../../70-tools/e7m-sim/scenes/giemon_kabitori/giemon_kabitori.urdf");
+const KABITORI_DT: f32 = 1.0 / 240.0;
+/// Target mold surface = the contact ground plane, this far below the fixed
+/// base (metres). The probe feeds in and droops its brush down onto it.
+const KABITORI_SURFACE_Z: f32 = -0.22;
+
+/// Parse the kabitori URDF and build the 3-D articulation config.
+pub fn giemon_kabitori_config() -> kami_genesis::Articulation3dConfig {
+    let sys =
+        kami_articulated::parse_urdf(KABITORI_URDF).expect("giemon_kabitori.urdf parses");
+    kami_genesis::Articulation3dConfig::from_articulated_system(
+        &sys,
+        Vec3::new(0.0, 0.0, -9.81),
+        KABITORI_DT,
+    )
+}
+
+/// Brush + distal-probe colliders (body-frame), vs the mold-surface plane.
+/// The brush head is a capsule "cross" (±y and ±z bars) so a bristle endpoint
+/// is near the surface at any spin angle; the distal segment gets a body
+/// capsule so the probe shaft cannot pass through the surface either.
+pub fn kabitori_colliders(
+    cfg: &kami_genesis::Articulation3dConfig,
+) -> Vec<(usize, kami_genesis::Collider)> {
+    use kami_genesis::Collider;
+    let mut c = Vec::new();
+    if let Some(b) = cfg.body_index("link_seg2") {
+        c.push((b, Collider::Capsule {
+            a: Vec3::new(0.0, 0.0, 0.0),
+            b: Vec3::new(0.08, 0.0, 0.0),
+            radius: 0.012,
+        }));
+    }
+    if let Some(b) = cfg.body_index("link_brush") {
+        // Bristle cross through the head at body-x = 0.02.
+        c.push((b, Collider::Capsule {
+            a: Vec3::new(0.02, -0.025, 0.0),
+            b: Vec3::new(0.02, 0.025, 0.0),
+            radius: 0.012,
+        }));
+        c.push((b, Collider::Capsule {
+            a: Vec3::new(0.02, 0.0, -0.025),
+            b: Vec3::new(0.02, 0.0, 0.025),
+            radius: 0.012,
+        }));
+    }
+    c
+}
+
+/// Brush bristle-cross endpoints (body frame) — used both as colliders and as
+/// the scrub footprint sample points.
+const KABITORI_BRUSH_TIPS: [Vec3; 4] = [
+    Vec3::new(0.02, -0.025, 0.0),
+    Vec3::new(0.02, 0.025, 0.0),
+    Vec3::new(0.02, 0.0, -0.025),
+    Vec3::new(0.02, 0.0, 0.025),
+];
+const KABITORI_BRUSH_RADIUS: f32 = 0.012;
+/// Mold removed per metre of tangential brush slip while pressed (coverage/m).
+const KABITORI_SCRUB_RATE: f32 = 6.0;
+/// Brush footprint radius on the surface (m).
+const KABITORI_BRUSH_FOOTPRINT: f32 = 0.03;
+
+/// Advance the kabitori sim one contact step, then erode the mold field where
+/// the brush both presses the surface and slides over it. Returns the coverage
+/// removed this step. Erosion ∝ tangential slip speed × dt (a pressure proxy is
+/// folded into `KABITORI_SCRUB_RATE`); zero when the brush is not in contact.
+pub fn kabitori_scrub_step(
+    cfg: &kami_genesis::Articulation3dConfig,
+    cw: &kami_genesis::ContactWorld,
+    st: &mut kami_genesis::Articulation3dState,
+    tau: &[f32],
+    mold: &mut MoldField,
+) -> f32 {
+    cw.step(cfg, st, tau);
+    let bi = match cfg.body_index("link_brush") {
+        Some(b) => b,
+        None => return 0.0,
+    };
+    let (r, p0) = cfg.link_world(&st.q)[bi];
+    // Lowest bristle-tip endpoint ≈ the surface contact point.
+    let mut cp = p0;
+    let mut zmin = f32::INFINITY;
+    for tip in KABITORI_BRUSH_TIPS {
+        let w = p0 + r * tip;
+        if w.z < zmin {
+            zmin = w.z;
+            cp = w;
+        }
+    }
+    // Pressing the surface? (within a thin band above the plane.)
+    let surface = cw.params.ground_z;
+    if zmin > surface + KABITORI_BRUSH_RADIUS + 0.012 {
+        return 0.0;
+    }
+    // Tangential slip speed of the contact point (horizontal components).
+    let pj = cfg.point_jacobian(bi, cp, &st.q);
+    let mut v = Vec3::ZERO;
+    for d in 0..cfg.ndof {
+        v += st.qdot[d] * Vec3::from(pj[d]);
+    }
+    let v_tangent = (v.x * v.x + v.y * v.y).sqrt();
+    let intensity = KABITORI_SCRUB_RATE * v_tangent * cfg.dt;
+    mold.scrub(cp.x, cp.y, KABITORI_BRUSH_FOOTPRINT, intensity)
+}
+
+const SURFACE: [f32; 3] = [0.30, 0.34, 0.30]; // mold-laden target surface (dark)
+const MOLD: [f32; 3] = [0.34, 0.42, 0.28]; // mold patch tint (olive-green)
+const BRUSH: [f32; 3] = [0.93, 0.84, 0.30]; // brush head (bristle yellow)
+const PROBE: [f32; 3] = [0.62, 0.66, 0.70]; // probe shaft (steel)
+
+/// Physics-driven kabitori (mold-removal) probe demo. The probe feeds into a
+/// gap, droops its brush onto the mold surface (contact ground plane), and
+/// scrubs autonomously (continuous brush spin + yaw sweep) — all advanced by
+/// the kami-genesis 3-D solver + contact solver. Clean-room (ADR-2605261800).
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub async fn run_giemon_kabitori_sim_v1(canvas_id: &str) -> Result<(), JsValue> {
+    use glam::Vec2;
+    use kami_genesis::{Articulation3dState, ContactParams, ContactWorld, Obstacle};
+
+    console_error_panic_hook::set_once();
+    let _ = console_log::init_with_level(log::Level::Info);
+
+    let app = KamiApp::new_web(canvas_id)
+        .await
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .with_label("giemon-kabitori")
+        .with_hud_publish(true)
+        .with_camera(CameraMode::Orbit {
+            target: Vec3::new(0.34, -0.10, 0.0),
+            distance: 1.05,
+            yaw: 0.6,
+            pitch: 0.18,
+        })
+        .with_input(InputMode::OrbitMouse);
+
+    let ctx = app.render_context();
+    let sky = kami_pipelines::SkyAdapter::new(ctx);
+    let cad = kami_pipelines::CadSceneAdapter::new(ctx);
+    let (bp, bn, bi) = unit_box();
+
+    let cfg = giemon_kabitori_config();
+    let nb = cfg.n_bodies();
+    log::info!("[kabitori-sim] probe: bodies={nb} ndof={}", cfg.ndof);
+
+    // kami-genesis is z-up; the renderer is y-up → rotate −90° about X.
+    // (world (x,y,z) → render (x, z, −y)), so the surface at world z=−0.22
+    // renders at y=−0.22.
+    let to_render = Mat4::from_rotation_x(-std::f32::consts::FRAC_PI_2);
+    let surf_y = KABITORI_SURFACE_Z;
+
+    // Mold-laden target surface (the contact plane) + two gap walls (real
+    // physics obstacles, §1) flanking the work zone + the base mount.
+    push_box(ctx, &cad, "surface", "Mold surface", SURFACE,
+        Vec3::new(1.4, 0.01, 1.0), Vec3::new(0.45, surf_y - 0.005, 0.0), Quat::IDENTITY);
+    push_box(ctx, &cad, "gap_wall_l", "Gap wall L", SURFACE,
+        Vec3::new(1.4, 0.30, 0.02), Vec3::new(0.45, surf_y + 0.15, -0.18), Quat::IDENTITY);
+    push_box(ctx, &cad, "gap_wall_r", "Gap wall R", SURFACE,
+        Vec3::new(1.4, 0.30, 0.02), Vec3::new(0.45, surf_y + 0.15, 0.18), Quat::IDENTITY);
+    push_box(ctx, &cad, "base_mount", "Base mount", ALUMINIUM,
+        Vec3::new(0.10, 0.06, 0.10), Vec3::new(0.0, 0.03, 0.0), Quat::IDENTITY);
+
+    // Live mold field (§2): a grid of cells on the surface, world (x, y),
+    // coloured by remaining coverage. Erodes where the brush scrubs.
+    let mold_origin = Vec2::new(0.18, -0.15);
+    let mold_cell = 0.03_f32;
+    let (mold_nx, mold_ny) = (16_usize, 10_usize);
+    let mut mold = MoldField::new(mold_origin, mold_cell, mold_nx, mold_ny, 1.0);
+    let mold_start = cad.batch_count();
+    let cell_local = Mat4::from_scale(Vec3::new(mold_cell * 0.92, 0.004, mold_cell * 0.92));
+    for iy in 0..mold_ny {
+        for ix in 0..mold_nx {
+            let wx = mold_origin.x + (ix as f32 + 0.5) * mold_cell;
+            let wy = mold_origin.y + (iy as f32 + 0.5) * mold_cell;
+            // world (wx, wy, surf) → render (wx, surf, −wy)
+            let m = Mat4::from_translation(Vec3::new(wx, surf_y + 0.003, -wy)) * cell_local;
+            cad.push_triangles(ctx, format!("mold_{ix}_{iy}"), format!("Mold {ix},{iy}"),
+                &bp, &bn, &bi, MOLD, m);
+        }
+    }
+
+    // Per-body probe geometry (thin shaft, fatter brush head at the leaf).
+    let segs: Vec<Vec3> = (0..nb).map(|i| link_segment(&cfg, i)).collect();
+    let thicks: Vec<f32> = (0..nb)
+        .map(|i| if i + 1 == nb { 0.030 } else { (0.026 - 0.002 * i as f32).max(0.012) })
+        .collect();
+    let link_local: Vec<Mat4> = (0..nb).map(|i| segment_box(segs[i], thicks[i])).collect();
+
+    let link_start = cad.batch_count();
+    let fk0 = cfg.fk_world(&vec![0.0; cfg.ndof]);
+    for i in 0..nb {
+        let color = if i + 1 == nb { BRUSH } else { PROBE };
+        cad.push_triangles(ctx, format!("kab_link_{i}"), format!("Probe link {i}"),
+            &bp, &bn, &bi, color, to_render * fk0[i] * link_local[i]);
+    }
+
+    let contacts = ContactWorld::new(
+        kabitori_colliders(&cfg),
+        ContactParams { ground_z: KABITORI_SURFACE_Z, friction: 0.9, ..Default::default() },
+    )
+    .with_obstacles(vec![
+        Obstacle::Plane { normal: Vec3::new(0.0, 1.0, 0.0), offset: -0.18 },
+        Obstacle::Plane { normal: Vec3::new(0.0, -1.0, 0.0), offset: -0.18 },
+    ]);
+
+    // Start straight out, above the surface; the controller drives it in.
+    let mut state = Articulation3dState::zeros(cfg.ndof);
+    state.q[2] = 0.2;
+    let mut frame: u64 = 0;
+
+    let render = cad.clone();
+    let pick = cad.clone();
+    let app = app
+        .with_pipeline(sky)
+        .with_pipeline(cad)
+        .on_update(move |_world, camera, _dt| {
+            // Autonomous scrub program: feed in, dip pitch, curl segments to
+            // hold the brush on the surface, spin the brush, sweep the yaw.
+            let t = frame as f32 / 240.0;
+            let mut tau = vec![0.0_f32; cfg.ndof];
+            tau[0] = if state.q[0] < 0.28 { 8.0 } else { 0.0 }; // feed in, then hold
+            tau[1] = 1.2 * (0.7 * t).sin();                     // yaw sweep (scrub L↔R)
+            tau[2] = 4.0;                                       // pitch press-down
+            tau[3] = 2.0;                                       // seg1 curl
+            tau[4] = 1.2;                                       // seg2 curl
+            tau[5] = 4.0;                                       // brush spin (constant)
+            for _ in 0..4 {
+                // Step physics AND erode the mold where the brush scrubs (§2).
+                kabitori_scrub_step(&cfg, &contacts, &mut state, &tau, &mut mold);
+            }
+            frame += 1;
+            let fk = cfg.fk_world(&state.q);
+            for i in 0..nb {
+                let color = if i + 1 == nb { BRUSH } else { PROBE };
+                render.replace_batch_world(link_start + i, &bp, &bn, &bi, color,
+                    to_render * fk[i] * link_local[i]);
+            }
+            // Recolour mold cells by remaining coverage (green mold → clean).
+            for iy in 0..mold_ny {
+                for ix in 0..mold_nx {
+                    let cov = mold.coverage[iy * mold_nx + ix];
+                    let color = [
+                        SURFACE[0] + (MOLD[0] - SURFACE[0]) * cov,
+                        SURFACE[1] + (MOLD[1] - SURFACE[1]) * cov,
+                        SURFACE[2] + (MOLD[2] - SURFACE[2]) * cov,
+                    ];
+                    let wx = mold_origin.x + (ix as f32 + 0.5) * mold_cell;
+                    let wy = mold_origin.y + (iy as f32 + 0.5) * mold_cell;
+                    let m = Mat4::from_translation(Vec3::new(wx, surf_y + 0.003, -wy)) * cell_local;
+                    render.replace_batch_world(mold_start + iy * mold_nx + ix,
+                        &bp, &bn, &bi, color, m);
+                }
+            }
+            if let Some(p) = pick.pick_from_camera_if_clicked(camera) {
+                pick.set_highlighted_by_id(&p.feature_id);
+            }
+        });
+
+    log::info!("[kabitori-sim] backend={:?}", app.backend());
     app.run().await.map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
@@ -818,5 +1099,217 @@ mod tests {
             let scale = w.to_scale_rotation_translation().0;
             assert!((scale.z - seg.length()).abs() < 1.0e-4, "body {i} length");
         }
+    }
+
+    // ── kabitori (mold-removal) probe ───────────────────────────────────────
+
+    /// Lowest collider-centre world z over the kabitori brush/probe colliders
+    /// (used to detect surface tunnelling).
+    fn kabitori_min_collider_z(
+        cfg: &kami_genesis::Articulation3dConfig,
+        st: &kami_genesis::Articulation3dState,
+    ) -> f32 {
+        use kami_genesis::Collider;
+        let lw = cfg.link_world(&st.q);
+        let mut zmin = f32::INFINITY;
+        for (body, col) in kabitori_colliders(cfg) {
+            let (r, p0) = lw[body];
+            let pts = match col {
+                Collider::Sphere { center, .. } => vec![center],
+                Collider::Capsule { a, b, .. } => vec![a, b],
+            };
+            for c in pts {
+                zmin = zmin.min((p0 + r * c).z);
+            }
+        }
+        zmin
+    }
+
+    #[test]
+    fn kabitori_urdf_parses_mixed_topology() {
+        use kami_genesis::JointType3d;
+        let cfg = giemon_kabitori_config();
+        assert_eq!(cfg.ndof, 6, "1 prismatic feed + 5 revolute");
+        assert_eq!(cfg.n_bodies(), 7, "base + 6 links");
+        assert_eq!(cfg.bodies[0].joint_type, JointType3d::Fixed, "base fixed");
+        let prismatic = cfg.bodies.iter()
+            .filter(|b| b.joint_type == JointType3d::Prismatic).count();
+        let revolute = cfg.bodies.iter()
+            .filter(|b| b.joint_type == JointType3d::Revolute).count();
+        assert_eq!(prismatic, 1, "feed is the only prismatic DOF");
+        assert_eq!(revolute, 5, "yaw, pitch, seg1, seg2, brush");
+        assert!(cfg.body_index("link_brush").is_some(), "brush head exists");
+        assert!(!kabitori_colliders(&cfg).is_empty(), "brush/probe colliders exist");
+    }
+
+    #[test]
+    fn kabitori_feed_inserts_probe_into_gap() {
+        // The prismatic feed advances the carriage (and the whole probe root)
+        // into the gap along +x. Measured at the carriage, which the feed
+        // drives directly — the distal links additionally droop under gravity,
+        // so the feed DOF and the carriage x are the clean insertion signal.
+        use kami_genesis::Articulation3dState;
+        let cfg = giemon_kabitori_config();
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        let ci = cfg.body_index("link_carriage").expect("carriage body");
+        let x0 = cfg.link_world(&st.q)[ci].1.x;
+        let mut tau = vec![0.0_f32; cfg.ndof];
+        tau[0] = 10.0; // feed forward
+        for _ in 0..1500 {
+            cfg.step(&mut st, &tau);
+        }
+        assert!(st.q.iter().all(|x| x.is_finite()), "feed state finite");
+        assert!(st.q[0] > 0.10, "feed DOF should advance into the gap: q_feed={}", st.q[0]);
+        let x1 = cfg.link_world(&st.q)[ci].1.x;
+        assert!(x1 - x0 > 0.10, "carriage should translate into the gap: dx={}", x1 - x0);
+    }
+
+    #[test]
+    fn kabitori_probe_reaches_and_contacts_surface() {
+        // Feed in + dip pitch + curl segments + oscillate-spin the brush: the
+        // brush/probe must reach the mold surface (contact) without tunnelling.
+        use kami_genesis::{Articulation3dState, ContactParams, ContactWorld};
+        let cfg = giemon_kabitori_config();
+        let cw = ContactWorld::new(
+            kabitori_colliders(&cfg),
+            ContactParams { ground_z: KABITORI_SURFACE_Z, friction: 0.9, ..Default::default() },
+        );
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        st.q[2] = 0.3; // small initial pitch dip
+        let mut saw_contact = false;
+        for k in 0..2500 {
+            let mut tau = vec![0.0_f32; cfg.ndof];
+            tau[0] = 6.0; // feed forward
+            tau[2] = 4.0; // pitch dip (down)
+            tau[3] = 2.0; // seg1 curl
+            tau[4] = 1.2; // seg2 curl
+            tau[5] = if (k / 120) % 2 == 0 { 3.0 } else { -3.0 }; // brush spin
+            cw.step(&cfg, &mut st, &tau);
+            saw_contact |= cw.contact_count(&cfg, &st.q) > 0;
+        }
+        assert!(st.q.iter().all(|x| x.is_finite()), "q finite");
+        assert!(st.qdot.iter().all(|x| x.is_finite()), "qdot finite");
+        assert!(saw_contact, "brush/probe never reached the mold surface");
+        let zmin = kabitori_min_collider_z(&cfg, &st);
+        assert!(zmin >= KABITORI_SURFACE_Z - 0.03, "tunnelled through surface: zmin={zmin}");
+    }
+
+    #[test]
+    fn kabitori_contact_is_stable_once_settled() {
+        // Passivity at the contact: let the probe fall from a non-penetrating
+        // pose and settle on the surface under zero actuation, then verify that
+        // over the following phase the total mechanical energy does not grow
+        // (no Baumgarte limit-cycle pumping) and the pose stays finite.
+        use kami_genesis::{Articulation3dState, ContactParams, ContactWorld};
+        let cfg = giemon_kabitori_config();
+        let cw = ContactWorld::new(
+            kabitori_colliders(&cfg),
+            ContactParams { ground_z: KABITORI_SURFACE_Z, friction: 0.9, ..Default::default() },
+        );
+        // Start straight out (links at z≈0, well above the surface at −0.22):
+        // no initial penetration → no push-out spike.
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        assert!(
+            kabitori_min_collider_z(&cfg, &st) > KABITORI_SURFACE_Z,
+            "start pose must not pre-penetrate the surface"
+        );
+        let tau = vec![0.0_f32; cfg.ndof];
+        // Warm-up: droop under gravity and settle onto the surface.
+        for _ in 0..3000 {
+            cw.step(&cfg, &mut st, &tau);
+        }
+        let e_settled = cfg.energy(&st);
+        let mut emax = e_settled;
+        for _ in 0..3000 {
+            cw.step(&cfg, &mut st, &tau);
+            emax = emax.max(cfg.energy(&st));
+        }
+        assert!(st.q.iter().all(|x| x.is_finite()), "q finite");
+        assert!(st.qdot.iter().all(|x| x.is_finite()), "qdot finite");
+        assert!(
+            emax <= e_settled + 0.05 * e_settled.abs().max(1.0),
+            "settled energy grew (pumping): e_settled={e_settled} emax={emax}"
+        );
+    }
+
+    #[test]
+    fn kabitori_scrub_erodes_mold_locally() {
+        // Run the autonomous feed→dip→scrub program against a mold field on the
+        // surface: total mold coverage must drop (mold removed), while a corner
+        // far from the brush path stays fully covered (erosion is localised).
+        use glam::Vec2;
+        use kami_genesis::{Articulation3dState, ContactParams, ContactWorld};
+        let cfg = giemon_kabitori_config();
+        let cw = ContactWorld::new(
+            kabitori_colliders(&cfg),
+            ContactParams { ground_z: KABITORI_SURFACE_Z, friction: 0.9, ..Default::default() },
+        );
+        // Coverage grid on the surface plane, spanning the work zone.
+        let mut mold = MoldField::new(Vec2::new(0.05, -0.30), 0.02, 45, 30, 1.0);
+        let total0 = mold.total_coverage();
+        let corner = mold.coverage_at(0.07, -0.28).expect("corner cell in grid");
+
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        st.q[2] = 0.3;
+        let mut removed = 0.0_f32;
+        for k in 0..4000 {
+            let mut tau = vec![0.0_f32; cfg.ndof];
+            tau[0] = 6.0; // feed in
+            tau[1] = 1.2 * (k as f32 / 240.0 * 0.7).sin(); // yaw sweep (scrub L↔R)
+            tau[2] = 4.0; // pitch press-down
+            tau[3] = 2.0; // seg1 curl
+            tau[4] = 1.2; // seg2 curl
+            tau[5] = 4.0; // brush spin
+            removed += kabitori_scrub_step(&cfg, &cw, &mut st, &tau, &mut mold);
+        }
+        assert!(st.q.iter().all(|x| x.is_finite()), "state finite");
+        assert!(removed > 0.2, "brush should remove mold coverage: removed={removed}");
+        assert!(mold.total_coverage() < total0 - 0.2, "total coverage must drop");
+        assert_eq!(
+            mold.coverage_at(0.07, -0.28),
+            Some(corner),
+            "a corner far from the brush path stays untouched"
+        );
+        assert!(mold.coverage.iter().all(|&c| c >= 0.0), "no negative coverage");
+    }
+
+    #[test]
+    fn kabitori_gap_walls_confine_the_probe() {
+        // Box-in the gap with two side-wall half-spaces (the engine extension):
+        // even under an aggressive yaw sweep the brush must stay between the
+        // walls and the sim must stay finite.
+        use kami_genesis::{Articulation3dState, ContactParams, ContactWorld, Obstacle};
+        let cfg = giemon_kabitori_config();
+        let cw = ContactWorld::new(
+            kabitori_colliders(&cfg),
+            ContactParams { ground_z: KABITORI_SURFACE_Z, friction: 0.9, ..Default::default() },
+        )
+        .with_obstacles(vec![
+            Obstacle::Plane { normal: Vec3::new(0.0, 1.0, 0.0), offset: -0.18 },
+            Obstacle::Plane { normal: Vec3::new(0.0, -1.0, 0.0), offset: -0.18 },
+        ]);
+        let bi = cfg.body_index("link_brush").expect("brush body");
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        st.q[2] = 0.3;
+        let mut y_abs_max = 0.0_f32;
+        for k in 0..4000 {
+            let mut tau = vec![0.0_f32; cfg.ndof];
+            tau[0] = 6.0;
+            tau[1] = 2.5 * (k as f32 / 240.0 * 1.2).sin(); // aggressive yaw → push on walls
+            tau[2] = 4.0;
+            tau[3] = 2.0;
+            tau[4] = 1.2;
+            tau[5] = 4.0;
+            cw.step(&cfg, &mut st, &tau);
+            let (r, p0) = cfg.link_world(&st.q)[bi];
+            for tip in KABITORI_BRUSH_TIPS {
+                y_abs_max = y_abs_max.max((p0 + r * tip).y.abs());
+            }
+        }
+        assert!(st.q.iter().all(|x| x.is_finite()), "state finite");
+        assert!(
+            y_abs_max <= 0.18 + KABITORI_BRUSH_RADIUS + 0.03,
+            "brush escaped the gap walls: |y|max={y_abs_max}"
+        );
     }
 }
