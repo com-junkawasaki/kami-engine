@@ -45,7 +45,7 @@ pub use articulation3d::{
     Articulation3dConfig, Articulation3dState, Body3d, JointType3d,
 };
 pub use cartpole::{CartpoleConfig, CartpoleState};
-pub use contact::{Collider, ContactParams, ContactWorld};
+pub use contact::{Collider, ContactParams, ContactWorld, Obstacle};
 pub use controllers::{ArticulationAction, ArticulationController};
 pub use double_pendulum::{DoublePendulumConfig, DoublePendulumState};
 pub use isaac_api::{ArticulationView, ArticulationViewMut, IsaacWorld};

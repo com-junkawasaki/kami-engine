@@ -27,6 +27,66 @@ pub enum Collider {
     Capsule { a: Vec3, b: Vec3, radius: f32 },
 }
 
+/// A static environment obstacle, in addition to the implicit ground plane
+/// (`ContactParams::ground_z`). This lets a scene box-in a duct / gap / cavity
+/// with side and back walls. The PGS solver already resolves contacts with an
+/// arbitrary normal, so obstacles compose with the ground at no solver cost.
+#[derive(Clone, Debug)]
+pub enum Obstacle {
+    /// Solid half-space. Free space is the `+normal` side of the plane
+    /// `x · normal = offset`; collider centres are pushed back toward `+normal`.
+    /// `normal` need not be unit — it is normalised internally.
+    Plane { normal: Vec3, offset: f32 },
+    /// Solid axis-aligned box `[min, max]`. Colliders are kept outside it
+    /// (nearest-face push-out; interior centres exit along the min-penetration
+    /// axis).
+    Aabb { min: Vec3, max: Vec3 },
+}
+
+impl Obstacle {
+    /// Contact for a world-space sphere `(c, radius)` belonging to `link`,
+    /// or `None` if it is clear of this obstacle (beyond the slop band).
+    fn contact(&self, link: usize, c: Vec3, radius: f32, slop: f32) -> Option<Contact> {
+        match self {
+            Obstacle::Plane { normal, offset } => {
+                let n = normal.normalize();
+                let d = c.dot(n) - offset; // signed distance, +n = free side
+                let depth = radius - d;
+                (depth > -slop).then(|| Contact { link, p: c - n * d, n, depth })
+            }
+            Obstacle::Aabb { min, max } => {
+                let cp = c.clamp(*min, *max); // nearest point on/in the box
+                let diff = c - cp;
+                let dist2 = diff.length_squared();
+                if dist2 > 1.0e-12 {
+                    let dist = dist2.sqrt();
+                    let n = diff / dist;
+                    let depth = radius - dist;
+                    (depth > -slop).then(|| Contact { link, p: cp, n, depth })
+                } else {
+                    // Centre inside the box: exit along the axis of least
+                    // penetration (closest face).
+                    let dlo = c - *min; // distance to each min face
+                    let dhi = *max - c; // distance to each max face
+                    let mut best = f32::INFINITY;
+                    let mut n = Vec3::Z;
+                    for (ax, axis) in [Vec3::X, Vec3::Y, Vec3::Z].into_iter().enumerate() {
+                        if dlo[ax] < best {
+                            best = dlo[ax];
+                            n = -axis;
+                        }
+                        if dhi[ax] < best {
+                            best = dhi[ax];
+                            n = axis;
+                        }
+                    }
+                    Some(Contact { link, p: c, n, depth: radius + best })
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ContactParams {
     pub ground_z: f32,
@@ -55,6 +115,8 @@ pub struct ContactWorld {
     /// `(body index, collider in that body's frame)`.
     pub colliders: Vec<(usize, Collider)>,
     pub params: ContactParams,
+    /// Static environment obstacles resolved in addition to the ground plane.
+    pub obstacles: Vec<Obstacle>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -67,7 +129,14 @@ struct Contact {
 
 impl ContactWorld {
     pub fn new(colliders: Vec<(usize, Collider)>, params: ContactParams) -> Self {
-        Self { colliders, params }
+        Self { colliders, params, obstacles: Vec::new() }
+    }
+
+    /// Add static environment obstacles (walls / boxes) for boxing-in a
+    /// duct / gap / cavity. Composes with the implicit ground plane.
+    pub fn with_obstacles(mut self, obstacles: Vec<Obstacle>) -> Self {
+        self.obstacles = obstacles;
+        self
     }
 
     /// Step the articulation one `dt` with contact resolution:
@@ -113,6 +182,11 @@ impl ContactWorld {
                         n: Vec3::Z,
                         depth,
                     });
+                }
+                for ob in &self.obstacles {
+                    if let Some(ct) = ob.contact(*body, c, radius, self.params.slop) {
+                        out.push(ct);
+                    }
                 }
             };
             match col {
@@ -321,6 +395,78 @@ mod tests {
         let (cfg, cw) = one_link_with_ground(-5.0);
         let st = Articulation3dState { q: vec![std::f32::consts::FRAC_PI_2], qdot: vec![0.0] };
         assert_eq!(cw.contact_count(&cfg, &st.q), 0);
+    }
+
+    #[test]
+    fn side_wall_obstacle_stops_a_swinging_link() {
+        // The single revolute link swings under gravity from horizontal. A
+        // vertical side-wall half-space (normal +x, surface at x = 0.3) blocks
+        // the tip's −x... here we instead place the wall so the swinging tip
+        // (which moves toward −x as it falls about −y) is caught: free side is
+        // −x (normal −x, offset −0.3 → plane x = −0.3, free side x < −0.3 is
+        // solid? no). Use normal +x, offset −0.3: free side x > −0.3; the tip
+        // must not pass below x = −0.3 by more than slop + radius.
+        let m = 1.0;
+        let l = 1.0;
+        let i_perp = m * l * l / 12.0;
+        let i_com = Mat3::from_diagonal(Vec3::new(i_perp, i_perp, 0.0));
+        let com = Vec3::new(0.0, 0.0, -l / 2.0);
+        let body = Body3d {
+            name: "link".into(),
+            parent: -1,
+            joint_type: JointType3d::Revolute,
+            axis: Vec3::new(0.0, -1.0, 0.0),
+            e_tree: Mat3::IDENTITY,
+            r_tree: Vec3::ZERO,
+            inertia: spatial_inertia(m, com, i_com),
+            mass: m,
+            com,
+            lower: 0.0,
+            upper: 0.0,
+            has_limit: false,
+            effort: 0.0,
+            damping: 0.0,
+            dof: 0,
+        };
+        let cfg = Articulation3dConfig {
+            bodies: vec![body],
+            gravity: Vec3::new(0.0, 0.0, -9.81),
+            dt: 1.0 / 240.0,
+            ndof: 1,
+        };
+        // Tip sphere; ground far below so only the wall matters.
+        let radius = 0.05;
+        let cw = ContactWorld::new(
+            vec![(0, Collider::Sphere { center: Vec3::new(0.0, 0.0, -l), radius })],
+            ContactParams { ground_z: -10.0, ..Default::default() },
+        )
+        .with_obstacles(vec![Obstacle::Plane { normal: Vec3::X, offset: -0.30 }]);
+        // Start so the tip is on the free side and swings toward the wall.
+        let mut st = Articulation3dState { q: vec![std::f32::consts::FRAC_PI_2], qdot: vec![0.0] };
+        let tip_x = |st: &Articulation3dState| {
+            let (r, p0) = cfg.link_world(&st.q)[0];
+            (p0 + r * Vec3::new(0.0, 0.0, -1.0)).x
+        };
+        for _ in 0..3000 {
+            cw.step(&cfg, &mut st, &[0.0]);
+        }
+        // Wall holds the tip centre at x ≥ -0.30 - radius (minus a little slop).
+        assert!(tip_x(&st) >= -0.30 - radius - 0.02, "wall breached: x={}", tip_x(&st));
+        assert!(st.q.iter().all(|v| v.is_finite()) && st.qdot.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn aabb_obstacle_keeps_sphere_outside() {
+        // A static AABB obstacle yields an outward contact for a sphere that
+        // would otherwise overlap it.
+        let ob = Obstacle::Aabb { min: Vec3::new(-1.0, -1.0, -1.0), max: Vec3::new(0.0, 1.0, 1.0) };
+        // Sphere centre just to the +x side of the box face at x=0.
+        let ct = ob.contact(7, Vec3::new(0.03, 0.0, 0.0), 0.05, 1.0e-3).expect("overlap → contact");
+        assert_eq!(ct.link, 7);
+        assert!(ct.n.dot(Vec3::X) > 0.9, "normal should push out +x: n={:?}", ct.n);
+        assert!(ct.depth > 0.0, "penetration positive");
+        // Far away → no contact.
+        assert!(ob.contact(7, Vec3::new(0.5, 0.0, 0.0), 0.05, 1.0e-3).is_none());
     }
 
     #[test]
