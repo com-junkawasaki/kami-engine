@@ -102,6 +102,9 @@ impl Fleet {
                 let ahead = dist > 1e-3 && rel.normalize().dot(me.forward()) > 0.5;
                 let closing = me.forward().dot(p.forward()) < -0.3;
 
+                // SAFETY: every agent always keeps clear of every other (no
+                // one rams a lower-priority agent, even with the right of way).
+                let _ = (my_prio, prio); // priority shapes biasing below, not safety
                 if ahead && closing && dist < NEGOTIATE_RANGE {
                     // Head-on: lane discipline. The real agent with an extra
                     // pass-clearance margin (so we route WIDE right of it),
@@ -117,14 +120,11 @@ impl Fleet {
                         radius: r,
                     });
                 } else {
-                    // Crossing / overtaking: priority + index right-of-way.
-                    let yields = prio > my_prio || (prio == my_prio && j < i);
-                    if yields {
-                        scene.add(Primitive::Sphere {
-                            center: Vec3::new(p.x, p.y, self.mount_z),
-                            radius: r,
-                        });
-                    }
+                    // Crossing / overtaking / following: avoid the other agent.
+                    scene.add(Primitive::Sphere {
+                        center: Vec3::new(p.x, p.y, self.mount_z),
+                        radius: r,
+                    });
                 }
             }
             let agent = &mut self.agents[i];

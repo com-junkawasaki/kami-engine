@@ -65,6 +65,26 @@ fn head_on_lane_discipline_passes_without_collision() {
 }
 
 #[test]
+fn four_way_intersection_resolves_collision_free() {
+    use std::f32::consts::{FRAC_PI_2, PI};
+    // Four cars converge on the origin from N/S/E/W, each crossing to the far
+    // side — head-on pairs AND perpendicular crossings at one point. Universal
+    // collision avoidance (everyone keeps clear) + lane discipline lets all
+    // four clear without overlap.
+    let agents = vec![
+        car_agent(Pose2::new(-30.0, 0.0, 0.0), Vec2::new(30.0, 0.0), 0),
+        car_agent(Pose2::new(0.0, -30.0, FRAC_PI_2), Vec2::new(0.0, 30.0), 1),
+        car_agent(Pose2::new(30.0, 0.0, PI), Vec2::new(-30.0, 0.0), 2),
+        car_agent(Pose2::new(0.0, 30.0, -FRAC_PI_2), Vec2::new(0.0, -30.0), 3),
+    ];
+    let mut fleet = Fleet::new(agents);
+    let min_sep = run(&mut fleet, 4000);
+
+    assert!(fleet.all_arrived(), "all four should clear the intersection");
+    assert!(min_sep > 0.0, "4-way must stay collision-free (min sep {min_sep:.2} m)");
+}
+
+#[test]
 fn overtakes_a_parked_agent_on_the_path() {
     // B is parked squarely on A's straight line and has the right of way; the
     // moving A (lower priority) must route around it.
