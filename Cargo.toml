@@ -67,13 +67,8 @@ members = [
     "kami-app-isekai",
     "kami-app-quarry-walk",
     "kami-app-car-sim",
-    "kami-app-animeka-timeline",
-    "kami-app-maps3d",
     "kami-bim",
-    "kami-app-cad",
-    "kami-app-bim",
     "kami-live",
-    "kami-app-live",
     "kami-mangaka-scene",
     # ADR-2605261800 (NVIDIA Omniverse stack API-compat layer, R1.0 path reservation)
     "kami-rt",
