@@ -1,0 +1,9 @@
+/target
+**/target
+Cargo.lock.bak
+*.swp
+.DS_Store
+# wasm-pack output
+/pkg
+**/pkg
+node_modules

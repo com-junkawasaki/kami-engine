@@ -884,12 +884,6 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.29.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8babf46d4c1c9d92deac9f7be466f76dfc4482b6452fc5024b5e8daf6ffeb3ee"
-
-[[package]]
-name = "glam"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fb167719045debebe9f532320accc7b5c993c5a3b813f5696a11d5ca7bdc57b"
@@ -1237,7 +1231,7 @@ name = "kami-app"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "js-sys",
  "kami-core",
@@ -1267,7 +1261,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-app",
  "kami-render",
@@ -1284,7 +1278,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "js-sys",
  "kami-app",
  "kami-bim",
@@ -1303,7 +1297,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "js-sys",
  "kami-app",
  "kami-cad",
@@ -1322,7 +1316,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "js-sys",
  "kami-app",
@@ -1343,7 +1337,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-app",
  "kami-articulated",
@@ -1367,7 +1361,7 @@ version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "js-sys",
  "kami-app",
  "kami-live",
@@ -1389,7 +1383,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "gltf",
  "hecs",
  "kami-app",
@@ -1425,7 +1419,7 @@ dependencies = [
 name = "kami-articulated"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "roxmltree",
  "serde",
@@ -1438,14 +1432,14 @@ name = "kami-atmosphere"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
 name = "kami-audio"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
@@ -1453,7 +1447,7 @@ name = "kami-autodrive"
 version = "0.1.0"
 dependencies = [
  "criterion",
- "glam 0.33.0",
+ "glam",
  "kami-pathfind",
  "kami-sensor-sim",
  "kami-vehicle",
@@ -1463,7 +1457,7 @@ dependencies = [
 name = "kami-bim"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-cad",
  "kami-eng-core",
  "kami-gltf",
@@ -1490,7 +1484,7 @@ dependencies = [
 name = "kami-cad"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-eng-core",
  "kami-eng-render",
@@ -1507,7 +1501,7 @@ dependencies = [
 name = "kami-cad-import"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-cad",
  "kami-vehicle",
  "log",
@@ -1520,7 +1514,7 @@ dependencies = [
 name = "kami-cae"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-eng-core",
  "kami-eng-render",
  "log",
@@ -1533,7 +1527,7 @@ dependencies = [
 name = "kami-cam"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-eng-core",
  "kami-eng-render",
  "log",
@@ -1559,7 +1553,7 @@ name = "kami-character"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.29.3",
+ "glam",
  "kami-gltf",
  "kami-render",
  "kami-skeleton",
@@ -1572,7 +1566,7 @@ name = "kami-core"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "log",
  "serde",
@@ -1584,7 +1578,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "criterion",
- "glam 0.33.0",
+ "glam",
  "log",
 ]
 
@@ -1594,7 +1588,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "env_logger",
- "glam 0.33.0",
+ "glam",
  "kami-core",
  "kami-engine",
  "kami-knp",
@@ -1609,7 +1603,7 @@ dependencies = [
 name = "kami-devtools"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-input",
  "serde",
  "serde_json",
@@ -1619,7 +1613,7 @@ dependencies = [
 name = "kami-dft"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -1630,7 +1624,7 @@ dependencies = [
 name = "kami-eda"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-eng-core",
  "kami-eng-render",
@@ -1645,7 +1639,7 @@ dependencies = [
 name = "kami-eng-core"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "hecs",
  "log",
  "serde",
@@ -1657,7 +1651,7 @@ dependencies = [
 name = "kami-eng-io"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-eng-core",
  "log",
  "serde",
@@ -1670,7 +1664,7 @@ name = "kami-eng-render"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "kami-eng-core",
  "kami-render",
  "kami-text",
@@ -1682,7 +1676,7 @@ dependencies = [
 name = "kami-eng-web"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-cad",
  "kami-cae",
  "kami-cam",
@@ -1713,7 +1707,7 @@ name = "kami-engine"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-core",
  "kami-knp",
@@ -1746,7 +1740,7 @@ name = "kami-game"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-core",
  "log",
@@ -1760,7 +1754,7 @@ name = "kami-genesis"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "kami-articulated",
  "log",
  "pollster",
@@ -1775,7 +1769,7 @@ name = "kami-geo"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "kami-render",
  "log",
 ]
@@ -1794,7 +1788,7 @@ name = "kami-graph"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -1804,14 +1798,14 @@ dependencies = [
 name = "kami-input"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
 name = "kami-ip"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -1838,7 +1832,7 @@ dependencies = [
 name = "kami-live"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -1852,7 +1846,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "js-sys",
  "kami-app",
@@ -1887,7 +1881,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "js-sys",
  "kami-atmosphere",
  "kami-core",
@@ -1907,7 +1901,7 @@ dependencies = [
 name = "kami-mesher"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-render",
  "kami-sdf",
  "kami-voxel",
@@ -1933,7 +1927,7 @@ dependencies = [
 name = "kami-nerf"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-voxel",
  "serde",
 ]
@@ -1943,7 +1937,7 @@ name = "kami-os"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "js-sys",
  "kami-bridge",
@@ -1965,7 +1959,7 @@ dependencies = [
 name = "kami-pathfind"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
@@ -1980,7 +1974,7 @@ dependencies = [
 name = "kami-pdk"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -1991,14 +1985,14 @@ dependencies = [
 name = "kami-physics-2d"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
 name = "kami-physics-solvers"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "thiserror 2.0.18",
 ]
@@ -2008,7 +2002,7 @@ name = "kami-pipelines"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "hecs",
  "kami-app",
  "kami-bim",
@@ -2023,7 +2017,7 @@ dependencies = [
 name = "kami-pkg"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2034,7 +2028,7 @@ dependencies = [
 name = "kami-pnr"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2046,14 +2040,14 @@ name = "kami-postfx"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
 name = "kami-power"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2066,7 +2060,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "gltf",
  "gpu-allocator",
  "kami-core",
@@ -2098,7 +2092,7 @@ dependencies = [
 name = "kami-rtc"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "js-sys",
  "kami-audio",
  "kami-core",
@@ -2115,7 +2109,7 @@ dependencies = [
 name = "kami-rtl"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-eng-core",
  "kami-eng-render",
  "log",
@@ -2128,7 +2122,7 @@ dependencies = [
 name = "kami-rtx-native"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "thiserror 2.0.18",
 ]
@@ -2137,7 +2131,7 @@ dependencies = [
 name = "kami-scad"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-gltf",
  "kami-mesher",
  "kami-render",
@@ -2151,7 +2145,7 @@ dependencies = [
 name = "kami-scene-graph"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "hecs",
 ]
 
@@ -2159,7 +2153,7 @@ dependencies = [
 name = "kami-sdf"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "kami-voxel",
  "serde",
  "serde_json",
@@ -2169,7 +2163,7 @@ dependencies = [
 name = "kami-sensor-sim"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2193,7 +2187,7 @@ dependencies = [
 name = "kami-si"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2205,7 +2199,7 @@ name = "kami-skeleton"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "serde",
 ]
 
@@ -2213,7 +2207,7 @@ dependencies = [
 name = "kami-spice"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2225,7 +2219,7 @@ name = "kami-terrain"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "serde",
 ]
 
@@ -2236,7 +2230,7 @@ dependencies = [
  "ab_glyph",
  "bytemuck",
  "cc",
- "glam 0.33.0",
+ "glam",
  "log",
  "rustybuzz",
  "unicode-bidi",
@@ -2247,7 +2241,7 @@ dependencies = [
 name = "kami-tilemap"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "serde",
  "serde_json",
 ]
@@ -2257,7 +2251,7 @@ name = "kami-ui-gpu"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
 ]
 
 [[package]]
@@ -2285,7 +2279,7 @@ name = "kami-vegetation"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "kami-terrain",
  "serde",
  "serde_json",
@@ -2295,7 +2289,7 @@ dependencies = [
 name = "kami-vehicle"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -2305,7 +2299,7 @@ dependencies = [
 name = "kami-verify"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",
@@ -2316,7 +2310,7 @@ dependencies = [
 name = "kami-voxel"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "serde",
  "serde_json",
 ]
@@ -2326,7 +2320,7 @@ name = "kami-vrm"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "glam 0.33.0",
+ "glam",
  "kami-skeleton",
  "serde",
  "serde_json",
@@ -2340,7 +2334,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "console_log",
- "glam 0.33.0",
+ "glam",
  "js-sys",
  "kami-atmosphere",
  "kami-character",
@@ -2373,7 +2367,7 @@ dependencies = [
 name = "kami-yield"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.0",
+ "glam",
  "log",
  "serde",
  "serde_json",

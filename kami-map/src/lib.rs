@@ -3,6 +3,8 @@
 //! Replaces MapLibre GL JS with KAMI Engine wgpu rendering.
 //! Entry point: `KamiMap::create(canvas_id, options_json)`.
 
+#![cfg(target_family = "wasm")] // wasm-only entry crate (uses wasm-only wgpu SurfaceTarget::Canvas + kami-render::for_web_surface); native workspace build skips it
+
 use kami_atmosphere::Weather;
 use kami_geo::projection::{self, LngLat, TileCoord, WorldPx};
 use kami_geo::tile::TileManager;

@@ -8,6 +8,8 @@
 //!   - `run_with_scene(canvas_id, scene_json)` — custom scene with WASD first-person controls
 //!   - `render_document_frame(canvas_id, slide_json)` — 2D PPTX slide rendering (WebGPU + WebGL2)
 
+#![cfg(target_family = "wasm")] // wasm-only entry crate (uses wasm-only wgpu SurfaceTarget::Canvas + kami-render::for_web_surface); native workspace build skips it
+
 pub mod document;
 pub mod entries;
 pub mod math_bindings;
