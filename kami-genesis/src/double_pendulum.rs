@@ -42,7 +42,7 @@ pub struct DoublePendulumConfig {
 
 impl Default for DoublePendulumConfig {
     fn default() -> Self {
-        // Matches 70-tools/e7m-sim/scenes/double_pendulum/double_pendulum.urdf.
+        // Matches kami-engine fixtures/double_pendulum/double_pendulum.urdf.
         DoublePendulumConfig {
             m1: 1.0,
             m2: 1.0,

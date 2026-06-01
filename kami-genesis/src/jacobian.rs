@@ -382,7 +382,7 @@ mod tests {
         use crate::world::{World};
         use kami_articulated::parse_urdf;
         const DP_URDF: &str = include_str!(
-            "../../../../70-tools/e7m-sim/scenes/double_pendulum/double_pendulum.urdf"
+            "../../fixtures/double_pendulum/double_pendulum.urdf"
         );
 
         let q1 = 0.4_f32;

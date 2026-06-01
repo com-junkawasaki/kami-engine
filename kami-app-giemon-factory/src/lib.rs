@@ -41,7 +41,7 @@ const HALF_PI: f32 = std::f32::consts::FRAC_PI_2;
 // ── arm6 work-cell (fixed-base manipulator, the product redeployed) ───────────
 
 const ARM6_URDF: &str =
-    include_str!("../../../../70-tools/e7m-sim/scenes/giemon_arm6/giemon_arm6.urdf");
+    include_str!("../../fixtures/giemon_arm6/giemon_arm6.urdf");
 
 /// Parse the arm6 URDF into a 3-D articulation config (fixed base at origin).
 pub fn arm6_config() -> Articulation3dConfig {

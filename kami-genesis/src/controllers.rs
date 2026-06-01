@@ -177,9 +177,9 @@ mod tests {
     use kami_articulated::parse_urdf;
 
     const CARTPOLE_URDF: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf");
+        include_str!("../../fixtures/cartpole/cartpole.urdf");
     const DP_URDF: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/double_pendulum/double_pendulum.urdf");
+        include_str!("../../fixtures/double_pendulum/double_pendulum.urdf");
 
     fn cartpole_world() -> (World, super::super::world::ArticulationHandle) {
         let sys = parse_urdf(CARTPOLE_URDF).unwrap();

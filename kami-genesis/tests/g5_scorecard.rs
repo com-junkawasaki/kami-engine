@@ -20,9 +20,9 @@
 use kami_genesis::{CartpoleConfig, CartpoleState};
 
 const ISAAC_CSV: &str =
-    "../../../70-tools/e7m-sim/scenes/cartpole/reference_freefall_isaac.csv";
+    "../fixtures/cartpole/reference_freefall_isaac.csv";
 const ANALYTIC_CSV: &str =
-    "../../../70-tools/e7m-sim/scenes/cartpole/reference_freefall_analytic.csv";
+    "../fixtures/cartpole/reference_freefall_analytic.csv";
 
 /// One reference row: cartpole state at a step.
 #[derive(Debug, Clone, Copy)]

@@ -10,10 +10,10 @@ use wasm_bindgen::prelude::*;
 use kami_shugyo::{CartpoleEnv, RLEnv, load_scene_yaml};
 
 const URDF: &str = include_str!(
-    "../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf"
+    "../../fixtures/cartpole/cartpole.urdf"
 );
 const SCENE: &str = include_str!(
-    "../../../../70-tools/e7m-sim/scenes/cartpole/scene.yaml"
+    "../../fixtures/cartpole/scene.yaml"
 );
 
 /// JS-callable handle around a single Cartpole env.

@@ -108,7 +108,7 @@ mod tests {
     use super::*;
 
     const CARTPOLE_SCENE: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/cartpole/scene.yaml");
+        include_str!("../../fixtures/cartpole/scene.yaml");
 
     #[test]
     fn parses_cartpole_scene_yaml() {

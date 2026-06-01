@@ -294,7 +294,7 @@ mod tests {
     use super::*;
 
     const CARTPOLE_URDF: &str = include_str!(
-        "../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf"
+        "../../fixtures/cartpole/cartpole.urdf"
     );
 
     #[test]

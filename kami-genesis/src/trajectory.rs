@@ -435,7 +435,7 @@ mod tests {
         use crate::world::World;
         use kami_articulated::parse_urdf;
         const CARTPOLE_URDF: &str =
-            include_str!("../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf");
+            include_str!("../../fixtures/cartpole/cartpole.urdf");
 
         let sys = parse_urdf(CARTPOLE_URDF).unwrap();
         let mut w = World::default();

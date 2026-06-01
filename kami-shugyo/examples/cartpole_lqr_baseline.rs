@@ -8,10 +8,10 @@ use kami_genesis::{CartpoleConfig, LqrController, LqrWeights, CartpoleState};
 use kami_shugyo::{VectorizedCartpoleEnv, load_scene_yaml};
 
 const URDF: &str = include_str!(
-    "../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf"
+    "../../fixtures/cartpole/cartpole.urdf"
 );
 const SCENE: &str = include_str!(
-    "../../../../70-tools/e7m-sim/scenes/cartpole/scene.yaml"
+    "../../fixtures/cartpole/scene.yaml"
 );
 
 fn main() {

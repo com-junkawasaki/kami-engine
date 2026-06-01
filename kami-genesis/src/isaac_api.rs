@@ -166,11 +166,11 @@ mod tests {
     use super::*;
 
     const CARTPOLE_URDF: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf");
+        include_str!("../../fixtures/cartpole/cartpole.urdf");
     const ARM3_URDF: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/arm3/arm3.urdf");
+        include_str!("../../fixtures/arm3/arm3.urdf");
     const ARM6_URDF: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/giemon_arm6/giemon_arm6.urdf");
+        include_str!("../../fixtures/giemon_arm6/giemon_arm6.urdf");
 
     #[test]
     fn isaac_world_cartpole_lifecycle() {

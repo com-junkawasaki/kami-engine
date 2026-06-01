@@ -1,0 +1,66 @@
+# Cartpole scene config — e7m-sim R1.1 PoC (ADR-2605261800)
+#
+# Mirrors Isaac Lab `CartpoleEnvCfg` schema (Apache-2.0 task DSL).
+# Loaded by pymagatama.sim.World and (R1.5+) by
+# pymagatama.nv_compat.isaaclab.envs.ManagerBasedRLEnv.
+
+adr: ADR-2605261800
+phase: R1.1
+nv_compat_target: isaaclab_tasks.manager_based.classic.cartpole.CartpoleEnvCfg
+
+scene:
+  num_envs: 1024            # vectorised parallel envs (Genesis batched)
+  env_spacing: 4.0          # m between env replicas
+  gravity: [0.0, 0.0, -9.81]
+  dt: 0.0166666667          # 60 Hz physics step
+  decimation: 2             # control step = 2 × physics step (30 Hz control)
+
+robot:
+  urdf: ./cartpole.urdf
+  base_link: world
+  spawn:
+    pos: [0.0, 0.0, 0.0]
+    rot: [1.0, 0.0, 0.0, 0.0]
+  actuators:
+    slider_to_cart:
+      type: implicit
+      effort_limit: 100.0
+      velocity_limit: 100.0
+      stiffness: 0.0
+      damping: 10.0
+
+observation:
+  joint_pos:
+    - slider_to_cart
+    - cart_to_pole
+  joint_vel:
+    - slider_to_cart
+    - cart_to_pole
+
+action:
+  joint_efforts:
+    - slider_to_cart
+
+reward:
+  alive: 1.0
+  terminating: -2.0
+  pole_pos_penalty: -1.0
+  cart_vel_penalty: -0.01
+  pole_vel_penalty: -0.005
+
+termination:
+  time_out:
+    max_episode_length_s: 5.0
+  pole_out_of_bounds:
+    asset: pole_link
+    bounds: [-0.2, 0.2]      # ±0.2 rad pole tilt limit
+  cart_out_of_bounds:
+    asset: cart
+    bounds: [-2.4, 2.4]      # slider hard limit
+
+# G5 quality gate (ADR-2605261800 R1.1)
+quality_gate:
+  reward_curve_tolerance_pct: 10.0
+  reference_baseline: isaac_sim_cartpole_v1
+  reference_basis: "1000 episodes × 5 seeds; mean final reward ±10%"
+  reference_seed: [42, 1337, 8675309, 271828, 314159]

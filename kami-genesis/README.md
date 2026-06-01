@@ -30,7 +30,7 @@ Python user code (Isaac Sim API-compat)
 
 1. Vendor Genesis @ `lib/genesis/` (charter-rider-applicator skip pattern)
 2. Write minimal Rust → Python bridge (PyO3 or wasm-bindgen + Pyodide)
-3. Load Cartpole URDF from `70-tools/e7m-sim/scenes/cartpole/cartpole.urdf`
+3. Load Cartpole URDF from `fixtures/cartpole/cartpole.urdf`
 4. Run PPO training for 1000 episodes
 5. Compare reward curve vs Isaac Sim baseline (target: ±10%)
 

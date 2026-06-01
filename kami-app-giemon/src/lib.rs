@@ -78,7 +78,7 @@ pub async fn run_giemon_v1(canvas_id: &str) -> Result<(), JsValue> {
 // Controls: 1–6 select a joint, J / L torque it (− / +), key-up → 0.
 
 const ARM6_URDF: &str =
-    include_str!("../../../../70-tools/e7m-sim/scenes/giemon_arm6/giemon_arm6.urdf");
+    include_str!("../../fixtures/giemon_arm6/giemon_arm6.urdf");
 const GROUND: [f32; 3] = [0.42, 0.46, 0.40]; // muted olive ground
 const ARM_DT: f32 = 1.0 / 240.0;
 

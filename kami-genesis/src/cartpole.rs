@@ -25,7 +25,7 @@ pub struct CartpoleConfig {
 
 impl Default for CartpoleConfig {
     fn default() -> Self {
-        // Matches 70-tools/e7m-sim/scenes/cartpole/cartpole.urdf
+        // Matches kami-engine fixtures/cartpole/cartpole.urdf
         // and OpenAI Gym CartPole-v1 reference.
         CartpoleConfig {
             cart_mass: 1.0,

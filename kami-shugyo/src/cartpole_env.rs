@@ -128,9 +128,9 @@ mod tests {
     use crate::scene_cfg::load_scene_yaml;
 
     const CARTPOLE_URDF: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf");
+        include_str!("../../fixtures/cartpole/cartpole.urdf");
     const CARTPOLE_SCENE: &str =
-        include_str!("../../../../70-tools/e7m-sim/scenes/cartpole/scene.yaml");
+        include_str!("../../fixtures/cartpole/scene.yaml");
 
     fn make_env() -> CartpoleEnv {
         let cfg = load_scene_yaml(CARTPOLE_SCENE).unwrap();

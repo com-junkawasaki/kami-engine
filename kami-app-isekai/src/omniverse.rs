@@ -35,7 +35,7 @@ use wasm_bindgen::prelude::*;
 // Bundled URDF — same physical cartpole used by `kami-cartpole-wasm` so
 // trained policies trained against either entry remain valid.
 const BUNDLED_CARTPOLE_URDF: &str = include_str!(
-    "../../../../70-tools/e7m-sim/scenes/cartpole/cartpole.urdf"
+    "../../fixtures/cartpole/cartpole.urdf"
 );
 
 /// Built-in USDA used when the JS side does not supply a custom one.
