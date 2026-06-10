@@ -57,7 +57,9 @@ pub use double_pendulum::{DoublePendulumConfig, DoublePendulumState};
 pub use ik::{
     IkOptions, IkResult, TargetPose, solve_ik_cartpole, solve_ik_dp, solve_ik_planar_chain,
 };
-pub use isaac_api::{ArticulationView, ArticulationViewMut, IsaacWorld};
+pub use isaac_api::{
+    ArticulationControllerView, ArticulationView, ArticulationViewMut, IsaacWorld,
+};
 pub use jacobian::{
     Jacobian, cartpole_link_jacobian, dp_link_jacobian, planar_chain_link_jacobian,
 };

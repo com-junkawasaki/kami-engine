@@ -96,6 +96,33 @@ impl ContactSensor {
             time,
         }
     }
+
+    /// Report **every** primitive the link's collision sphere overlaps, not just
+    /// the nearest — Isaac's `ContactSensor` exposes multiple simultaneous
+    /// contacts. One `ContactReading` per contacting primitive (each with
+    /// `in_contact = true`), sorted deepest-penetration first. Empty when no
+    /// contact. The single-contact `sample` returns the nearest surface instead.
+    pub fn sample_all(&self, link_position: Vec3, scene: &Scene, time: f32) -> Vec<ContactReading> {
+        let mut hits: Vec<ContactReading> = scene
+            .primitives
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| {
+                let (d, n) = primitive_closest(*p, link_position);
+                let sphere_surface_d = d - self.radius;
+                (sphere_surface_d < 0.0).then_some(ContactReading {
+                    in_contact: true,
+                    penetration_depth: -sphere_surface_d,
+                    contact_normal: n,
+                    closest_distance: sphere_surface_d,
+                    closest_primitive: i,
+                    time,
+                })
+            })
+            .collect();
+        hits.sort_by(|a, b| b.penetration_depth.total_cmp(&a.penetration_depth));
+        hits
+    }
 }
 
 /// Closest-point distance from `p_world` to the surface of `prim`, with the
@@ -167,6 +194,34 @@ mod tests {
 
     fn sensor_radius_1() -> ContactSensor {
         ContactSensor::new("c", "/W/cart/contact", "cart", 1.0)
+    }
+
+    // ── multi-contact ───────────────────────────────────────────────
+
+    #[test]
+    fn sample_all_reports_every_overlapping_primitive_deepest_first() {
+        // Sensor sphere radius 1 at origin overlaps a ground plane at z=-0.5
+        // (penetration 0.5) and a sphere centred at (0.3,0,0) r=0.5 (deeper),
+        // but not a far sphere at (10,0,0).
+        let sensor = sensor_radius_1();
+        let mut scene = Scene::new();
+        scene
+            .add(Primitive::GroundPlane { height: -0.5 })
+            .add(Primitive::Sphere { center: Vec3::new(0.3, 0.0, 0.0), radius: 0.5 })
+            .add(Primitive::Sphere { center: Vec3::new(10.0, 0.0, 0.0), radius: 0.5 });
+
+        let all = sensor.sample_all(Vec3::ZERO, &scene, 1.0);
+        assert_eq!(all.len(), 2, "should report exactly the two overlaps");
+        assert!(all.iter().all(|c| c.in_contact && c.time == 1.0));
+        // Sorted deepest-penetration first.
+        assert!(all[0].penetration_depth >= all[1].penetration_depth);
+        // The near sphere (idx 1) penetrates more than the plane (idx 0).
+        assert_eq!(all[0].closest_primitive, 1);
+        assert_eq!(all[1].closest_primitive, 0);
+
+        // Empty when nothing overlaps.
+        let none = sensor.sample_all(Vec3::new(0.0, 0.0, 50.0), &scene, 0.0);
+        assert!(none.is_empty());
     }
 
     // ── ground plane ────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 [package]
 name = "kami-genesis"
-description = "Genesis-compat physics backend for KAMI / e7m-sim. R1.1 PoC: closed-form Cartpole dynamics (semi-implicit Euler). isaacsim.core.api articulation API-compat target. Full Genesis Taichi->wgpu bind deferred to R1.x. PhysX 5 API parity (PxScene/PxRigidDynamic/PxArticulationReducedCoordinate) via §D11. ADR-2605261800."
+description = "Genesis-compat physics backend for KAMI / e7m-sim. KAMI-native reduced-coordinate solver (closed-form Cartpole/DoublePendulum, RNEA+CRBA PlanarChain, Featherstone Spatial3d) with a clean-room isaacsim.core.api surface. Single-env ArticulationView (joint state, jacobians, world poses/velocities, dof_names/limits, state setters) + ArticulationController; multi-env ArticulationBatch ([num_envs,n_dof] tensors, effort/PD/velocity/pos+vel/+accel/computed-torque + gravity-comp actuators, position/tool/6-DOF-pose IK, per-env gravity+mass domain randomization). Split-impulse contact solver; solver invariants verified (inverse=forward dynamics incl damping, SPD mass matrix, energy conservation). GPU cartpole/DP batch via wgpu. Full Genesis Taichi->wgpu bind deferred to R1.x. PhysX 5 API parity via §D11. ADR-2605261800 / ADR-0033 / ADR-0034."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

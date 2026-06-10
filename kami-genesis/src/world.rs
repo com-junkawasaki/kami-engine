@@ -318,6 +318,64 @@ impl Articulation {
         }
     }
 
+    /// Set joint positions for any topology, leaving velocities untouched.
+    /// Mirrors `isaacsim.core.api.articulations.Articulation.set_joint_positions`
+    /// (Isaac Sim 4.x) — used to seed an initial pose, teleport, or reset to a
+    /// non-zero default / sampled distribution (the RL `reset()` use-case).
+    /// DOF order matches `joint_positions()`. Entries beyond `positions.len()`
+    /// are left unchanged; extra entries are ignored.
+    pub fn set_joint_positions(&mut self, positions: &[f32]) {
+        let g = |i: usize, cur: f32| positions.get(i).copied().unwrap_or(cur);
+        match &mut self.topology {
+            ArticulationTopology::Cartpole { state, .. } => {
+                state.x = g(0, state.x);
+                state.theta = g(1, state.theta);
+            }
+            ArticulationTopology::DoublePendulum { state, .. } => {
+                state.q1 = g(0, state.q1);
+                state.q2 = g(1, state.q2);
+            }
+            ArticulationTopology::PlanarChain { state, .. } => {
+                for (i, q) in state.q.iter_mut().enumerate() {
+                    *q = g(i, *q);
+                }
+            }
+            ArticulationTopology::Spatial3d { state, .. } => {
+                for (i, q) in state.q.iter_mut().enumerate() {
+                    *q = g(i, *q);
+                }
+            }
+        }
+    }
+
+    /// Set joint velocities for any topology, leaving positions untouched.
+    /// Mirrors `isaacsim.core.api.articulations.Articulation.set_joint_velocities`
+    /// (Isaac Sim 4.x). DOF order matches `joint_velocities()`. Entries beyond
+    /// `velocities.len()` are left unchanged; extra entries are ignored.
+    pub fn set_joint_velocities(&mut self, velocities: &[f32]) {
+        let g = |i: usize, cur: f32| velocities.get(i).copied().unwrap_or(cur);
+        match &mut self.topology {
+            ArticulationTopology::Cartpole { state, .. } => {
+                state.x_dot = g(0, state.x_dot);
+                state.theta_dot = g(1, state.theta_dot);
+            }
+            ArticulationTopology::DoublePendulum { state, .. } => {
+                state.q1_dot = g(0, state.q1_dot);
+                state.q2_dot = g(1, state.q2_dot);
+            }
+            ArticulationTopology::PlanarChain { state, .. } => {
+                for (i, qd) in state.qdot.iter_mut().enumerate() {
+                    *qd = g(i, *qd);
+                }
+            }
+            ArticulationTopology::Spatial3d { state, .. } => {
+                for (i, qd) in state.qdot.iter_mut().enumerate() {
+                    *qd = g(i, *qd);
+                }
+            }
+        }
+    }
+
     /// Flat joint positions (Cartpole: [x, theta]; DP: [q1, q2];
     /// PlanarChain: [q0, q1, …]).
     pub fn joint_positions(&self) -> Vec<f32> {
@@ -342,6 +400,57 @@ impl Articulation {
             ArticulationTopology::PlanarChain { state, .. } => state.qdot.clone(),
             ArticulationTopology::Spatial3d { state, .. } => state.qdot.clone(),
         }
+    }
+
+    /// Ordered names of the actuated (non-fixed) joints — one per DOF.
+    /// Mirrors `isaacsim.core.api.articulations.Articulation.dof_names`. The
+    /// order matches `joint_positions()` / `joint_velocities()`: the topology
+    /// builders consume the URDF joints in declaration order, skipping `fixed`
+    /// joints, which is exactly the order produced here.
+    pub fn dof_names(&self) -> Vec<String> {
+        self.system
+            .joints
+            .iter()
+            .filter(|j| j.kind != JointKind::Fixed)
+            .map(|j| j.name.clone())
+            .collect()
+    }
+
+    /// Per-DOF joint position limits `(lower, upper)` from the URDF, in
+    /// `dof_names()` order. Mirrors `isaacsim.core.api.articulations.Articulation
+    /// .get_dof_limits` — used to rescale RL actions and normalise observations.
+    pub fn dof_limits(&self) -> Vec<(f32, f32)> {
+        self.system
+            .joints
+            .iter()
+            .filter(|j| j.kind != JointKind::Fixed)
+            .map(|j| (j.lower, j.upper))
+            .collect()
+    }
+
+    /// Per-DOF drive parameters straight from the URDF, in `dof_names()` order:
+    /// `(effort_limit, damping)`. `effort_limit` is `<limit effort=…>`, `damping`
+    /// is `<dynamics damping=…>`. Used to seed the Isaac articulation controller
+    /// (`max_efforts ← effort_limit`, `kd ← damping`) the way Isaac loads drive
+    /// parameters from the USD/URDF rather than leaving them unset.
+    pub fn dof_drive_params(&self) -> Vec<(f32, f32)> {
+        self.system
+            .joints
+            .iter()
+            .filter(|j| j.kind != JointKind::Fixed)
+            .map(|j| (j.effort, j.damping))
+            .collect()
+    }
+
+    /// Index of a named DOF within `dof_names()` / the joint-position array.
+    /// Mirrors `isaacsim.core.api.articulations.Articulation.get_dof_index`.
+    /// None if `dof_name` is not an actuated joint of this articulation.
+    pub fn dof_index(&self, dof_name: &str) -> Option<usize> {
+        self.system
+            .joints
+            .iter()
+            .filter(|j| j.kind != JointKind::Fixed)
+            .position(|j| j.name == dof_name)
     }
 
     /// 6×n geometric Jacobian for the named link in world frame.
