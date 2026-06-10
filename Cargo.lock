@@ -2064,6 +2064,8 @@ name = "kami-sensor-sim"
 version = "0.1.0"
 dependencies = [
  "glam",
+ "kami-articulated",
+ "kami-genesis",
  "log",
  "serde",
  "serde_json",
@@ -2074,8 +2076,10 @@ dependencies = [
 name = "kami-shugyo"
 version = "0.1.0"
 dependencies = [
+ "glam",
  "kami-articulated",
  "kami-genesis",
+ "kami-sensor-sim",
  "log",
  "serde",
  "serde_json",

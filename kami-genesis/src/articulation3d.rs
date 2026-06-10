@@ -349,10 +349,13 @@ impl Articulation3dConfig {
     }
 
     /// Inverse dynamics: the joint torques that realise a desired acceleration
-    /// `q̈*` at state `(q, q̇)` — the full RNEA `τ = M(q)·q̈* + C(q,q̇) + g(q)`.
-    /// The exact inverse of `forward_dynamics`, and the basis of computed-torque
-    /// control (Isaac `compute_inverse_dynamics`). `gravity_torque` is the
-    /// special case `q̇ = 0, q̈* = 0`.
+    /// `q̈*` at state `(q, q̇)` — the full `τ = M(q)·q̈* + C(q,q̇) + g(q) + d·q̇`,
+    /// where the last term overcomes the joint viscous damping that
+    /// `forward_dynamics` subtracts. This makes it the **exact** inverse of
+    /// `forward_dynamics` (the basis of computed-torque control). Without the
+    /// damping term, computed-torque tracking on a damped articulation droops by
+    /// `M⁻¹·d·q̇`. `gravity_torque` is the special case `q̇ = 0, q̈* = 0`
+    /// (damping vanishes), so it is unaffected.
     pub fn inverse_dynamics(&self, q: &[f32], qdot: &[f32], qddot_des: &[f32]) -> Vec<f32> {
         let kin = self.kinematics(q, qdot);
         let mut tau = self.rnea_bias(qdot, &kin); // C + g
@@ -361,6 +364,11 @@ impl Articulation3dConfig {
             for j in 0..self.ndof {
                 tau[i] += m[i][j] * qddot_des.get(j).copied().unwrap_or(0.0);
             }
+        }
+        // + joint viscous damping torque (matches forward_dynamics' −d·q̇).
+        for b in self.bodies.iter().filter(|b| b.movable()) {
+            let di = b.dof as usize;
+            tau[di] += b.damping * qdot.get(di).copied().unwrap_or(0.0);
         }
         tau
     }
@@ -412,6 +420,73 @@ impl Articulation3dConfig {
             // dq = Jᵀ·y, then clamp to limits.
             for (d, col) in jac.iter().enumerate().take(n) {
                 q[d] += col[0] * y[0] + col[1] * y[1] + col[2] * y[2];
+            }
+            for b in self.bodies.iter().filter(|b| b.movable() && b.has_limit) {
+                let di = b.dof as usize;
+                q[di] = q[di].clamp(b.lower, b.upper);
+            }
+        }
+        q
+    }
+
+    /// Full 6-DOF **pose** IK: joint angles placing `link`'s frame at
+    /// `(target_pos, target_rot)`. Damped-least-squares on the 6×n geometric
+    /// Jacobian with a stacked `[orientation; position]` error (the orientation
+    /// error is the shortest-arc world rotation vector), clamped to joint limits.
+    /// A general pose needs ≥6 effective DOF; lower-DOF arms settle at the
+    /// least-squares-closest pose. Position-only tasks should use
+    /// `solve_position_ik` (cheaper, more robust).
+    pub fn solve_pose_ik(
+        &self,
+        link: usize,
+        target_pos: Vec3,
+        target_rot: glam::Quat,
+        q_init: &[f32],
+        iters: usize,
+        lambda: f32,
+    ) -> Vec<f32> {
+        let n = self.ndof;
+        let mut q = q_init.to_vec();
+        q.resize(n, 0.0);
+        let zero = vec![0.0_f32; n];
+        for _ in 0..iters {
+            let (pos, rot, _l, _a) = self.link_state_world(link, &q, &zero);
+            let e_pos = target_pos - pos;
+            // Shortest-arc orientation error as a world-frame rotation vector.
+            let mut q_err = target_rot * rot.inverse();
+            if q_err.w < 0.0 {
+                q_err = -q_err; // pick the ≤π rotation (q and −q are the same)
+            }
+            let (axis, angle) = q_err.to_axis_angle();
+            let e_rot = axis * angle;
+            if e_pos.length() < 1e-5 && angle.abs() < 1e-5 {
+                break;
+            }
+            let jac = self.geometric_jacobian(link, &q); // [6][n], rows [ω; v]
+            // A = J Jᵀ + λ²I  (6×6 SPD).
+            let mut a = vec![vec![0.0_f32; 6]; 6];
+            for r0 in 0..6 {
+                for c0 in 0..6 {
+                    let mut s = 0.0;
+                    for d in 0..n {
+                        s += jac[r0][d] * jac[c0][d];
+                    }
+                    a[r0][c0] = s;
+                }
+                a[r0][r0] += lambda * lambda;
+            }
+            let mut rhs = vec![e_rot.x, e_rot.y, e_rot.z, e_pos.x, e_pos.y, e_pos.z];
+            let y = match solve_ldlt(&a, &mut rhs) {
+                Some(y) => y,
+                None => break,
+            };
+            // dq = Jᵀ·y, then clamp to limits.
+            for d in 0..n {
+                let mut dq = 0.0;
+                for i in 0..6 {
+                    dq += jac[i][d] * y[i];
+                }
+                q[d] += dq;
             }
             for b in self.bodies.iter().filter(|b| b.movable() && b.has_limit) {
                 let di = b.dof as usize;
@@ -1124,6 +1199,112 @@ mod tests {
             assert!(
                 (qdd[d] - qdd_des[d]).abs() < 1e-3,
                 "dof {d}: forward {} vs desired {}",
+                qdd[d],
+                qdd_des[d]
+            );
+        }
+    }
+
+    #[test]
+    fn mass_matrix_is_symmetric_and_positive_definite_on_arm6() {
+        // CRBA must produce a symmetric positive-definite inertia matrix at every
+        // configuration — the defining property of a mechanical mass matrix.
+        // Checked on the real 6-DOF URDF at several configs (off-axis joints).
+        let urdf = include_str!("../../fixtures/giemon_arm6/giemon_arm6.urdf");
+        let sys = kami_articulated::parse_urdf(urdf).unwrap();
+        let cfg = Articulation3dConfig::from_articulated_system(&sys, Vec3::new(0.0, 0.0, -9.81), 1.0 / 240.0);
+        let n = cfg.ndof;
+        let configs = [
+            vec![0.0_f32; 6],
+            vec![0.3, -0.4, 0.5, 0.2, -0.3, 0.4],
+            vec![-0.6, 0.7, -0.2, 0.5, -0.8, 0.3],
+        ];
+        for q in &configs {
+            let m = cfg.mass_matrix(q);
+            // Symmetric.
+            for i in 0..n {
+                for j in 0..n {
+                    assert!((m[i][j] - m[j][i]).abs() < 1e-4, "M not symmetric at ({i},{j})");
+                }
+            }
+            // Positive-definite: kinetic energy ½·q̇ᵀM·q̇ > 0 for several nonzero q̇.
+            let probes = [
+                vec![1.0_f32, 0.0, 0.0, 0.0, 0.0, 0.0],
+                vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                vec![0.5, -0.5, 0.5, -0.5, 0.5, -0.5],
+                vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            ];
+            for x in &probes {
+                let mut form = 0.0_f32;
+                for i in 0..n {
+                    for j in 0..n {
+                        form += x[i] * m[i][j] * x[j];
+                    }
+                }
+                assert!(form > 1e-6, "xᵀMx not positive ({form}) at q={q:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn kinetic_energy_is_conserved_coasting_in_zero_gravity_on_arm6() {
+        // Zero gravity, zero torque, no damping: the arm coasts on its initial
+        // velocity. Coriolis/centrifugal forces are gyroscopic (do no net work),
+        // so total kinetic energy must be conserved up to symplectic-Euler ripple
+        // — an end-to-end kinematics + CRBA + RNEA + integrator check on the real
+        // 6-DOF arm, free of the gravity-pumped chaos of a free swing.
+        let urdf = include_str!("../../fixtures/giemon_arm6/giemon_arm6.urdf");
+        let sys = kami_articulated::parse_urdf(urdf).unwrap();
+        let mut cfg = Articulation3dConfig::from_articulated_system(&sys, Vec3::ZERO, 1.0 / 480.0);
+        for b in cfg.bodies.iter_mut() {
+            b.damping = 0.0;
+            b.has_limit = false;
+        }
+        let mut st = Articulation3dState {
+            q: vec![0.1_f32, -0.2, 0.15, -0.1, 0.2, -0.05],
+            qdot: vec![0.6_f32, -0.5, 0.4, -0.3, 0.5, -0.4],
+        };
+        let e0 = cfg.energy(&st); // pure KE (zero gravity → PE = 0)
+        assert!(e0 > 0.0);
+        let zero_tau = vec![0.0_f32; cfg.ndof];
+        let (mut emin, mut emax) = (e0, e0);
+        for _ in 0..2000 {
+            cfg.step(&mut st, &zero_tau);
+            let e = cfg.energy(&st);
+            assert!(e.is_finite(), "energy went non-finite");
+            emin = emin.min(e);
+            emax = emax.max(e);
+        }
+        // No secular drift: the energy stays within a few % of the initial KE.
+        assert!((emax - emin) < 0.05 * e0, "KE not conserved: span {} vs e0 {e0}", emax - emin);
+    }
+
+    #[test]
+    fn inverse_dynamics_round_trips_on_the_real_6dof_arm_urdf() {
+        // The same ID↔FD identity on the *production* giemon arm6 (parsed from
+        // URDF, 6 DOF, off-axis joints): confirms the solver pair is mutually
+        // consistent for the arm used by pose-control / trajectory tracking, so
+        // any dynamic tracking error there is integration/discretization, not a
+        // solver mismatch. Gravity on, nonzero q̇ (full M·q̈ + C + g).
+        let urdf = include_str!("../../fixtures/giemon_arm6/giemon_arm6.urdf");
+        let sys = kami_articulated::parse_urdf(urdf).unwrap();
+        let cfg = Articulation3dConfig::from_articulated_system(
+            &sys,
+            Vec3::new(0.0, 0.0, -9.81),
+            1.0 / 240.0,
+        );
+        assert_eq!(cfg.ndof, 6);
+        let q = vec![0.3_f32, -0.4, 0.5, 0.2, -0.3, 0.4];
+        let qd = vec![0.5_f32, -0.3, 0.4, -0.2, 0.3, -0.1];
+        let qdd_des = vec![1.0_f32, -1.5, 0.8, -0.6, 1.2, -0.9];
+
+        let tau = cfg.inverse_dynamics(&q, &qd, &qdd_des);
+        let st = Articulation3dState { q: q.clone(), qdot: qd.clone() };
+        let (qdd, _m) = cfg.forward_dynamics(&st, &tau);
+        for d in 0..cfg.ndof {
+            assert!(
+                (qdd[d] - qdd_des[d]).abs() < 1e-3,
+                "arm6 dof {d}: forward {} vs desired {}",
                 qdd[d],
                 qdd_des[d]
             );

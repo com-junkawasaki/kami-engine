@@ -15,12 +15,20 @@ pub const NV_COMPAT_TARGET: &str = "isaaclab.envs.ManagerBasedRLEnv";
 
 mod cartpole_env;
 mod dr;
+mod ee_reach_env;
+mod policy;
+mod reach_env;
 mod scene_cfg;
 pub mod traits;
 mod vectorized_env;
 
 pub use cartpole_env::CartpoleEnv;
 pub use dr::{DomainRandomizationCfg, Range};
+pub use ee_reach_env::VectorizedEeReachEnv;
+pub use policy::{LinearPolicy, evaluate, random_search, rescale_to_limits};
+pub use reach_env::{ReachCfg, VectorizedReachEnv};
 pub use scene_cfg::{SceneCfg, load_scene_yaml};
-pub use traits::{RLEnv, StepResult};
+pub use traits::{RLEnv, StepResult, VecRLEnv, run_zero_action_rollout};
+// `VecRLEnv` unifies all vectorized envs (Cartpole / joint reach / EE reach)
+// under one `[num_envs, dim]` contract, so a trainer runs over any of them.
 pub use vectorized_env::VectorizedCartpoleEnv;

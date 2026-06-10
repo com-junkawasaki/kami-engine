@@ -309,7 +309,8 @@ impl ContactWorld {
             inv_mn: f32,
             inv_mt1: f32,
             inv_mt2: f32,
-            bias_n: f32,
+            bias_vel: f32, // restitution-only target (velocity pass)
+            bias_pos: f32, // Baumgarte penetration push-out (position pass)
         }
         let mut rows = Vec::with_capacity(contacts.len());
         for c in contacts {
@@ -324,7 +325,6 @@ impl ContactWorld {
             let mn = dotv(&jn, &minv_jn).max(1e-9);
             let mt1 = dotv(&jt1, &minv_jt1).max(1e-9);
             let mt2 = dotv(&jt2, &minv_jt2).max(1e-9);
-            // Penetration push-out (Baumgarte), capped at the slop band.
             let pen = (c.depth - self.params.slop).max(0.0);
             let vn_pre = dotv(&jn, &st.qdot);
             let restitution = if vn_pre < 0.0 {
@@ -332,7 +332,6 @@ impl ContactWorld {
             } else {
                 0.0
             };
-            let bias_n = (self.params.baumgarte / dt) * pen + restitution;
             rows.push(Row {
                 jn,
                 jt1,
@@ -343,7 +342,8 @@ impl ContactWorld {
                 inv_mn: 1.0 / mn,
                 inv_mt1: 1.0 / mt1,
                 inv_mt2: 1.0 / mt2,
-                bias_n,
+                bias_vel: restitution,
+                bias_pos: (self.params.baumgarte / dt) * pen,
             });
         }
 
@@ -352,18 +352,18 @@ impl ContactWorld {
         let mut lam_t1 = vec![0.0_f32; contacts.len()];
         let mut lam_t2 = vec![0.0_f32; contacts.len()];
 
+        // ── Velocity pass: restitution + friction, applied to the REAL velocity.
+        // Restitution ≤ 1 is energy-passive, so this never injects energy.
         for _ in 0..self.params.iters {
             for k in 0..rows.len() {
                 let row = &rows[k];
-                // Normal: drive vn toward the separating target (bias_n ≥ 0).
                 let vn = dotv(&row.jn, &st.qdot);
-                let mut dln = (row.bias_n - vn) * row.inv_mn;
+                let mut dln = (row.bias_vel - vn) * row.inv_mn;
                 let new_n = (lam_n[k] + dln).max(0.0);
                 dln = new_n - lam_n[k];
                 lam_n[k] = new_n;
                 axpy_inplace(&mut st.qdot, dln, &row.minv_jn);
 
-                // Friction: clamp tangential impulse to the cone |λt| ≤ μ λn.
                 let lim = mu * lam_n[k];
                 let vt1 = dotv(&row.jt1, &st.qdot);
                 let mut dlt1 = (-vt1) * row.inv_mt1;
@@ -378,6 +378,33 @@ impl ContactWorld {
                 dlt2 = new_t2 - lam_t2[k];
                 lam_t2[k] = new_t2;
                 axpy_inplace(&mut st.qdot, dlt2, &row.minv_jt2);
+            }
+        }
+
+        // ── Position pass (split impulse): push penetration out via a PSEUDO
+        // velocity that is integrated into positions only — it never touches the
+        // real velocity, so the Baumgarte correction injects no kinetic energy.
+        if rows.iter().any(|r| r.bias_pos > 0.0) {
+            let mut pseudo = vec![0.0_f32; n];
+            let mut lam_p = vec![0.0_f32; contacts.len()];
+            for _ in 0..self.params.iters {
+                for k in 0..rows.len() {
+                    let row = &rows[k];
+                    let vn = dotv(&row.jn, &pseudo);
+                    let mut dln = (row.bias_pos - vn) * row.inv_mn;
+                    let new_p = (lam_p[k] + dln).max(0.0);
+                    dln = new_p - lam_p[k];
+                    lam_p[k] = new_p;
+                    axpy_inplace(&mut pseudo, dln, &row.minv_jn);
+                }
+            }
+            // Apply the position correction (q += dt·pseudo), clamped to limits.
+            for b in cfg.bodies.iter().filter(|b| b.movable()) {
+                let di = b.dof as usize;
+                st.q[di] += dt * pseudo[di];
+                if b.has_limit {
+                    st.q[di] = st.q[di].clamp(b.lower, b.upper);
+                }
             }
         }
     }
@@ -906,5 +933,82 @@ mod tests {
             emax <= e0 + 0.05 * e0.abs().max(1.0),
             "energy grew: e0={e0} emax={emax}"
         );
+    }
+
+    #[test]
+    fn split_impulse_pushes_penetration_out_without_launching() {
+        // A body that STARTS deeply penetrated (no restitution, at rest) must be
+        // pushed up to the surface gently — the split-impulse position solve
+        // corrects penetration via a pseudo-velocity, so the body never acquires
+        // real upward velocity and never launches above the surface. (Summing the
+        // Baumgarte push-out into the real velocity, as before, would fling it up.)
+        let urdf = r#"<robot name="d">
+<link name="world"/>
+<joint name="jz" type="prismatic"><parent link="world"/><child link="body"/><origin xyz="0 0 0"/><axis xyz="0 0 1"/><limit lower="-1e4" upper="1e4" effort="1e9" velocity="1e4"/></joint>
+<link name="body"><inertial><origin xyz="0 0 0"/><mass value="5"/><inertia ixx="0.05" iyy="0.05" izz="0.05" ixy="0" ixz="0" iyz="0"/></inertial></link>
+</robot>"#;
+        let sys = kami_articulated::parse_urdf(urdf).unwrap();
+        let cfg = Articulation3dConfig::from_articulated_system(&sys, Vec3::new(0.0, 0.0, -9.81), 1.0 / 240.0);
+        let body = cfg.body_index("body").unwrap();
+        let radius = 0.1;
+        let cw = ContactWorld::new(
+            vec![(body, Collider::Sphere { center: Vec3::ZERO, radius })],
+            ContactParams { ground_z: 0.0, restitution: 0.0, friction: 0.0, ..Default::default() },
+        );
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        st.q[0] = -0.1; // centre 0.1 below ground → penetrated by radius+0.1 = 0.2
+
+        let surface = radius; // rest height: centre at the sphere radius
+        let mut max_q = st.q[0];
+        for _ in 0..1500 {
+            cw.step(&cfg, &mut st, &[0.0]);
+            max_q = max_q.max(st.q[0]);
+        }
+        // Pushed out to the surface, at rest, with no launch overshoot above it.
+        assert!(max_q < surface + 0.03, "penetration push-out launched the body: max_q={max_q}");
+        assert!((st.q[0] - surface).abs() < 0.03, "did not settle at surface: q={}", st.q[0]);
+        assert!(st.qdot[0].abs() < 0.2, "residual velocity after settle: {}", st.qdot[0]);
+    }
+
+    #[test]
+    fn fully_elastic_contact_energy_injection_is_bounded() {
+        // Passivity guard for the worst case (e=1). Two sources could inject
+        // energy: (a) the Baumgarte penetration push-out — now removed from the
+        // velocity by the split-impulse position solve (it corrects positions via
+        // a pseudo-velocity that never enters the real velocity); and (b) the
+        // semi-implicit Euler velocity reversal — gravity is applied just before
+        // the bounce, so the reversed speed is ~g·dt too high, a residual
+        // integrator-level gain that a sub-stepped time-of-impact would remove.
+        // This pins (b) as bounded (no runaway) and the rebound near the drop.
+        let urdf = r#"<robot name="d">
+<link name="world"/>
+<joint name="jz" type="prismatic"><parent link="world"/><child link="body"/><origin xyz="0 0 0"/><axis xyz="0 0 1"/><limit lower="-1e4" upper="1e4" effort="1e9" velocity="1e4"/></joint>
+<link name="body"><inertial><origin xyz="0 0 0"/><mass value="5"/><inertia ixx="0.05" iyy="0.05" izz="0.05" ixy="0" ixz="0" iyz="0"/></inertial></link>
+</robot>"#;
+        let sys = kami_articulated::parse_urdf(urdf).unwrap();
+        let cfg = Articulation3dConfig::from_articulated_system(&sys, Vec3::new(0.0, 0.0, -9.81), 1.0 / 480.0);
+        let body = cfg.body_index("body").unwrap();
+        let cw = ContactWorld::new(
+            vec![(body, Collider::Sphere { center: Vec3::ZERO, radius: 0.1 })],
+            ContactParams { ground_z: 0.0, restitution: 1.0, friction: 0.0, ..Default::default() },
+        );
+        let mut st = Articulation3dState::zeros(cfg.ndof);
+        st.q[0] = 1.0; // drop from z = 1
+        let e0 = cfg.energy(&st);
+        let (mut emax, mut apex, mut hit) = (e0, 0.0_f32, false);
+        for _ in 0..4000 {
+            cw.step(&cfg, &mut st, &[0.0]);
+            emax = emax.max(cfg.energy(&st));
+            if st.q[0] < 0.12 {
+                hit = true;
+            }
+            if hit {
+                apex = apex.max(st.q[0]); // rebound height after first contact
+            }
+        }
+        // Bounded residual (integrator-level, ~10%) — not runaway.
+        assert!(emax <= e0 * 1.12, "elastic contact injected too much energy: e0={e0} emax={emax}");
+        // Energy ≈ conserved: the elastic bounce rebounds near the drop height.
+        assert!(apex > 0.85, "e=1 bounce lost too much energy: apex={apex}");
     }
 }

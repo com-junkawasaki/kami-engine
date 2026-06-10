@@ -11,7 +11,7 @@
 //! changing the public API.
 
 use crate::scene_cfg::SceneCfg;
-use crate::traits::StepResult;
+use crate::traits::{StepResult, VecRLEnv};
 use kami_articulated::parse_urdf;
 use kami_genesis::{CartpoleConfig, CartpoleState, step_vectorized, step_vectorized_per_env};
 
@@ -240,6 +240,27 @@ impl VectorizedCartpoleEnv {
     }
 }
 
+impl VecRLEnv for VectorizedCartpoleEnv {
+    fn num_envs(&self) -> usize {
+        self.num_envs
+    }
+    fn observation_dim_per_env(&self) -> usize {
+        Self::observation_dim_per_env(self)
+    }
+    fn action_dim_per_env(&self) -> usize {
+        Self::action_dim_per_env(self)
+    }
+    fn reset_all(&mut self, base_seed: Option<u64>) -> Vec<f32> {
+        Self::reset_all(self, base_seed)
+    }
+    fn step_all(&mut self, actions: &[f32]) -> Vec<StepResult> {
+        Self::step_all(self, actions)
+    }
+    fn observations_flat(&self) -> Vec<f32> {
+        Self::observations_flat(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -253,6 +274,17 @@ mod tests {
     fn make_env(num_envs: usize) -> VectorizedCartpoleEnv {
         let cfg = load_scene_yaml(CARTPOLE_SCENE).unwrap();
         VectorizedCartpoleEnv::new(num_envs, cfg, CARTPOLE_URDF).unwrap()
+    }
+
+    #[test]
+    fn implements_vec_rl_env_trait() {
+        // Cartpole is drivable through the generic VecRLEnv trait + harness.
+        use crate::traits::{VecRLEnv, run_zero_action_rollout};
+        let mut env = make_env(4);
+        assert_eq!(VecRLEnv::num_envs(&env), 4);
+        assert_eq!(VecRLEnv::action_dim_per_env(&env), 1);
+        let total = run_zero_action_rollout(&mut env, 10, Some(0));
+        assert!(total.is_finite());
     }
 
     #[test]
