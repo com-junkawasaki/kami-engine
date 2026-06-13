@@ -52,7 +52,12 @@
   :draw maps whose :draw/instances carries one flattened model-matrix array
   (→ a KAMI Dtype/Mat4 column in `kami.ipc`) plus a flattened tint array."
   [world]
-  (let [renderable (map second (ecs/query world #{:mesh/asset}))
+  ;; Sort renderables by eid so both the group order (sorted by key below) AND the
+  ;; per-instance order within a group are deterministic — `ecs/query` walks a set
+  ;; intersection whose iteration order is unspecified. Determinism makes
+  ;; `kami.ipc/pack` output byte-reproducible (the record/replay / golden surface).
+  (let [renderable (sort-by #(str (:kami/eid %))
+                            (map second (ecs/query world #{:mesh/asset})))
         groups (group-by (juxt pipeline-of
                                #(asset-id (:mesh/asset %))
                                #(asset-id (:material/asset %)))

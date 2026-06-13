@@ -23,7 +23,9 @@ host = ["dep:wgpu", "dep:kami-render", "dep:kami-core", "dep:glam",
         "dep:serde", "dep:serde_json"]
 
 [dependencies]
-wgpu = { version = "24", optional = true }
+# `webgl` so the WebGPU→WebGL2 fallback (kami-render forces Backends BROWSER_WEBGPU|GL)
+# is actually compiled into the wasm bundle, not just declared in the bootstrap policy.
+wgpu = { version = "24", optional = true, features = ["webgl"] }
 glam = { workspace = true, optional = true }
 kami-render = { path = "../kami-render", optional = true }
 kami-core = { path = "../kami-core", optional = true }

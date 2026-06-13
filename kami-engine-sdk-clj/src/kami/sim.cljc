@@ -85,17 +85,30 @@
   [{:keys [snapshot backend systems aspect hz]
     :or   {aspect 1.7777778 hz 30}}]
   (when-not backend (throw (ex-info "run!: missing :backend" {})))
-  (let [world (atom (ecs/load-snapshot snapshot))
-        dt    (/ 1000.0 hz)
+  (let [world   (atom (ecs/load-snapshot snapshot))
+        dt      (/ 1000.0 hz)
         running (atom true)]
     (gpu/ensure-assets! backend snapshot)
     #?(:cljs
-       (letfn [(frame-loop [n]
-                 (when @running
-                   (swap! world step dt systems)
-                   (render-once @world backend {:n n :aspect aspect})
-                   (js/requestAnimationFrame #(frame-loop (inc n)))))]
-         (js/requestAnimationFrame #(frame-loop 0))))
+       ;; Fixed-step accumulator: the RAF timestamp drives real elapsed time, which
+       ;; we bank into `acc` and drain in whole `dt` steps. This decouples the
+       ;; simulation rate (`hz`) from the display refresh — on a frame drop we catch
+       ;; up with multiple steps; on a fast display we don't over-step. The 250 ms
+       ;; clamp avoids a "spiral of death" after a long stall (tab backgrounded).
+       (let [acc  (atom 0.0)
+             last (atom nil)]
+         (letfn [(frame-loop [ts n]
+                   (when @running
+                     (let [prev    (or @last ts)
+                           elapsed (min 250.0 (- ts prev))]
+                       (reset! last ts)
+                       (swap! acc + elapsed)
+                       (while (>= @acc dt)
+                         (swap! world step dt systems)
+                         (swap! acc - dt))
+                       (render-once @world backend {:n n :aspect aspect})
+                       (js/requestAnimationFrame #(frame-loop % (inc n))))))]
+           (js/requestAnimationFrame #(frame-loop % 0)))))
     {:world  world
      :stop   (fn [] (reset! running false))
      :commit (fn [transact-fn] (swap! world commit! transact-fn))}))

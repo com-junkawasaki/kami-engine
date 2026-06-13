@@ -30,6 +30,10 @@ pub enum DecodeError {
     TooShort,
     BadMagic(u32),
     BadVersion(u16),
+    /// A column header carries a Dtype tag this decoder does not know. We refuse
+    /// the frame rather than silently dropping the column (the clj packer rejects
+    /// unknown dtypes symmetrically), so a producer/consumer version skew is loud.
+    UnknownDtype { index: usize, dtype: u8 },
     ColumnOutOfBounds { index: usize, offset: usize, end: usize, buf: usize },
 }
 
@@ -141,7 +145,11 @@ pub fn decode(buf: &[u8]) -> Result<FrameView<'_>, DecodeError> {
         let stride = buf[h + 1];
         let len = rd_u32(buf, h + 4);
         let offset = rd_u32(buf, h + 8) as usize;
-        let payload = element_size(dtype) * len as usize * stride.max(1) as usize;
+        let esize = element_size(dtype);
+        if esize == 0 {
+            return Err(DecodeError::UnknownDtype { index: i, dtype });
+        }
+        let payload = esize * len as usize * stride.max(1) as usize;
         let end = offset + payload;
         if end > buf.len() {
             return Err(DecodeError::ColumnOutOfBounds {
@@ -209,6 +217,17 @@ mod tests {
         let mut b = FIXTURE.to_vec();
         b[0] = 0;
         assert!(matches!(decode(&b), Err(DecodeError::BadMagic(_))));
+    }
+
+    #[test]
+    fn rejects_unknown_dtype() {
+        // corrupt column 0's dtype byte (header at offset 16) to an unknown tag.
+        let mut b = FIXTURE.to_vec();
+        b[16] = 9;
+        assert!(matches!(
+            decode(&b),
+            Err(DecodeError::UnknownDtype { index: 0, dtype: 9 })
+        ));
     }
 
     #[test]
