@@ -1230,6 +1230,72 @@ mod tests {
         assert_eq!(h, GOLDEN, "world-state hash 0x{h:016x} ≠ GOLDEN — determinism/backend regression");
     }
 
+    /// Compile + run a script that spawns `n-expr` copies of "x", and return the
+    /// count — a behavioral probe that the kami-engine-clj compiler EVALUATES the
+    /// expression correctly (not just emits valid wasm). Runs on whichever backend
+    /// is compiled, so the dual-backend gate checks both interpret it identically.
+    fn eval_count(n_expr: &str) -> usize {
+        let src = format!(
+            "(defn init [] (loop [i 0] (when (< i {n_expr}) (spawn-entity \"x\") (recur (+ i 1)))))"
+        );
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        rt.set_seed(1);
+        rt.load_clj("g", &src).unwrap();
+        rt.call_init("g").unwrap();
+        let world = w.lock().unwrap();
+        let mut q = world.query::<&Tag>();
+        q.iter().filter(|(_, t)| t.0 == "x").count()
+    }
+
+    #[test]
+    fn lang_cond_picks_matching_branch() {
+        assert_eq!(eval_count("(cond (= 1 2) 99 (= 2 2) 7 :else 0)"), 7);
+        assert_eq!(eval_count("(cond (= 1 2) 99 (= 3 4) 5 :else 4)"), 4); // :else
+    }
+
+    #[test]
+    fn lang_nested_arithmetic() {
+        assert_eq!(eval_count("(* (+ 2 3) 2)"), 10);
+        assert_eq!(eval_count("(mod 17 5)"), 2);
+        assert_eq!(eval_count("(abs (dec (- 0 7)))"), 8); // dec(-7) = -8, abs = 8
+    }
+
+    #[test]
+    fn lang_and_or_not() {
+        // and(true, or(false,false)) = false → else branch (6)
+        assert_eq!(eval_count("(if (and (> 5 3) (or false (< 1 0))) 4 6)"), 6);
+        assert_eq!(eval_count("(if (not (= 1 1)) 3 5)"), 5);
+        assert_eq!(eval_count("(if (or false (>= 3 3)) 9 0)"), 9);
+    }
+
+    #[test]
+    fn lang_let_shadowing_and_do() {
+        assert_eq!(eval_count("(let [a 4 b (+ a 1)] (do a b))"), 5); // do → last
+        assert_eq!(eval_count("(let [a 3] (let [a (* a 2)] a))"), 6); // inner shadow
+    }
+
+    #[test]
+    fn lang_vec_capacity_is_enforced() {
+        // push past cap is a silent no-op; len stays at cap.
+        assert_eq!(
+            eval_count("(let [v (vec-make 2)] (vec-push! v 1) (vec-push! v 1) (vec-push! v 1) (vec-len v))"),
+            2
+        );
+        // round-trip a stored value
+        assert_eq!(eval_count("(let [v (vec-make 4)] (vec-push! v 7) (vec-get v 0))"), 7);
+    }
+
+    #[test]
+    fn lang_map_default_and_update() {
+        assert_eq!(eval_count("(map-get-or (map-make 4) 42 9)"), 9); // missing → default
+        assert_eq!(
+            eval_count("(let [m (map-make 4)] (map-put! m 1 3) (map-put! m 1 (+ (map-get m 1) 2)) (map-get m 1))"),
+            5 // in-place update 3 → 5
+        );
+        assert_eq!(eval_count("(let [m (map-make 4)] (map-put! m 1 1) (map-has? m 9))"), 0);
+    }
+
     #[test]
     fn count_tagged_via_world() {
         // spawn tags entities so count/query can see them.
