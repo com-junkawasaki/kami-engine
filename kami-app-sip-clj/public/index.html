@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Spirit in Physics — 水の都の心音</title>
+  <meta name="description" content="水の都・東京2065。のんびり暮らし、学び、誰かに寄り添う、癒しのオンラインゲーム。">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #f4f1fb; }
+    #sip-canvas { width: 100%; height: 100%; display: block; }
+    /* gentle, ARIA-like loading — no urgency, no spinner-of-doom */
+    #intro {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px; z-index: 50;
+      background: radial-gradient(120% 120% at 50% 25%, #fbf7ff 0%, #efe9fb 55%, #e7eef7 100%);
+      transition: opacity 1.2s ease; font-family: ui-sans-serif, system-ui, "Hiragino Sans", sans-serif;
+    }
+    #intro.hidden { opacity: 0; pointer-events: none; }
+    .title { font-size: clamp(28px, 6vw, 52px); font-weight: 700; letter-spacing: .04em; color: #6b5b95; }
+    .sub   { font-size: 15px; color: #9a8fb5; letter-spacing: .12em; }
+    .hint  { margin-top: 18px; font-size: 12px; color: #b3a9c9; }
+    .drop  { width: 8px; height: 8px; border-radius: 50%; background: #c9bbe6; margin-top: 14px;
+             animation: breathe 3.2s ease-in-out infinite; }
+    @keyframes breathe { 0%,100% { transform: scale(1); opacity:.5 } 50% { transform: scale(1.6); opacity:1 } }
+  </style>
+</head>
+<body>
+  <canvas id="sip-canvas"></canvas>
+
+  <div id="intro">
+    <div class="title">Spirit in Physics</div>
+    <div class="sub">水の都の心音 · the heartbeat of the water city</div>
+    <div class="drop"></div>
+    <div class="hint">WebGPU を準備しています…</div>
+  </div>
+
+  <script type="module">
+    // 1) Instantiate the kami-clj-host wasm (owns wgpu/WebGPU) and expose the
+    //    KamiCljHost class as a global — kami.backend.browser/make reads it.
+    //    Built by: wasm-pack build kami-clj-host --target web --features host
+    import wasmInit, { KamiCljHost } from '/wasm/kami_clj_host.js';
+    // 2) The cljs bundle (shadow-cljs :app build) exposes window.sip.web.boot.
+    import './js/sip.js?b=5';
+
+    async function go() {
+      const hint = document.querySelector('.hint');
+      try {
+        if (!navigator.gpu) { hint.textContent = 'このブラウザは WebGPU 非対応です。Chrome/Edge 最新版をお試しください。'; return; }
+        await wasmInit();                       // wasm-bindgen init
+        window.KamiCljHost = KamiCljHost;       // global the backend resolves
+        await window.sip.web.boot('sip-canvas', '/snapshot.edn');
+        document.getElementById('intro').classList.add('hidden');
+      } catch (err) {
+        hint.textContent = '起動に失敗しました（コンソールを確認してください）。';
+        console.error(err);
+      }
+    }
+    window.addEventListener('load', go);
+  </script>
+</body>
+</html>

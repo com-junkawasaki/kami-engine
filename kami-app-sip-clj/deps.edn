@@ -1,0 +1,49 @@
+;; Spirit in Physics — https://sip.etzhayyim.com
+;; A cozy slow-life healing game. clj is the brain; Datomic/datalevin is the
+;; world; Kotoba is the content-addressed durable + distributed layer; the GPU
+;; work stays on kami-render (Rust/wgpu) via kami-engine-sdk-clj's render-IR.
+;;
+;; Stack rationale lives in docs/ARCHITECTURE.md. Source IP (story-bible) is the
+;; single source of truth at ../../260208-spirit-in-physics.
+{:paths ["src" "resources"]
+
+ :deps {org.clojure/clojure       {:mvn/version "1.12.0"}
+        com.cognitect/transit-clj {:mvn/version "1.0.333"}
+        org.clojure/data.json     {:mvn/version "2.5.0"}      ; read story-bible JSON-LD
+        ;; The engine SDK: scene/ecs/sim/db/render-IR contract over kami-render.
+        gftd/kami-engine-sdk-clj  {:local/root "../kami-engine-sdk-clj"}}
+
+ :aliases
+ {;; ----- JVM authoring: build the water-city world → datalevin → snapshot ----
+  :datomic   {:extra-deps {datalevin/datalevin {:mvn/version "0.9.22"}}}
+
+  :dev       {:extra-paths ["dev" "examples"]
+              :extra-deps  {datalevin/datalevin          {:mvn/version "0.9.22"}
+                            org.clojure/tools.namespace  {:mvn/version "1.5.0"}}
+              :jvm-opts    ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}
+
+  ;; Build the portable snapshot served to the browser:
+  ;;   clojure -M:datomic:build -m sip.world
+  :build     {:extra-paths ["dev"]
+              :main-opts   ["-m" "sip.world"]}
+
+  ;; Compose / render / load manga panels from the story-bible anchors:
+  ;;   clojure -M:datomic:render compose 02-02b
+  ;;   clojure -M:datomic:render render  02-02b out.png   (needs image-gen @ :8100)
+  ;;   clojure -M:datomic:render load    /tmp/sip-world
+  :render    {:main-opts ["-m" "sip.render"]}
+
+  ;; ----- Browser runtime (ClojureScript → kami-render WASM → WebGPU) ---------
+  :shadow    {:extra-paths ["src"]
+              :extra-deps  {thheller/shadow-cljs       {:mvn/version "2.28.20"}
+                            org.clojure/clojurescript  {:mvn/version "1.11.132"}
+                            org.clojure/core.async     {:mvn/version "1.6.681"}  ; kami.backend.browser
+                            com.cognitect/transit-cljs {:mvn/version "0.8.280"}}
+              :main-opts   ["-m" "shadow.cljs.devtools.cli"]}
+
+  ;; ----- Pure logic tests (no GPU, no DB): session FSM, kokoro, awakening -----
+  :test      {:extra-paths ["test"]
+              :extra-deps  {io.github.cognitect-labs/test-runner
+                            {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+              :main-opts   ["-m" "cognitect.test-runner"]}}}

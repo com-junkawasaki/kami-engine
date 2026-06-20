@@ -1,0 +1,14 @@
+;; Spirit in Physics — ClojureScript browser build.
+;; Output is a single ES module loaded by public/index.html; the wgpu work is
+;; done by the kami-clj-host wasm, not here.
+{:deps   {:aliases [:shadow]}
+ :source-paths ["src"]
+
+ :builds
+ {:app {:target     :browser
+        :output-dir "public/js"
+        :asset-path "/js"
+        ;; No :init-fn — index.html drives boot explicitly (after wasm init).
+        ;; `^:export` on sip.web/boot exposes it as window.sip.web.boot.
+        :modules    {:sip {:entries [sip.web]}}
+        :release    {:compiler-options {:optimizations :advanced}}}}}

@@ -1,0 +1,64 @@
+;; Spirit in Physics — babashka task runner.
+;;
+;; bb is the thin orchestration layer; the heavy lifting stays in clj + Datomic
+;; (datalevin needs the full JVM, so DB tasks shell out to `clojure -M:datomic`).
+;; Pure logic (session FSM, render recipe) runs in bb directly — fast, no JVM.
+;;
+;;   bb tasks                # list everything
+;;   bb test                 # pure tests in-process (fast) + full JVM suite
+;;   bb world                # author the WebGPU snapshot  → public/snapshot.edn
+;;   bb load                 # anchors + 108 panels        → datalevin world
+;;   bb compose 02-02        # print one composed panel prompt
+;;   bb imagegen:up          # start the AnimagineXL image-gen server (:8100)
+;;   bb imagegen:health      # is the render server ready?
+;;   bb render 02-02         # render one panel → PNG + provenance datom
+;;   bb render-all 02-       # batch render a chapter (prefix) + record provenance
+{:min-bb-version "1.0.0"
+ :paths ["src" "test"]
+
+ :tasks
+ {:requires ([babashka.process :as p]
+             [babashka.fs :as fs])
+
+  ;; ----- pure, in-process (no JVM, no DB) ----------------------------------
+  ;; Only the session FSM is bb-loadable; sip.render pulls sip.store (datalevin,
+  ;; JVM-only), so the render + store tests run under `bb test` (full JVM).
+  test:pure  {:doc "Fast pure session-FSM tests under bb (no JVM, no DB)"
+              :extra-paths ["test"]
+              :requires ([clojure.test :as t])
+              :task (do (require 'sip.session-test)
+                        (let [{:keys [fail error]} (t/run-tests 'sip.session-test)]
+                          (System/exit (if (pos? (+ fail error)) 1 0))))}
+
+  test       {:doc "Full test suite (session + render + store, on the JVM)"
+              :task (p/shell "clojure -M:datomic:test")}
+
+  ;; ----- clj + Datomic authoring (full JVM) --------------------------------
+  world      {:doc "Author the WebGPU world snapshot → public/snapshot.edn"
+              :task (p/shell "clojure -M:datomic:build")}
+
+  load       {:doc "Load anchors + all storyboard panels into the datalevin world"
+              :task (p/shell "clojure -M:datomic:render load")}
+
+  compose    {:doc "Compose one panel's prompt:  bb compose <panel-id>"
+              :task (apply p/shell "clojure -M:datomic:render compose" *command-line-args*)}
+
+  ;; ----- image-gen (AnimagineXL 4.0, MPS) ----------------------------------
+  imagegen:up
+  {:doc "Start the image-gen server on :8100 (AnimagineXL 4.0)"
+   :task (let [d "../../ghosthacker/apps/image-gen"]
+           (println "starting image-gen on :8100 (logs → /tmp/imagegen.log)")
+           (p/shell {:dir d :out :write :err :write
+                     :out-file (fs/file "/tmp/imagegen.log")}
+                    "./.venv/bin/python" "app.py"))}
+
+  imagegen:health
+  {:doc "Probe the image-gen server readiness"
+   :task (println (:out (p/sh "curl -s http://localhost:8100/health")))}
+
+  ;; ----- render (clj → image-gen → PNG + Datomic provenance) ---------------
+  render     {:doc "Render one panel → PNG + provenance datom:  bb render <id> [out.png]"
+              :task (apply p/shell "clojure -M:datomic:render render" *command-line-args*)}
+
+  render-all {:doc "Batch render panels by id-prefix + record provenance:  bb render-all [prefix]"
+              :task (apply p/shell "clojure -M:datomic:render render-all" *command-line-args*)}}}
