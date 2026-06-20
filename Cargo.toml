@@ -1,8 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    # Clojure WASM scripting (ADR-0035)
-    "kami-clj",
+    # CLJ/EDN game layer (ADR-0035/0037/0038): kami-engine-clj = language/compiler,
+    # kami-script-runtime = host, kami-clj-play = native player, kami-clj-host = sdk-clj GPU bridge.
+    "kami-engine-clj",
     "kami-clj-host",
     "kami-script-runtime",
     "kami-clj-play",
@@ -100,7 +101,7 @@ edition = "2024"
 license = "MIT"
 
 [workspace.dependencies]
-# kami-clj / kami-script-runtime
+# kami-engine-clj / kami-script-runtime
 wasm-encoder  = "0.221"
 wasmtime      = "22"
 hecs = "0.10"

@@ -1828,19 +1828,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kami-clj"
-version = "0.1.0"
-dependencies = [
- "kotoba-edn",
- "thiserror 2.0.18",
- "wasm-encoder 0.221.3",
- "wasmtime",
- "wat",
- "wit-component",
- "wit-parser 0.221.3",
-]
-
-[[package]]
 name = "kami-clj-host"
 version = "0.1.0"
 dependencies = [
@@ -2025,6 +2012,19 @@ dependencies = [
  "kami-render",
  "kami-rtc",
  "log",
+]
+
+[[package]]
+name = "kami-engine-clj"
+version = "0.1.0"
+dependencies = [
+ "kotoba-edn",
+ "thiserror 2.0.18",
+ "wasm-encoder 0.221.3",
+ "wasmtime",
+ "wat",
+ "wit-component",
+ "wit-parser 0.221.3",
 ]
 
 [[package]]
@@ -2466,8 +2466,8 @@ version = "0.1.0"
 dependencies = [
  "hecs",
  "kami-audio",
- "kami-clj",
  "kami-core",
+ "kami-engine-clj",
  "kami-input",
  "log",
  "thiserror 2.0.18",

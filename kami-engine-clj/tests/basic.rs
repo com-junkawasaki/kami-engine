@@ -1,7 +1,7 @@
 //! Basic compiler smoke tests — verifies that the Clojure subset compiles to
 //! valid WASM bytes without a host runtime.
 
-use kami_clj::compile_str;
+use kami_engine_clj::compile_str;
 
 #[test]
 fn empty_defn_compiles() {
@@ -31,7 +31,7 @@ fn defsystem_desugars_to_tick() {
 
 #[test]
 fn game_prelude_compiles() {
-    use kami_clj::compile_str_with_prelude;
+    use kami_engine_clj::compile_str_with_prelude;
     let src = r#"
       (defn test-prelude []
         (let [t (timer-make 1000)]
@@ -45,7 +45,7 @@ fn game_prelude_compiles() {
 #[test]
 fn vec_state_bag_compiles() {
     // Phase-4 vector (state bag): make / push! / get / len / set! / clear!.
-    use kami_clj::compile_str_with_prelude;
+    use kami_engine_clj::compile_str_with_prelude;
     let src = r#"
       (defn build []
         (let [v (vec-make 8)]
@@ -63,7 +63,7 @@ fn vec_state_bag_compiles() {
 #[test]
 fn map_assoc_bag_compiles() {
     // Phase-4 map (assoc bag): make / put! (insert + update) / get / get-or / has?.
-    use kami_clj::compile_str_with_prelude;
+    use kami_engine_clj::compile_str_with_prelude;
     let src = r#"
       (defn build []
         (let [m (map-make 8)]
@@ -122,7 +122,7 @@ fn key_down_builtin_compiles() {
 
 #[test]
 fn vec3_prelude_compiles() {
-    use kami_clj::compile_str_with_prelude;
+    use kami_engine_clj::compile_str_with_prelude;
     let src = r#"
       (defn get-origin []
         (vec3-make F32-ZERO F32-ZERO F32-ZERO))
@@ -135,14 +135,14 @@ fn vec3_prelude_compiles() {
 
 #[test]
 fn rand_int_compiles() {
-    let wasm = kami_clj::compile_str(r#"(defsystem s [dt] (rand-int 1000))"#)
+    let wasm = kami_engine_clj::compile_str(r#"(defsystem s [dt] (rand-int 1000))"#)
         .expect("rand-int compile");
     assert!(wasm.starts_with(b"\0asm"));
 }
 
 #[test]
 fn count_tagged_compiles() {
-    let wasm = kami_clj::compile_str(r#"(defsystem s [dt] (when (< (count-tagged "enemy") 400) 1))"#)
+    let wasm = kami_engine_clj::compile_str(r#"(defsystem s [dt] (when (< (count-tagged "enemy") 400) 1))"#)
         .expect("count-tagged compile");
     assert!(wasm.starts_with(b"\0asm"));
 }
@@ -156,7 +156,7 @@ fn doseq_entities_compiles() {
           (doseq-entities [e "enemy"]
             (move-toward! e player (f32 40.0))))
     "#;
-    let wasm = kami_clj::compile_str(src).expect("doseq-entities compile");
+    let wasm = kami_engine_clj::compile_str(src).expect("doseq-entities compile");
     assert!(wasm.starts_with(b"\0asm"));
 }
 
@@ -171,7 +171,7 @@ fn nested_doseq_and_nearest_compiles() {
                 (despawn-entity hit)
                 (despawn-entity b)))))
     "#;
-    let wasm = kami_clj::compile_str(src).expect("nearest/doseq compile");
+    let wasm = kami_engine_clj::compile_str(src).expect("nearest/doseq compile");
     assert!(wasm.starts_with(b"\0asm"));
 }
 
@@ -197,7 +197,7 @@ fn survivors_core_loop_compiles() {
                 (despawn-entity hit)
                 (play-sound "shot")))))
     "#;
-    let wasm = kami_clj::compile_str(src).expect("survivors core loop compile");
+    let wasm = kami_engine_clj::compile_str(src).expect("survivors core loop compile");
     assert!(wasm.starts_with(b"\0asm"), "missing WASM magic");
     assert!(wasm.len() > 200, "suspiciously small module");
 }

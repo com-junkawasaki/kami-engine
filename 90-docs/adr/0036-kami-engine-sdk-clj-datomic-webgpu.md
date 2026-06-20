@@ -3,8 +3,13 @@
 **Date**: 2026-06-13  
 **Status**: Accepted — working core + GPU bridge verified (browser render confirmed)  
 **Author**: kami-engine team  
-**Related**: ADR-0035 (kami-clj — Clojure→WASM game scripting), `ARCHITECTURE.md`,
-`kami-engine-sdk-clj/ARCHITECTURE.md`
+**Related**: ADR-0035 (kami-engine-clj — Clojure→WASM game scripting), ADR-0038
+(canonical game architecture; this SDK is the **Model A** authoring brain),
+`ARCHITECTURE.md`, `kami-engine-sdk-clj/ARCHITECTURE.md`
+
+> **Note (ADR-0038):** this SDK is the **authoring / dev** path (Model A — live Datomic,
+> JVM/CLJS). Shipping to iOS/PS5/Switch goes through the **compiled-guest** path (Model B,
+> ADR-0035/0037): Datomic bakes an EDN snapshot a runtime frame never queries.
 
 ---
 

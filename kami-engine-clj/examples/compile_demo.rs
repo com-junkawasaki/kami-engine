@@ -18,7 +18,7 @@ fn main() {
   (delta-ms))
 "#;
 
-    let wasm = kami_clj::compile_str_with_prelude(src)
+    let wasm = kami_engine_clj::compile_str_with_prelude(src)
         .expect("compile failed");
 
     let out = "kami-web/clj-demo.wasm";

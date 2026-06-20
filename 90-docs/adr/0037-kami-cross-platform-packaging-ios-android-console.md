@@ -3,7 +3,7 @@
 **Date**: 2026-06-20
 **Status**: Proposed — Phase 1 (no-JIT backend) implemented + tested
 **Author**: kami-engine team
-**Related**: ADR-0035 (kami-clj — Clojure→WASM scripting), ADR-0036 (kami-engine-sdk-clj — Datomic/wgpu SDK), `ARCHITECTURE.md`
+**Related**: ADR-0035 (kami-engine-clj — Clojure→WASM scripting), ADR-0036 (kami-engine-sdk-clj — Datomic/wgpu SDK), `ARCHITECTURE.md`
 
 ---
 
@@ -14,7 +14,7 @@ A game in this engine is authored as **EDN data + Clojure logic**, and that pair
 
 - **EDN scene/ECS data** — Datomic/datalevin source of truth → `kami.scene/snapshot`
   (transit/edn), loaded into a dense in-memory ECS (ADR-0036).
-- **Clojure game logic** — compiled by `kami-clj` to a **real WASM module** against the
+- **Clojure game logic** — compiled by `kami-engine-clj` to a **real WASM module** against the
   `kami:engine/kami-game` WIT world (ADR-0035). The compiled `.wasm` is the same bytes on
   every target; it is not interpreted source.
 
@@ -43,7 +43,7 @@ seams that each console/handheld platform constrains differently:
 A further constraint shapes the runtime model: the **CLJ-as-brain** path (ADR-0036, the
 sim loop running as JVM Clojure or browser ClojureScript) **cannot run on iOS/PS5/Switch**
 — there is no JVM and no general JS engine to ship. On those targets the **entire** game
-(sim loop included) must take the **compiled-WASM path** (`kami-clj` → wasm, driven by the
+(sim loop included) must take the **compiled-WASM path** (`kami-engine-clj` → wasm, driven by the
 Rust host). Authoring stays on the JVM offline; only baked artifacts ship.
 
 This ADR decides how to extend the existing stack to all six targets **without changing
@@ -64,7 +64,7 @@ The game's `.clj` is identical; what differs is *where the sim loop lives*.
 | Model | Sim loop | Targets | Mechanism |
 |---|---|---|---|
 | **A. Brain-on-host** | JVM Clojure / browser CLJS drives `kami.sim` | Web, Desktop (dev) | ADR-0036, unchanged |
-| **B. Compiled-guest** | whole game (incl. systems) compiled by `kami-clj` to one wasm; Rust host drives `init/tick/on-event` | **Web, Desktop, iOS, Android, PS5, Switch** | ADR-0035, extended |
+| **B. Compiled-guest** | whole game (incl. systems) compiled by `kami-engine-clj` to one wasm; Rust host drives `init/tick/on-event` | **Web, Desktop, iOS, Android, PS5, Switch** | ADR-0035, extended |
 
 Model **B is the universal path** and the only one available on iOS/console. Web and
 Desktop support both (B is what unifies them with mobile/console). The product targets
@@ -72,7 +72,7 @@ ship Model B exclusively. This makes "implement a game in CLJ/EDN for each platf
 *author once on JVM, compile the logic to one wasm, bake the EDN scene to one snapshot,
 and link them against the per-platform host.*
 
-**Prerequisite**: finish `kami-clj` Phase 4 language growth (ADR-0035 §"Phase 4") —
+**Prerequisite**: finish `kami-engine-clj` Phase 4 language growth (ADR-0035 §"Phase 4") —
 vector/map prelude, `(query-entities pred?)`, `(defentity …)` — so a full game (not just a
 per-entity controller) fits the subset. Until then Model B is limited to logic already
 expressible (the `survivors.clj` shape).
@@ -137,11 +137,11 @@ Add a babashka task layer (`tools/kge`) orchestrating the write-once → per-tar
 
 ```
 bb kge bake     <game>            ; Datomic snapshot (transit/edn) + KTX2 asset variants per target
-bb kge compile  <game>            ; kami-clj: game .clj → game.wasm  (one artifact, all targets)
+bb kge compile  <game>            ; kami-engine-clj: game .clj → game.wasm  (one artifact, all targets)
 bb kge host     --target ios|android|ps5|switch|web|mac
                                   ; cargo build the per-target host (backend-wasmi for ios/ps5/switch)
 bb kge package  --target …        ; .app / .apk(.aab) / console package / web bundle / .app
-bb kge run      --target mac      ; dev loop (wasmtime + hot-reload, kami-clj Phase 3)
+bb kge run      --target mac      ; dev loop (wasmtime + hot-reload, kami-engine-clj Phase 3)
 bb kge test                       ; headless golden-frame: run game.wasm under wasmi, hash ECS state
 ```
 
@@ -162,7 +162,7 @@ continuously exercised without a device.
                             │  bb kge bake / compile
         ┌───────────────────┴────────────────────┐
         ▼                                         ▼
-  snapshot.edn (scene data)              game.wasm  (kami-clj → kami:engine/kami-game)
+  snapshot.edn (scene data)              game.wasm  (kami-engine-clj → kami:engine/kami-game)
   + KTX2 assets (ASTC | BCn)                 ── platform-independent, write-once ──
         │                                         │
         └─────────────────┬───────────────────────┘
@@ -200,7 +200,7 @@ continuously exercised without a device.
 - **PS5/Switch GPU backends are out of this repo's scope** and require NDA SDK access in a
   private crate implementing `RenderContext`. "Console support" = "every layer portable
   except the GPU backend." State this precisely; do not imply a turnkey console build.
-- Model B requires `kami-clj` Phase 4 (whole-game subset). Until done, console/iOS games
+- Model B requires `kami-engine-clj` Phase 4 (whole-game subset). Until done, console/iOS games
   are limited to the currently-expressible subset (`survivors.clj` complexity).
 - iOS/console cannot use the CLJ-as-brain (JVM/CLJS) path; those targets are Model B only.
   Web/Desktop keep both, but should prefer B to stay on the unified path.
@@ -210,7 +210,7 @@ continuously exercised without a device.
    against **either** wasmtime (default) or **wasmi** (`--no-default-features --features
    backend-wasmi`), selected by cargo feature via cfg-aliased engine types. All 14 tests
    — including the survivors core loop and the seeded-RNG determinism test — **pass
-   identically on both backends**, confirming the no-JIT path executes kami-clj-compiled
+   identically on both backends**, confirming the no-JIT path executes kami-engine-clj-compiled
    game logic with the same results. A pure `backend-wasmi` build links no wasmtime /
    cranelift (no codegen), which is what iOS/PS5/Switch require. Implementation note: the
    only API divergences are module instantiation (wasmi `instantiate_and_start` vs
@@ -219,7 +219,7 @@ continuously exercised without a device.
    fails if either diverges. (A single-binary cross-backend test is intentionally
    precluded — the cfg-alias makes the two engines mutually exclusive in one build — so
    parity is asserted by running the identical suite under each feature instead.)
-2. ✅ **kami-clj Phase 4** — language growth so a full game compiles to one guest wasm.
+2. ✅ **kami-engine-clj Phase 4** — language growth so a full game compiles to one guest wasm.
    ✅ **vector / state-bag prelude** (`vec-make` / `vec-push!` / `vec-get` / `vec-set!` /
    `vec-len` / `vec-clear!`) — fixed-capacity i64 array for state ECS components don't
    cover (spawn queues, wave lists, cooldown tables). ✅ **map / assoc prelude** (`map-make`
@@ -229,7 +229,7 @@ continuously exercised without a device.
    (`ast.rs`) — `(defentity name [params…] body…)` desugars to a constructor that spawns a
    fresh entity tagged `name`, binds it to `self` for the body to initialize, and returns
    the id (the prefab DSL). ✅ `query-entities` covered by existing `doseq-entities` /
-   `nearest-tagged` / `count-tagged`. All compile-tested in `kami-clj` and runtime-tested in
+   `nearest-tagged` / `count-tagged`. All compile-tested in `kami-engine-clj` and runtime-tested in
    `kami-script-runtime`, executing on **both** backends via the gate (17 tests green each).
 3. **iOS** — *In progress:* ✅ **input seam #3 complete** (`kami-script-runtime::input_map`)
    — the device-neutral mapping every non-keyboard target shares (so it also advances Steps
@@ -287,7 +287,7 @@ ASTC — so the per-platform decisions can't silently regress as the host crates
 
 ## References
 
-- ADR-0035 — `kami-clj` Clojure→WASM scripting (`kami:engine/kami-game` WIT, all-i64 ABI, defsystem)
+- ADR-0035 — `kami-engine-clj` Clojure→WASM scripting (`kami:engine/kami-game` WIT, all-i64 ABI, defsystem)
 - ADR-0036 — `kami-engine-sdk-clj` Datomic/datalevin brain + render-IR + wgpu GPU arm
 - `wit/kami-game/world.wit` — host imports (scene/physics/input/render/audio/time/random), guest exports (init/tick/on-event)
 - `kami-script-runtime/tests/survivors.clj` — reference Model-B game (twin-stick survivors)

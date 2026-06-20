@@ -73,7 +73,7 @@
 //!     (when (key-down? "ArrowRight")
 //!       (set-velocity! player-eid (f32 2.0) (f32 0.0) (f32 0.0))))
 //! "#;
-//! let wasm = kami_clj::compile_str(src).unwrap();
+//! let wasm = kami_engine_clj::compile_str(src).unwrap();
 //! assert!(wasm.starts_with(b"\0asm"));
 //! ```
 

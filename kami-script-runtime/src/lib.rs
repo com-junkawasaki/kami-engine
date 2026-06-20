@@ -66,7 +66,7 @@ pub const BACKEND: &str = if cfg!(feature = "backend-wasmi") { "wasmi" } else { 
 
 use kami_core::actor::components::{Position, Rotation, Velocity};
 
-pub use kami_clj::CljError;
+pub use kami_engine_clj::CljError;
 
 pub mod input_map;
 pub use input_map::{apply_dead_zone, ButtonEdges, Edges, VirtualStick};
@@ -284,7 +284,7 @@ impl KamiScriptRuntime {
 
     /// Compile and load a Clojure source string (GAME_PRELUDE is prepended).
     pub fn load_clj(&mut self, name: &str, src: &str) -> Result<(), RuntimeError> {
-        let wasm = kami_clj::compile_str_with_prelude(src)?;
+        let wasm = kami_engine_clj::compile_str_with_prelude(src)?;
         self.load_wasm(name, &wasm)
     }
 
