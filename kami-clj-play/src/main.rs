@@ -339,6 +339,7 @@ struct App {
     frame_ms: f32,
     step_ms: f32,         // CLJ game step (host + wasm) wall time
     frame_hist: Vec<f32>, // recent frame times (ms) for the graph
+    frames: u64,          // total frames (for periodic perf logging)
 }
 
 impl App {
@@ -360,6 +361,7 @@ impl App {
             frame_ms: 0.0,
             step_ms: 0.0,
             frame_hist: Vec::new(),
+            frames: 0,
         }
     }
 
@@ -550,6 +552,16 @@ impl App {
             }
         }
         self.last_frame = Some(now);
+
+        // Periodic perf line to stdout — makes the wasmtime-vs-wasmi (JIT vs
+        // no-JIT) game-step cost measurable from the logs, not just the on-screen HUD.
+        self.frames += 1;
+        if self.frames % 120 == 0 {
+            println!(
+                "perf[{BACKEND}]: {:.0} fps · frame {:.2}ms · step {:.3}ms",
+                self.fps, self.frame_ms, self.step_ms
+            );
+        }
 
         let mx = (self.keys.right as i32 - self.keys.left as i32) as f32;
         let my = (self.keys.up as i32 - self.keys.down as i32) as f32;

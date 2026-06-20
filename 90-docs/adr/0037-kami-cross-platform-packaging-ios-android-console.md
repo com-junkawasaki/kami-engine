@@ -242,6 +242,11 @@ continuously exercised without a device.
    `examples/mac_demo.rs` (same trace under wasmtime and wasmi). *Remaining (need a
    device/Xcode):* `for_ios_surface` (Metal/CAMetalLayer in `kami-render::bootstrap`) +
    Swift shell linking the `backend-wasmi` host + ASTC asset bake.
+   **No-JIT host de-risked on desktop:** the native player (`kami-clj-play`) now forwards the
+   backend feature, so the *same rendered game* runs under wasmtime **and** wasmi on macOS.
+   Measured side by side (survivors, ~tens of enemies, Metal, vsync): both hold 60 fps with a
+   CLJ game-step of ~0.15–0.19 ms — interpreter overhead is in the noise because gameplay
+   isn't the hot path. This is the exact host code path iOS/PS5/Switch use, minus the surface.
 4. **Android** — `for_android_surface` + NativeActivity shell + Vulkan + touch → AAB.
 5. **Console seam** — `for_console_surface` + private NDA backend crate (PS5, then Switch).
 

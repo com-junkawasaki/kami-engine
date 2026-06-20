@@ -9,7 +9,12 @@ name = "kami-clj-play"
 path = "src/main.rs"
 
 [dependencies]
-kami-script-runtime = { path = "../kami-script-runtime" }   # default backend = wasmtime
+# The player forwards the WASM-backend choice to the host crate, so the SAME
+# rendered game runs under wasmtime (JIT) or wasmi (no-JIT, the iOS/console path):
+#   cargo run --target aarch64-apple-darwin -p kami-clj-play          # wasmtime
+#   cargo run --target aarch64-apple-darwin -p kami-clj-play \
+#       --no-default-features --features backend-wasmi               # wasmi (no JIT)
+kami-script-runtime = { path = "../kami-script-runtime", default-features = false }
 kami-core = { path = "../kami-core" }
 kotoba-edn = { path = "../../kotoba/crates/kotoba-edn" }     # parse the Datomic-shaped scene.edn
 hecs      = { workspace = true }
@@ -17,3 +22,8 @@ wgpu      = "24"
 winit     = "0.30"
 pollster  = "0.4"
 bytemuck  = { workspace = true }
+
+[features]
+default          = ["backend-wasmtime"]
+backend-wasmtime = ["kami-script-runtime/backend-wasmtime"]
+backend-wasmi    = ["kami-script-runtime/backend-wasmi"]
