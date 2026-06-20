@@ -448,7 +448,7 @@ impl KamiScriptRuntime {
     pub fn integrate(&mut self, dt_ms: i64) {
         let dt = dt_ms as f32 / 1000.0;
         let world = self.store.data().world.clone();
-        let mut w = world.lock().unwrap();
+        let w = world.lock().unwrap();
         for (_, (p, v)) in w.query::<(&mut Position, &Velocity)>().iter() {
             p.0[0] += v.0[0] * dt;
             p.0[1] += v.0[1] * dt;

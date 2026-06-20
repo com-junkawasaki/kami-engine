@@ -135,7 +135,6 @@ pub fn compile(program: &Program) -> Result<Vec<u8>, CljError> {
             loop_levels: Vec::new(),
             loop_var_locals: Vec::new(),
             heap_global: HEAP_GLOBAL,
-            realloc_fn,
         };
         let instrs = cg.emit_body(&f.body)?;
         let mut func = Function::new(cg.local_decls());
@@ -148,8 +147,8 @@ pub fn compile(program: &Program) -> Result<Vec<u8>, CljError> {
     {
         // locals: [old_ptr:i32, old_sz:i32, align:i32, new_sz:i32]
         // align heap pointer up, then advance global.
-        let align_local = 2u32; // align param
-        let new_sz      = 3u32; // new_size param
+        let _align_local = 2u32; // align param (reserved local index)
+        let new_sz       = 3u32; // new_size param
         let mut f = Function::new([]);
         // current = global + (align-1) & ~(align-1)
         // simplified: just align to HEAP_ALIGN (16) regardless of the align param
@@ -403,7 +402,6 @@ struct FnCtx<'a> {
     /// `let` locals that happen to precede them.
     loop_var_locals: Vec<Vec<u32>>,
     heap_global:  u32,
-    realloc_fn:   u32,
 }
 
 impl<'a> FnCtx<'a> {

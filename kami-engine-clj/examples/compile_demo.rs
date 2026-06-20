@@ -37,7 +37,6 @@ fn main() {
         i += consumed;
         if section_id == 2 {
             // import section
-            let end = i + sec_len as usize;
             let (count, c) = leb128_u32(&wasm[i..]);
             let mut j = i + c;
             for _ in 0..count {
@@ -49,7 +48,6 @@ fn main() {
                 let (_type_idx, c) = leb128_u32(&wasm[j..]); j += c;
                 println!("  [{module}] :: {name}");
             }
-            i = end;
             break;
         } else {
             i += sec_len as usize;
