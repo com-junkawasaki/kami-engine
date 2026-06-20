@@ -5,6 +5,7 @@ members = [
     "kami-clj",
     "kami-clj-host",
     "kami-script-runtime",
+    "kami-clj-play",
     "kami-core",
     "kami-knp",
     "kami-render",

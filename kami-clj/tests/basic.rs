@@ -43,6 +43,56 @@ fn game_prelude_compiles() {
 }
 
 #[test]
+fn vec_state_bag_compiles() {
+    // Phase-4 vector (state bag): make / push! / get / len / set! / clear!.
+    use kami_clj::compile_str_with_prelude;
+    let src = r#"
+      (defn build []
+        (let [v (vec-make 8)]
+          (vec-push! v 11)
+          (vec-push! v 22)
+          (vec-set! v 0 33)
+          (let [sum (+ (vec-get v 0) (vec-get v 1) (vec-len v))]
+            (vec-clear! v)
+            sum)))
+    "#;
+    let wasm = compile_str_with_prelude(src).expect("compile vec prelude");
+    assert!(wasm.starts_with(b"\0asm"));
+}
+
+#[test]
+fn map_assoc_bag_compiles() {
+    // Phase-4 map (assoc bag): make / put! (insert + update) / get / get-or / has?.
+    use kami_clj::compile_str_with_prelude;
+    let src = r#"
+      (defn build []
+        (let [m (map-make 8)]
+          (map-put! m 100 3)
+          (map-put! m 200 7)
+          (map-put! m 100 (+ (map-get m 100) 1))
+          (+ (map-get m 100)
+             (map-get-or m 999 0)
+             (map-has? m 200)
+             (map-len m))))
+    "#;
+    let wasm = compile_str_with_prelude(src).expect("compile map prelude");
+    assert!(wasm.starts_with(b"\0asm"));
+}
+
+#[test]
+fn defentity_template_compiles() {
+    // Phase-4 defentity: desugars to spawn `self` (tagged by name) + init + return.
+    let src = r#"
+      (defentity enemy [x y]
+        (set-position! self x y (f32 0.0)))
+      (defn init []
+        (enemy (f32 10.0) (f32 20.0)))
+    "#;
+    let wasm = compile_str(src).expect("compile defentity");
+    assert!(wasm.starts_with(b"\0asm"));
+}
+
+#[test]
 fn f32_constant_roundtrip() {
     // (f32 1.0) should produce the bit-pattern 0x3F800000 = 1065353216
     let src = "(defn get-one [] (f32 1.0))";

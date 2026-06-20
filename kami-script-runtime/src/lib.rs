@@ -1,7 +1,23 @@
 //! # kami-script-runtime
 //!
-//! Wasmtime host that binds every `kami:engine/*` WIT import to live Rust
+//! WASM host that binds every `kami:engine/*` WIT import to live Rust
 //! game-engine state, then drives the compiled Clojure game-script lifecycle:
+//!
+//! ## WASM backend (ADR-0037)
+//!
+//! The same host-binding code drives two interchangeable execution backends,
+//! selected by cargo feature — their APIs mirror each other closely enough that
+//! only module instantiation and the error type differ:
+//!
+//! - `backend-wasmtime` (default) — JIT. macOS / Linux / Windows / Android.
+//! - `backend-wasmi` — pure interpreter, **no runtime codegen** → iOS / PS5 /
+//!   Switch, where JIT (W^X) is forbidden. Slower, but gameplay is not the hot
+//!   path (physics/render stay native).
+//!
+//! Because the guest ABI is the all-i64 deterministic model and the PRNG is
+//! host-seeded, **both backends produce bit-identical runs** — so lockstep
+//! co-op, replay, and headless golden-frame CI hold across a heterogeneous
+//! fleet (a wasmtime desktop host and a wasmi console host stay in sync).
 //!
 //! ```text
 //! compile phase  (kami-clj)          runtime phase  (this crate)
@@ -27,11 +43,36 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use wasmtime::{Engine, Linker, Module, Store};
+// ---------------------------------------------------------------------------
+// WASM backend aliases — one host-binding codebase over two engines.
+//
+// wasmi's API mirrors wasmtime's (Engine / Linker / Module / Store / Caller /
+// Extern / Instance + func_wrap / get_typed_func / TypedFunc::call), so the
+// ~40 host closures below compile unchanged against whichever the feature
+// selects. The only divergences (module instantiation, error type) are
+// `#[cfg]`-gated at their few call sites. `backend-wasmi` wins if both are on,
+// so `--features backend-wasmi` works without `--no-default-features`.
+// ---------------------------------------------------------------------------
+#[cfg(all(feature = "backend-wasmtime", not(feature = "backend-wasmi")))]
+use wasmtime::{Caller, Engine, Extern, Instance, Linker, Module, Store};
+#[cfg(feature = "backend-wasmi")]
+use wasmi::{Caller, Engine, Extern, Instance, Linker, Module, Store};
+
+#[cfg(not(any(feature = "backend-wasmtime", feature = "backend-wasmi")))]
+compile_error!("kami-script-runtime needs a WASM backend: enable `backend-wasmtime` or `backend-wasmi`.");
+
+/// Name of the active WASM backend (`"wasmtime"` or `"wasmi"`) — for logging.
+pub const BACKEND: &str = if cfg!(feature = "backend-wasmi") { "wasmi" } else { "wasmtime" };
 
 use kami_core::actor::components::{Position, Rotation, Velocity};
 
 pub use kami_clj::CljError;
+
+pub mod input_map;
+pub use input_map::{apply_dead_zone, ButtonEdges, Edges, VirtualStick};
+
+pub mod platform;
+pub use platform::{InputDefault, LogicHost, PlatformSpec, RenderBackend, Target, TexFmt};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -41,12 +82,26 @@ pub use kami_clj::CljError;
 pub enum RuntimeError {
     #[error("compile error: {0}")]
     Compile(#[from] CljError),
-    #[error("wasmtime error: {0}")]
-    Wasmtime(#[from] wasmtime::Error),
+    #[cfg(all(feature = "backend-wasmtime", not(feature = "backend-wasmi")))]
+    #[error("wasm backend error: {0}")]
+    Backend(#[from] wasmtime::Error),
+    #[cfg(feature = "backend-wasmi")]
+    #[error("wasm backend error: {0}")]
+    Backend(#[from] wasmi::Error),
     #[error("module `{0}` not loaded")]
     NotLoaded(String),
     #[error("missing export `{0}` in module `{1}`")]
     MissingExport(String, String),
+}
+
+// wasmi's `Linker::func_wrap` yields a `LinkerError` (not `wasmi::Error`), so the
+// `?` in each `bind_*` needs this bridge. wasmtime's `func_wrap` already yields
+// `wasmtime::Error`, covered by the `#[from]` above.
+#[cfg(feature = "backend-wasmi")]
+impl From<wasmi::errors::LinkerError> for RuntimeError {
+    fn from(e: wasmi::errors::LinkerError) -> Self {
+        RuntimeError::Backend(e.into())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -139,7 +194,7 @@ pub struct KamiScriptRuntime {
     engine:  Engine,
     linker:  Linker<HostState>,
     store:   Store<HostState>,
-    modules: HashMap<String, (Module, wasmtime::Instance)>,
+    modules: HashMap<String, (Module, Instance)>,
 }
 
 impl KamiScriptRuntime {
@@ -193,6 +248,36 @@ impl KamiScriptRuntime {
         s.pointer_y = y;
     }
 
+    /// Drop a mapped `[x, y]` stick value (from [`VirtualStick::axes`] or
+    /// [`apply_dead_zone`]) into two named axes — the bridge from a platform's
+    /// raw device to the abstract `(axis "MoveX")` / `(axis "MoveY")` the game
+    /// reads. This is the host side of ADR-0037 seam #3: iOS/Android feed a
+    /// touch `VirtualStick`, consoles feed `apply_dead_zone`'d gamepad sticks,
+    /// and the same `.clj` consumes either.
+    pub fn feed_stick(&mut self, x_action: &str, y_action: &str, axes: [f32; 2]) {
+        self.set_axis(x_action, axes[0]);
+        self.set_axis(y_action, axes[1]);
+    }
+
+    /// Feed this frame's held buttons (by abstract action name) through an
+    /// [`ButtonEdges`] detector into the runtime: every held action reads true
+    /// for `(key-down? …)`, and newly-pressed actions also fire once for
+    /// `(key-pressed? …)`. Released actions drop their held state. Call once per
+    /// frame before `call_systems`. The host side of ADR-0037 seam #3 for
+    /// buttons — DualSense / Joy-Con / MFi / touch-taps all arrive as a name set.
+    pub fn feed_buttons(&mut self, edges: &mut ButtonEdges, held: &[&str]) {
+        let e = edges.update(held);
+        for k in held {
+            self.set_key_down(k, true);
+        }
+        for k in &e.released {
+            self.set_key_down(k, false);
+        }
+        for k in &e.pressed {
+            self.set_key_pressed(k);
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Module lifecycle
     // -----------------------------------------------------------------------
@@ -205,8 +290,15 @@ impl KamiScriptRuntime {
 
     /// Load a pre-compiled WASM core module.
     pub fn load_wasm(&mut self, name: &str, wasm: &[u8]) -> Result<(), RuntimeError> {
-        let module   = Module::new(&self.engine, wasm)?;
+        let module = Module::new(&self.engine, wasm)?;
+        // wasmtime hands back an `Instance` directly; wasmi returns an
+        // `InstancePre` that must be `.start()`ed to run the module's start fn.
+        #[cfg(not(feature = "backend-wasmi"))]
         let instance = self.linker.instantiate(&mut self.store, &module)?;
+        #[cfg(feature = "backend-wasmi")]
+        let instance = self
+            .linker
+            .instantiate_and_start(&mut self.store, &module)?;
         self.modules.insert(name.to_string(), (module, instance));
         Ok(())
     }
@@ -333,12 +425,12 @@ impl KamiScriptRuntime {
 ///
 /// `get_export` requires `&mut Caller`, so the caller must be taken by mutable ref.
 fn read_guest_str(
-    caller: &mut wasmtime::Caller<'_, HostState>,
+    caller: &mut Caller<'_, HostState>,
     ptr: i32,
     len: i32,
 ) -> String {
     if len <= 0 { return String::new(); }
-    let Some(wasmtime::Extern::Memory(mem)) = caller.get_export("memory") else {
+    let Some(Extern::Memory(mem)) = caller.get_export("memory") else {
         return String::new();
     };
     let data = mem.data(caller);
@@ -368,7 +460,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/scene@1.0.0";
 
     // spawn(name_ptr: i32, name_len: i32) -> i64
-    linker.func_wrap(m, "spawn", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| -> i64 {
+    linker.func_wrap(m, "spawn", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> i64 {
         let name = read_guest_str(&mut caller, ptr, len);
         let world_arc = caller.data().world.clone();
         let entity = {
@@ -394,7 +486,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // despawn(entity: i64)
-    linker.func_wrap(m, "despawn", |mut caller: wasmtime::Caller<'_, HostState>, eid: i64| {
+    linker.func_wrap(m, "despawn", |mut caller: Caller<'_, HostState>, eid: i64| {
         let entity = entity_for_id(caller.data(), eid);
         if let Some(e) = entity {
             let world_arc = caller.data().world.clone();
@@ -406,19 +498,19 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // get-x/y/z(entity: i64) -> f32
-    linker.func_wrap(m, "get-x", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-x", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Position>(e).ok().map(|p| p.0[0]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-y", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-y", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Position>(e).ok().map(|p| p.0[1]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-z", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-z", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Position>(e).ok().map(|p| p.0[2]))
@@ -426,7 +518,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // set-position(entity: i64, x: f32, y: f32, z: f32)
-    linker.func_wrap(m, "set-position", |mut caller: wasmtime::Caller<'_, HostState>, eid: i64, x: f32, y: f32, z: f32| {
+    linker.func_wrap(m, "set-position", |mut caller: Caller<'_, HostState>, eid: i64, x: f32, y: f32, z: f32| {
         let entity = entity_for_id(caller.data(), eid);
         if let Some(e) = entity {
             let world = caller.data_mut().world.clone();
@@ -437,19 +529,19 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // get-vx/vy/vz(entity: i64) -> f32
-    linker.func_wrap(m, "get-vx", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-vx", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Velocity>(e).ok().map(|v| v.0[0]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-vy", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-vy", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Velocity>(e).ok().map(|v| v.0[1]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-vz", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-vz", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Velocity>(e).ok().map(|v| v.0[2]))
@@ -457,7 +549,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // set-velocity(entity: i64, vx: f32, vy: f32, vz: f32)
-    linker.func_wrap(m, "set-velocity", |mut caller: wasmtime::Caller<'_, HostState>, eid: i64, vx: f32, vy: f32, vz: f32| {
+    linker.func_wrap(m, "set-velocity", |mut caller: Caller<'_, HostState>, eid: i64, vx: f32, vy: f32, vz: f32| {
         let entity = entity_for_id(caller.data(), eid);
         if let Some(e) = entity {
             let world = caller.data_mut().world.clone();
@@ -468,25 +560,25 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // get-rx/ry/rz/rw(entity: i64) -> f32
-    linker.func_wrap(m, "get-rx", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-rx", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Rotation>(e).ok().map(|r| r.0[0]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-ry", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-ry", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Rotation>(e).ok().map(|r| r.0[1]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-rz", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-rz", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Rotation>(e).ok().map(|r| r.0[2]))
             .unwrap_or(0.0)
     })?;
-    linker.func_wrap(m, "get-rw", |caller: wasmtime::Caller<'_, HostState>, eid: i64| -> f32 {
+    linker.func_wrap(m, "get-rw", |caller: Caller<'_, HostState>, eid: i64| -> f32 {
         let world = caller.data().world.clone();
         entity_for_id(caller.data(), eid)
             .and_then(|e| world.lock().unwrap().get::<&Rotation>(e).ok().map(|r| r.0[3]))
@@ -494,7 +586,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // set-rotation(entity: i64, rx: f32, ry: f32, rz: f32, rw: f32)
-    linker.func_wrap(m, "set-rotation", |mut caller: wasmtime::Caller<'_, HostState>, eid: i64, rx: f32, ry: f32, rz: f32, rw: f32| {
+    linker.func_wrap(m, "set-rotation", |mut caller: Caller<'_, HostState>, eid: i64, rx: f32, ry: f32, rz: f32, rw: f32| {
         let entity = entity_for_id(caller.data(), eid);
         if let Some(e) = entity {
             let world = caller.data_mut().world.clone();
@@ -508,7 +600,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
 
     // query-begin(tag_ptr, tag_len) -> cursor handle (i64). Snapshots the ids
     // of all entities tagged `tag`; the cursor is drained by query-next.
-    linker.func_wrap(m, "query-begin", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| -> i64 {
+    linker.func_wrap(m, "query-begin", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> i64 {
         let tag = read_guest_str(&mut caller, ptr, len);
         let world = caller.data().world.clone();
         let ids: Vec<u32> = {
@@ -527,7 +619,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
 
     // query-next(handle) -> next entity-id (i64), or -1 when drained (which
     // also frees the cursor).
-    linker.func_wrap(m, "query-next", |mut caller: wasmtime::Caller<'_, HostState>, handle: i64| -> i64 {
+    linker.func_wrap(m, "query-next", |mut caller: Caller<'_, HostState>, handle: i64| -> i64 {
         let s = caller.data_mut();
         match s.query_cursors.get_mut(&handle) {
             Some(v) => match v.pop() {
@@ -542,7 +634,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
 
     // count-tagged(tag_ptr, tag_len) -> i64
-    linker.func_wrap(m, "count-tagged", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| -> i64 {
+    linker.func_wrap(m, "count-tagged", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> i64 {
         let tag = read_guest_str(&mut caller, ptr, len);
         let world = caller.data().world.clone();
         let w = world.lock().unwrap();
@@ -552,7 +644,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
 
     // nearest(tag_ptr, tag_len, x: f32, y: f32, maxd: f32) -> entity-id, or -1.
     // 2D (x,y) broadphase done host-side so scripts need no f32 math.
-    linker.func_wrap(m, "nearest", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, maxd: f32| -> i64 {
+    linker.func_wrap(m, "nearest", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, maxd: f32| -> i64 {
         let tag = read_guest_str(&mut caller, ptr, len);
         let world = caller.data().world.clone();
         let w = world.lock().unwrap();
@@ -575,7 +667,7 @@ fn bind_scene(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
 
     // move-toward(entity, target, speed: f32) — set entity velocity toward
     // target at speed px/s in the XY plane. Host does the normalize×speed math.
-    linker.func_wrap(m, "move-toward", |caller: wasmtime::Caller<'_, HostState>, eid: i64, target: i64, speed: f32| {
+    linker.func_wrap(m, "move-toward", |caller: Caller<'_, HostState>, eid: i64, target: i64, speed: f32| {
         let src = entity_for_id(caller.data(), eid);
         let tgt = entity_for_id(caller.data(), target);
         if let (Some(e), Some(t)) = (src, tgt) {
@@ -610,7 +702,7 @@ fn bind_random(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/random@1.0.0";
     // int(n) -> uniform i64 in [0, n); 0 if n <= 0. xorshift64 advances the
     // host-owned seed so runs are reproducible (set via KamiScriptRuntime::set_seed).
-    linker.func_wrap(m, "int", |mut caller: wasmtime::Caller<'_, HostState>, n: i64| -> i64 {
+    linker.func_wrap(m, "int", |mut caller: Caller<'_, HostState>, n: i64| -> i64 {
         if n <= 0 {
             return 0;
         }
@@ -631,9 +723,9 @@ fn bind_random(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
 
 fn bind_physics(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/physics@1.0.0";
-    linker.func_wrap(m, "apply-impulse", |_: wasmtime::Caller<'_, HostState>, _eid: i64, _ix: f32, _iy: f32, _iz: f32| {})?;
-    linker.func_wrap(m, "apply-force",   |_: wasmtime::Caller<'_, HostState>, _eid: i64, _fx: f32, _fy: f32, _fz: f32| {})?;
-    linker.func_wrap(m, "raycast",       |_: wasmtime::Caller<'_, HostState>, _ox: f32, _oy: f32, _oz: f32, _dx: f32, _dy: f32, _dz: f32| -> i64 { 0 })?;
+    linker.func_wrap(m, "apply-impulse", |_: Caller<'_, HostState>, _eid: i64, _ix: f32, _iy: f32, _iz: f32| {})?;
+    linker.func_wrap(m, "apply-force",   |_: Caller<'_, HostState>, _eid: i64, _fx: f32, _fy: f32, _fz: f32| {})?;
+    linker.func_wrap(m, "raycast",       |_: Caller<'_, HostState>, _ox: f32, _oy: f32, _oz: f32, _dx: f32, _dy: f32, _dz: f32| -> i64 { 0 })?;
     Ok(())
 }
 
@@ -645,28 +737,28 @@ fn bind_input(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/input@1.0.0";
 
     // key-down?(ptr: i32, len: i32) -> i32  (1 = held, 0 = not)
-    linker.func_wrap(m, "key-down", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| -> i32 {
+    linker.func_wrap(m, "key-down", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> i32 {
         let key = read_guest_str(&mut caller, ptr, len);
         if caller.data().keys_down.contains(&key) { 1 } else { 0 }
     })?;
 
     // key-pressed?(ptr: i32, len: i32) -> i32  (1 = pressed this frame)
-    linker.func_wrap(m, "key-pressed", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| -> i32 {
+    linker.func_wrap(m, "key-pressed", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> i32 {
         let key = read_guest_str(&mut caller, ptr, len);
         if caller.data().keys_pressed.contains(&key) { 1 } else { 0 }
     })?;
 
     // axis(ptr: i32, len: i32) -> f32
-    linker.func_wrap(m, "axis", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| -> f32 {
+    linker.func_wrap(m, "axis", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> f32 {
         let name = read_guest_str(&mut caller, ptr, len);
         caller.data().axes.get(&name).copied().unwrap_or(0.0)
     })?;
 
     // pointer-x() -> f32
-    linker.func_wrap(m, "pointer-x", |caller: wasmtime::Caller<'_, HostState>| -> f32 {
+    linker.func_wrap(m, "pointer-x", |caller: Caller<'_, HostState>| -> f32 {
         caller.data().pointer_x
     })?;
-    linker.func_wrap(m, "pointer-y", |caller: wasmtime::Caller<'_, HostState>| -> f32 {
+    linker.func_wrap(m, "pointer-y", |caller: Caller<'_, HostState>| -> f32 {
         caller.data().pointer_y
     })?;
 
@@ -681,12 +773,12 @@ fn bind_render(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/render@1.0.0";
 
     // draw-mesh(ptr: i32, len: i32, x: f32, y: f32, z: f32)
-    linker.func_wrap(m, "draw-mesh", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, z: f32| {
+    linker.func_wrap(m, "draw-mesh", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, z: f32| {
         let mesh = read_guest_str(&mut caller, ptr, len);
         caller.data_mut().draw_queue.push(DrawCommand { mesh, pos: [x, y, z] });
     })?;
-    linker.func_wrap(m, "spawn-particle", |_: wasmtime::Caller<'_, HostState>, _ptr: i32, _len: i32, _x: f32, _y: f32, _z: f32| {})?;
-    linker.func_wrap(m, "draw-line", |_: wasmtime::Caller<'_, HostState>, _x0: f32, _y0: f32, _z0: f32, _x1: f32, _y1: f32, _z1: f32, _color: i64| {})?;
+    linker.func_wrap(m, "spawn-particle", |_: Caller<'_, HostState>, _ptr: i32, _len: i32, _x: f32, _y: f32, _z: f32| {})?;
+    linker.func_wrap(m, "draw-line", |_: Caller<'_, HostState>, _x0: f32, _y0: f32, _z0: f32, _x1: f32, _y1: f32, _z1: f32, _color: i64| {})?;
 
     Ok(())
 }
@@ -699,13 +791,13 @@ fn bind_audio(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/audio@1.0.0";
 
     // play(ptr: i32, len: i32)
-    linker.func_wrap(m, "play", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32| {
+    linker.func_wrap(m, "play", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| {
         let name = read_guest_str(&mut caller, ptr, len);
         caller.data_mut().audio_queue.push((name, [0.0; 3]));
     })?;
-    linker.func_wrap(m, "stop", |_: wasmtime::Caller<'_, HostState>, _ptr: i32, _len: i32| {})?;
+    linker.func_wrap(m, "stop", |_: Caller<'_, HostState>, _ptr: i32, _len: i32| {})?;
     // play-at(ptr: i32, len: i32, x: f32, y: f32, z: f32)
-    linker.func_wrap(m, "play-at", |mut caller: wasmtime::Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, z: f32| {
+    linker.func_wrap(m, "play-at", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, z: f32| {
         let name = read_guest_str(&mut caller, ptr, len);
         caller.data_mut().audio_queue.push((name, [x, y, z]));
     })?;
@@ -719,9 +811,9 @@ fn bind_audio(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
 
 fn bind_time(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     let m = "kami:engine/time@1.0.0";
-    linker.func_wrap(m, "delta-ms",   |caller: wasmtime::Caller<'_, HostState>| -> i64 { caller.data().delta_ms   })?;
-    linker.func_wrap(m, "elapsed-ms", |caller: wasmtime::Caller<'_, HostState>| -> i64 { caller.data().elapsed_ms })?;
-    linker.func_wrap(m, "tick",       |caller: wasmtime::Caller<'_, HostState>| -> i64 { caller.data().tick_n     })?;
+    linker.func_wrap(m, "delta-ms",   |caller: Caller<'_, HostState>| -> i64 { caller.data().delta_ms   })?;
+    linker.func_wrap(m, "elapsed-ms", |caller: Caller<'_, HostState>| -> i64 { caller.data().elapsed_ms })?;
+    linker.func_wrap(m, "tick",       |caller: Caller<'_, HostState>| -> i64 { caller.data().tick_n     })?;
     Ok(())
 }
 
@@ -848,6 +940,165 @@ mod tests {
         assert_eq!(a, run(42), "same seed must replay identically");
         // sanity: the PRNG actually fired some-but-not-all of 20 ticks
         assert!(a > 0 && a < 20, "expected a non-trivial spawn count, got {a}");
+    }
+
+    #[test]
+    fn vec_state_bag_drives_spawns_at_runtime() {
+        // Phase-4 vector executes (not just compiles): push 5 and 7 into a state
+        // bag, read them back, and spawn their sum (12) — proving vec-make /
+        // vec-push! / vec-get round-trip through guest linear memory. Runs under
+        // whichever backend is compiled, so the dual-backend gate exercises both.
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        let src = r#"
+            (defn init []
+              (let [v (vec-make 8)]
+                (vec-push! v 5)
+                (vec-push! v 7)
+                (let [n (+ (vec-get v 0) (vec-get v 1))]
+                  (loop [i 0]
+                    (when (< i n)
+                      (spawn-entity "blip")
+                      (recur (+ i 1)))))))
+        "#;
+        rt.load_clj("g", src).unwrap();
+        rt.call_init("g").unwrap();
+
+        let world = w.lock().unwrap();
+        let mut q = world.query::<&Tag>();
+        let blips = q.iter().filter(|(_, t)| t.0 == "blip").count();
+        assert_eq!(blips, 12, "vec-get(0)+vec-get(1) = 5+7 = 12 spawns");
+    }
+
+    #[test]
+    fn map_assoc_bag_drives_spawns_at_runtime() {
+        // Phase-4 map executes (not just compiles): put two keys, UPDATE one
+        // in place (100→4), miss a third (get-or default), and spawn the result.
+        // Proves map-put! insert+update, map-get, and map-get-or default all
+        // round-trip through guest memory under whichever backend is compiled.
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        let src = r#"
+            (defn init []
+              (let [m (map-make 8)]
+                (map-put! m 100 3)
+                (map-put! m 200 7)
+                (map-put! m 100 (+ (map-get m 100) 1))
+                (let [n (+ (map-get m 100) (map-get-or m 999 0))]
+                  (loop [i 0]
+                    (when (< i n)
+                      (spawn-entity "kv")
+                      (recur (+ i 1)))))))
+        "#;
+        rt.load_clj("g", src).unwrap();
+        rt.call_init("g").unwrap();
+
+        let world = w.lock().unwrap();
+        let mut q = world.query::<&Tag>();
+        let kv = q.iter().filter(|(_, t)| t.0 == "kv").count();
+        assert_eq!(kv, 4, "100→3 then updated to 4; missing 999→0; 4+0 = 4 spawns");
+    }
+
+    #[test]
+    fn defentity_template_spawns_and_inits_at_runtime() {
+        // Phase-4 defentity executes: each `(enemy x)` call spawns a fresh
+        // entity tagged "enemy", runs the body to set its position via `self`,
+        // and returns it. Proves the spawn-self-init-return desugar end-to-end.
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        let src = r#"
+            (defentity enemy [x]
+              (set-position! self x (f32 0.0) (f32 0.0)))
+            (defn init []
+              (enemy (f32 10.0))
+              (enemy (f32 20.0))
+              (enemy (f32 30.0)))
+        "#;
+        rt.load_clj("g", src).unwrap();
+        rt.call_init("g").unwrap();
+
+        let world = w.lock().unwrap();
+        let mut xs: Vec<f32> = world
+            .query::<(&Tag, &Position)>()
+            .iter()
+            .filter(|(_, (t, _))| t.0 == "enemy")
+            .map(|(_, (_, p))| p.0[0])
+            .collect();
+        xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(xs, vec![10.0, 20.0, 30.0], "3 enemies spawned + positioned via self");
+    }
+
+    #[test]
+    fn virtual_stick_drives_guest_axis_at_runtime() {
+        // ADR-0037 seam #3 end-to-end: a touch on a VirtualStick → feed_stick →
+        // the guest reads (axis "MoveX"/"MoveY") and sets the player's velocity.
+        // The same .clj would run on iOS (touch) or a console (gamepad); only the
+        // host-side device→axis mapping differs. Verified on both backends.
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        let src = r#"
+            (defn init [] (spawn-entity "player"))
+            (defsystem drive [dt]
+              (doseq-entities [e "player"]
+                (set-velocity! e (axis "MoveX") (axis "MoveY") (f32 0.0))))
+        "#;
+        rt.load_clj("g", src).unwrap();
+        rt.call_init("g").unwrap();
+
+        // Touch at full-right of a stick centred at (100,100), radius 50.
+        let stick = VirtualStick::new([100.0, 100.0], 50.0);
+        rt.feed_stick("MoveX", "MoveY", stick.axes([150.0, 100.0]));
+        rt.call_systems("g", 16).unwrap();
+
+        let world = w.lock().unwrap();
+        let mut q = world.query::<(&Tag, &Velocity)>();
+        let (_, (_, v)) = q.iter().find(|(_, (t, _))| t.0 == "player").unwrap();
+        assert!((v.0[0] - 1.0).abs() < 1e-4, "full-right touch → vx≈1, got {:?}", v.0);
+        assert!(v.0[1].abs() < 1e-4, "no vertical → vy≈0, got {:?}", v.0);
+    }
+
+    #[test]
+    fn button_edges_drive_guest_key_semantics_at_runtime() {
+        // ADR-0037 seam #3 (buttons) end-to-end: feed_buttons drives the guest's
+        // (key-down? "Fire") as a LEVEL (spawns each frame held) and
+        // (key-pressed? "Jump") as an EDGE (spawns once on the down frame).
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        let src = r#"
+            (defn init [] 0)
+            (defsystem guns [dt]
+              (when (key-down? "Fire")    (spawn-entity "shot"))
+              (when (key-pressed? "Jump") (spawn-entity "jump")))
+        "#;
+        rt.load_clj("g", src).unwrap();
+        rt.call_init("g").unwrap();
+
+        let mut edges = ButtonEdges::new();
+        // frame 0: Fire down (level) → shot. Jump absent.
+        rt.feed_buttons(&mut edges, &["Fire"]);
+        rt.call_systems("g", 16).unwrap();
+        // frame 1: Fire still held → shot. Jump newly pressed (edge) → jump.
+        rt.feed_buttons(&mut edges, &["Fire", "Jump"]);
+        rt.call_systems("g", 16).unwrap();
+        // frame 2: both held → shot only (Jump's edge is spent).
+        rt.feed_buttons(&mut edges, &["Fire", "Jump"]);
+        rt.call_systems("g", 16).unwrap();
+        // frame 3: all released → nothing.
+        rt.feed_buttons(&mut edges, &[]);
+        rt.call_systems("g", 16).unwrap();
+
+        let world = w.lock().unwrap();
+        let mut q = world.query::<&Tag>();
+        let (mut shots, mut jumps) = (0, 0);
+        for (_, t) in q.iter() {
+            match t.0.as_str() {
+                "shot" => shots += 1,
+                "jump" => jumps += 1,
+                _ => {}
+            }
+        }
+        assert_eq!(shots, 3, "Fire held frames 0,1,2 → 3 shots (level)");
+        assert_eq!(jumps, 1, "Jump pressed once on frame 1 → 1 jump (edge)");
     }
 
     #[test]

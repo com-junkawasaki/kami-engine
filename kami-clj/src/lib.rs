@@ -203,6 +203,96 @@ pub const GAME_PRELUDE: &str = r#"
     (if (>= elapsed period)
       (do (store64! (+ t 8) 0) 1)
       0)))
+
+;; ---- Vector (state bag) ----------------------------------------------------
+;; A growable-by-push, fixed-capacity i64 array — the Phase-4 building block for
+;; game state that ECS components don't cover (spawn queues, wave lists, score
+;; rings, cooldown tables). Slots hold any i64-stack value: entity ids, ints,
+;; or f32 bit-patterns. Layout: [cap:i64@0, len:i64@8, slot0@16, slot1@24, …].
+(defn vec-make [cap]
+  (let [v (alloc (+ 16 (* cap 8)))]
+    (store64! v cap)
+    (store64! (+ v 8) 0)
+    v))
+
+(defn vec-cap [v] (load64 v))
+(defn vec-len [v] (load64 (+ v 8)))
+
+;; Address of slot i (no bounds check — callers stay within len/cap).
+(defn vec-slot [v i] (+ v 16 (* i 8)))
+
+(defn vec-get [v i] (load64 (vec-slot v i)))
+(defn vec-set! [v i x] (store64! (vec-slot v i) x) v)
+
+;; Append x if there's room; returns v either way (full push is a silent no-op,
+;; matching the fixed-capacity contract — size for the worst case at vec-make).
+(defn vec-push! [v x]
+  (let [n (vec-len v)]
+    (if (< n (vec-cap v))
+      (do (store64! (vec-slot v n) x)
+          (store64! (+ v 8) (+ n 1))
+          v)
+      v)))
+
+;; Reset length to 0 (capacity/backing memory retained for reuse each frame).
+(defn vec-clear! [v] (store64! (+ v 8) 0) v)
+
+;; ---- Map (assoc bag) -------------------------------------------------------
+;; A fixed-capacity i64→i64 association with linear-scan lookup — the Phase-4
+;; key/value store for sparse game state (per-entity cooldowns keyed by id,
+;; tag→count tallies, flag sets). Both keys and values are i64-stack values
+;; (entity ids, ints, f32 bit-patterns). Layout: [cap:i64@0, len:i64@8] then
+;; cap × (key:i64, val:i64) pairs (16 bytes each). Linear scan suits the small
+;; maps gameplay needs; reach for a real hash table only past a few dozen keys.
+(defn map-make [cap]
+  (let [m (alloc (+ 16 (* cap 16)))]
+    (store64! m cap)
+    (store64! (+ m 8) 0)
+    m))
+
+(defn map-cap [m] (load64 m))
+(defn map-len [m] (load64 (+ m 8)))
+
+;; Slot addresses for entry i: key word, then value word 8 bytes after it.
+(defn map-key-slot [m i] (+ m 16 (* i 16)))
+(defn map-val-slot [m i] (+ (map-key-slot m i) 8))
+
+;; Index of key k, or -1 if absent (loop/recur linear scan — no self-recursion).
+(defn map-find [m k]
+  (let [n (map-len m)]
+    (loop [i 0]
+      (if (< i n)
+        (if (= (load64 (map-key-slot m i)) k)
+          i
+          (recur (+ i 1)))
+        -1))))
+
+(defn map-has? [m k] (if (>= (map-find m k) 0) 1 0))
+
+;; Insert or update k→v. A new key past capacity is a silent no-op (size for the
+;; worst case at map-make), matching the vector's fixed-capacity contract.
+(defn map-put! [m k v]
+  (let [idx (map-find m k)]
+    (if (>= idx 0)
+      (do (store64! (map-val-slot m idx) v) m)
+      (let [n (map-len m)]
+        (if (< n (map-cap m))
+          (do (store64! (map-key-slot m n) k)
+              (store64! (map-val-slot m n) v)
+              (store64! (+ m 8) (+ n 1))
+              m)
+          m)))))
+
+;; Value for k, or `default` when absent (no nil in the i64 value model).
+(defn map-get-or [m k default]
+  (let [idx (map-find m k)]
+    (if (>= idx 0) (load64 (map-val-slot m idx)) default)))
+
+;; Value for k, or 0 when absent (the common tally/flag case).
+(defn map-get [m k] (map-get-or m k 0))
+
+;; Reset to empty (capacity/backing memory retained for per-frame reuse).
+(defn map-clear! [m] (store64! (+ m 8) 0) m)
 "#;
 
 /// The prelude text (for callers that need the raw string, e.g. component path).

@@ -1,0 +1,19 @@
+[package]
+name = "kami-clj-play"
+version.workspace = true
+edition.workspace = true
+description = "kami-clj-play — native windowed player (winit + wgpu) that runs a kami-clj/EDN game on the desktop host. The 'mac' target of ADR-0037, with a window: same CLJ game, same script-runtime host, drawn on screen."
+
+[[bin]]
+name = "kami-clj-play"
+path = "src/main.rs"
+
+[dependencies]
+kami-script-runtime = { path = "../kami-script-runtime" }   # default backend = wasmtime
+kami-core = { path = "../kami-core" }
+kotoba-edn = { path = "../../kotoba/crates/kotoba-edn" }     # parse the Datomic-shaped scene.edn
+hecs      = { workspace = true }
+wgpu      = "24"
+winit     = "0.30"
+pollster  = "0.4"
+bytemuck  = { workspace = true }
