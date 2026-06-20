@@ -3,3 +3,4 @@
 .datalevin/
 libdtlv.dylib
 .cpcache/
+game.wasm

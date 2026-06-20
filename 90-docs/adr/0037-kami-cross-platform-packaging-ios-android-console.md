@@ -149,6 +149,13 @@ bb kami test                       ; headless golden-frame: run game.wasm under 
 steps. `kami test` runs on the no-JIT (`wasmi`) path in CI so the console/iOS code path is
 continuously exercised without a device.
 
+✅ **`bb.edn` orchestrator implemented** (root `bb.edn`): `bb {targets,plan,spec,bake,compile,
+host,play,test}` wire the existing pieces — `bb bake survivors` runs `author.clj` (datalevin →
+scene.edn), `bb compile survivors` runs `kamiclj` (logic.clj → game.wasm, verified 3 KB out),
+`bb host <target>` reads the feature+triple from `kami spec <target>` (EDN — single source of
+truth, no re-encoding) and cross-builds, reporting "NDA console SDK" for PS5/Switch. `bb test`
+is the dual-backend gate. The per-platform decisions live only in `kami-script-runtime::platform`.
+
 ---
 
 ## Architecture

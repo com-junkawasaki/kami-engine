@@ -36,11 +36,37 @@ fn main() {
                 std::process::exit(2);
             }
         },
+        // Machine-readable EDN — `bb kami` orchestration reads this so the matrix
+        // has exactly one source of truth (this binary), not a re-encoding in bb.
+        Some("spec") => match args.get(2).and_then(|s| Target::from_tag(s)) {
+            Some(t) => print_spec(t),
+            None => {
+                eprintln!("kami: unknown target. one of: {}", tag_list());
+                std::process::exit(2);
+            }
+        },
         _ => {
-            eprintln!("usage:\n  kami targets          list the packaging matrix\n  kami plan <target>    build plan for one target ({})", tag_list());
+            eprintln!("usage:\n  kami targets          list the packaging matrix\n  kami plan <target>    build plan for one target ({0})\n  kami spec <target>    same, as machine-readable EDN", tag_list());
             std::process::exit(2);
         }
     }
+}
+
+fn print_spec(t: Target) {
+    let s = t.spec();
+    let q = |o: Option<&str>| o.map(|v| format!("\"{v}\"")).unwrap_or_else(|| "nil".into());
+    println!(
+        "{{:target \"{}\" :jit {} :host \"{}\" :feature {} :tex \"{}\" :render \"{}\" :input \"{}\" :triple {} :console-seam {}}}",
+        t.tag(),
+        s.jit_allowed,
+        host_label(s.logic),
+        q(s.host_feature()),
+        tex_label(s.tex),
+        render_label(s.render),
+        input_label(s.input),
+        q(t.triple()),
+        s.console_seam,
+    );
 }
 
 fn print_plan(t: Target) {
