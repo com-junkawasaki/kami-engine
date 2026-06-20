@@ -219,6 +219,16 @@ continuously exercised without a device.
    fails if either diverges. (A single-binary cross-backend test is intentionally
    precluded — the cfg-alias makes the two engines mutually exclusive in one build — so
    parity is asserted by running the identical suite under each feature instead.)
+   ✅ **Golden-frame determinism test** (`golden_frame_determinism`): runs a seeded sim for
+   a fixed number of ticks and asserts a single world-state hash GOLDEN both backends must
+   hit — the cross-backend determinism guard. Authoring it **found and fixed a real bug**:
+   system execution order was engine-dependent (`Module`/`Instance::exports()` iterate in
+   section order on wasmtime but **alphabetically on wasmi**), silently reordering
+   `spawn`/`ai` and shifting a just-spawned entity by one tick. Fixed at the source —
+   `kami-script-runtime` now reads the `-tick` export order from the WASM **export section**
+   of the module bytes (CLJ definition order), engine-independent. After the fix both
+   backends produce **bit-identical** world state (same GOLDEN): the "deterministic across
+   backends" claim is now verified, not assumed.
 2. ✅ **kami-engine-clj Phase 4** — language growth so a full game compiles to one guest wasm.
    ✅ **vector / state-bag prelude** (`vec-make` / `vec-push!` / `vec-get` / `vec-set!` /
    `vec-len` / `vec-clear!`) — fixed-capacity i64 array for state ECS components don't

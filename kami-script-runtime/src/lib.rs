@@ -195,6 +195,64 @@ pub struct KamiScriptRuntime {
     linker:  Linker<HostState>,
     store:   Store<HostState>,
     modules: HashMap<String, (Module, Instance)>,
+    /// `<name>-tick` exports in WASM export-section order (= CLJ definition order),
+    /// read from the module bytes at load. Engine-independent: `Module::exports()`
+    /// iteration order is NOT equal across wasmtime (section order) and wasmi
+    /// (alphabetical), which silently reorders systems and breaks determinism.
+    system_order: HashMap<String, Vec<String>>,
+}
+
+/// Read a LEB128 unsigned int at `off`; returns (value, next-offset).
+fn read_uleb(b: &[u8], mut off: usize) -> (u64, usize) {
+    let (mut val, mut shift) = (0u64, 0u32);
+    while off < b.len() {
+        let byte = b[off];
+        off += 1;
+        val |= ((byte & 0x7f) as u64) << shift;
+        if byte & 0x80 == 0 {
+            break;
+        }
+        shift += 7;
+    }
+    (val, off)
+}
+
+/// Names of exports ending in `-tick`, in export-section (definition) order.
+/// Hand-parses the WASM export section (id 7) so the order is the module's own,
+/// not whatever the engine's `exports()` iterator happens to yield.
+fn ordered_tick_exports(wasm: &[u8]) -> Vec<String> {
+    let mut names = Vec::new();
+    if wasm.len() < 8 {
+        return names;
+    }
+    let mut i = 8; // skip magic(4) + version(4)
+    while i < wasm.len() {
+        let id = wasm[i];
+        i += 1;
+        let (size, ni) = read_uleb(wasm, i);
+        i = ni;
+        let end = (i + size as usize).min(wasm.len());
+        if id == 7 {
+            let (count, mut j) = read_uleb(wasm, i);
+            for _ in 0..count {
+                let (nlen, nj) = read_uleb(wasm, j);
+                let s = j.min(wasm.len());
+                let e = (nj + nlen as usize).min(wasm.len());
+                let name = std::str::from_utf8(&wasm[nj.min(wasm.len())..e]).unwrap_or("").to_string();
+                let _ = s;
+                j = e;
+                j += 1; // export kind byte
+                let (_idx, jj) = read_uleb(wasm, j);
+                j = jj;
+                if name.ends_with("-tick") {
+                    names.push(name);
+                }
+            }
+            break;
+        }
+        i = end;
+    }
+    names
 }
 
 impl KamiScriptRuntime {
@@ -212,7 +270,13 @@ impl KamiScriptRuntime {
         bind_time(&mut linker)?;
         bind_random(&mut linker)?;
 
-        Ok(Self { engine, linker, store, modules: HashMap::new() })
+        Ok(Self {
+            engine,
+            linker,
+            store,
+            modules: HashMap::new(),
+            system_order: HashMap::new(),
+        })
     }
 
     /// Seed the deterministic PRNG (shared-seed co-op / replay). The value is
@@ -299,6 +363,8 @@ impl KamiScriptRuntime {
         let instance = self
             .linker
             .instantiate_and_start(&mut self.store, &module)?;
+        self.system_order
+            .insert(name.to_string(), ordered_tick_exports(wasm));
         self.modules.insert(name.to_string(), (module, instance));
         Ok(())
     }
@@ -352,16 +418,17 @@ impl KamiScriptRuntime {
             s.elapsed_ms += dt_ms;
             s.tick_n += 1;
         }
-        let (_, instance) = self.modules.get(name)
-            .ok_or_else(|| RuntimeError::NotLoaded(name.to_string()))?;
-        let instance = *instance;
-        let systems: Vec<String> = instance
-            .exports(&mut self.store)
-            .filter_map(|e| {
-                let n = e.name();
-                if n.ends_with("-tick") { Some(n.to_string()) } else { None }
-            })
-            .collect();
+        // System order = WASM export-section order (CLJ definition order), captured
+        // from the module bytes at load. Engine-independent — neither `Module::exports()`
+        // nor `Instance::exports()` agree across wasmtime (section order) and wasmi
+        // (alphabetical), which silently reorders `spawn`/`ai` and shifts a just-spawned
+        // entity by one tick (a real cross-backend determinism bug this fixes at the source).
+        let systems = self.system_order.get(name).cloned().unwrap_or_default();
+        let instance = self
+            .modules
+            .get(name)
+            .ok_or_else(|| RuntimeError::NotLoaded(name.to_string()))?
+            .1;
         for sys in &systems {
             if let Ok(f) = instance.get_typed_func::<(i64,), (i64,)>(&mut self.store, sys) {
                 f.call(&mut self.store, (dt_ms,))?;
@@ -1099,6 +1166,68 @@ mod tests {
         }
         assert_eq!(shots, 3, "Fire held frames 0,1,2 → 3 shots (level)");
         assert_eq!(jumps, 1, "Jump pressed once on frame 1 → 1 jump (edge)");
+    }
+
+    /// Order-independent FNV fold of every entity's (tag-len, id, x-bits, y-bits).
+    fn world_hash(w: &Arc<Mutex<hecs::World>>) -> u64 {
+        let world = w.lock().unwrap();
+        let mut acc: u64 = 0;
+        for (e, (t, p)) in world.query::<(&Tag, &Position)>().iter() {
+            let mut h: u64 = 0xcbf29ce484222325; // FNV-1a offset
+            let mut feed = |x: u32| {
+                h ^= x as u64;
+                h = h.wrapping_mul(0x100000001b3);
+            };
+            feed(t.0.len() as u32);
+            feed(e.id());
+            feed(p.0[0].to_bits());
+            feed(p.0[1].to_bits());
+            acc = acc.wrapping_add(h); // commutative → independent of iteration order
+        }
+        acc
+    }
+
+    #[test]
+    fn golden_frame_determinism() {
+        // Seeded RNG + host-side f32 math ⇒ the same script runs identically on
+        // EVERY backend. This pins a golden world-state hash after a fixed number
+        // of deterministic ticks; the dual-backend gate runs it under wasmtime AND
+        // wasmi, so both must hit the SAME constant — the cross-backend determinism
+        // proof (replay / lockstep / anti-cheat foundation) without linking both
+        // engines in one binary.
+        const GAME: &str = r#"
+            (defn player [] (nearest-tagged "player" (f32 0.0) (f32 0.0) (f32 1000000.0)))
+            (defn init [] (set-position! (spawn-entity "player") (f32 0.0) (f32 0.0) (f32 0.0)))
+            (defsystem spawn [dt]
+              (when (< (count-tagged "e") 6)
+                (when (zero? (mod (tick-n) 5))
+                  (let [r (rand-int 4) e (spawn-entity "e")]
+                    (cond
+                      (= r 0) (set-position! e (f32 100.0)  (f32 0.0)   (f32 0.0))
+                      (= r 1) (set-position! e (f32 -100.0) (f32 0.0)   (f32 0.0))
+                      (= r 2) (set-position! e (f32 0.0)    (f32 100.0) (f32 0.0))
+                      :else   (set-position! e (f32 0.0)    (f32 -100.0)(f32 0.0)))))))
+            (defsystem ai [dt]
+              (let [p (player)]
+                (when (not= p -1)
+                  (doseq-entities [e "e"]
+                    (move-toward! e p (f32 50.0))))))
+        "#;
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        rt.set_seed(0xD1CE_5EED);
+        rt.load_clj("g", GAME).unwrap();
+        rt.call_init("g").unwrap();
+        for _ in 0..40 {
+            rt.call_systems("g", 16).unwrap();
+            rt.integrate(16);
+        }
+        let h = world_hash(&w);
+        // This constant is hit by BOTH wasmtime and wasmi (the dual-backend gate runs
+        // this test under each), so it is the cross-backend determinism guard. It also
+        // catches within-backend drift from any future gameplay/host change.
+        const GOLDEN: u64 = 0x5d6e4ebcdfe61ffc;
+        assert_eq!(h, GOLDEN, "world-state hash 0x{h:016x} ≠ GOLDEN — determinism/backend regression");
     }
 
     #[test]
