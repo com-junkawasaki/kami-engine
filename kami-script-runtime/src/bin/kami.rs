@@ -1,12 +1,12 @@
-//! kge — the cross-platform packaging matrix on the CLI (ADR-0037 §4).
+//! kami — the cross-platform packaging matrix on the CLI (ADR-0037 §4).
 //!
 //! Makes `kami-script-runtime::platform` actionable: ask which WASM host, texture
 //! format, renderer backend, input default, and rustc triple a target needs — and
-//! the exact cargo command to build the host for it. The `bb kge host/package`
+//! the exact cargo command to build the host for it. The `bb kami host/package`
 //! tooling shells out to this instead of re-encoding the matrix.
 //!
-//!   cargo run -p kami-script-runtime --bin kge -- targets
-//!   cargo run -p kami-script-runtime --bin kge -- plan ios
+//!   cargo run -p kami-script-runtime --bin kami -- targets
+//!   cargo run -p kami-script-runtime --bin kami -- plan ios
 
 use kami_script_runtime::{LogicHost, Target};
 
@@ -32,12 +32,12 @@ fn main() {
         Some("plan") => match args.get(2).and_then(|s| Target::from_tag(s)) {
             Some(t) => print_plan(t),
             None => {
-                eprintln!("kge: unknown target. one of: {}", tag_list());
+                eprintln!("kami: unknown target. one of: {}", tag_list());
                 std::process::exit(2);
             }
         },
         _ => {
-            eprintln!("usage:\n  kge targets          list the packaging matrix\n  kge plan <target>    build plan for one target ({})", tag_list());
+            eprintln!("usage:\n  kami targets          list the packaging matrix\n  kami plan <target>    build plan for one target ({})", tag_list());
             std::process::exit(2);
         }
     }
@@ -45,7 +45,7 @@ fn main() {
 
 fn print_plan(t: Target) {
     let s = t.spec();
-    println!("== kge plan: {} ==", t.tag());
+    println!("== kami plan: {} ==", t.tag());
     println!("  JIT allowed   : {}", s.jit_allowed);
     println!("  logic host    : {}{}", host_label(s.logic), s.host_feature().map(|f| format!("  (feature: {f})")).unwrap_or_default());
     println!("  texture       : {}", tex_label(s.tex));

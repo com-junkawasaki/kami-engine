@@ -133,20 +133,20 @@ Only these diverge per target; the game never sees them.
 
 ### 5. Build / packaging tooling (`bb` + cargo cross)
 
-Add a babashka task layer (`tools/kge`) orchestrating the write-once → per-target flow:
+Add a babashka task layer (`tools/kami`) orchestrating the write-once → per-target flow:
 
 ```
-bb kge bake     <game>            ; Datomic snapshot (transit/edn) + KTX2 asset variants per target
-bb kge compile  <game>            ; kami-engine-clj: game .clj → game.wasm  (one artifact, all targets)
-bb kge host     --target ios|android|ps5|switch|web|mac
+bb kami bake     <game>            ; Datomic snapshot (transit/edn) + KTX2 asset variants per target
+bb kami compile  <game>            ; kami-engine-clj: game .clj → game.wasm  (one artifact, all targets)
+bb kami host     --target ios|android|ps5|switch|web|mac
                                   ; cargo build the per-target host (backend-wasmi for ios/ps5/switch)
-bb kge package  --target …        ; .app / .apk(.aab) / console package / web bundle / .app
-bb kge run      --target mac      ; dev loop (wasmtime + hot-reload, kami-engine-clj Phase 3)
-bb kge test                       ; headless golden-frame: run game.wasm under wasmi, hash ECS state
+bb kami package  --target …        ; .app / .apk(.aab) / console package / web bundle / .app
+bb kami run      --target mac      ; dev loop (wasmtime + hot-reload, kami-engine-clj Phase 3)
+bb kami test                       ; headless golden-frame: run game.wasm under wasmi, hash ECS state
 ```
 
 `game.wasm` and the snapshot are built **once**; `host`/`package` are the only per-target
-steps. `kge test` runs on the no-JIT (`wasmi`) path in CI so the console/iOS code path is
+steps. `kami test` runs on the no-JIT (`wasmi`) path in CI so the console/iOS code path is
 continuously exercised without a device.
 
 ---
@@ -159,7 +159,7 @@ continuously exercised without a device.
             │ kami-engine-sdk-clj  (Datomic/datalevin)   │
             │   scene/ECS as datoms · systems as fns     │
             └───────────────┬───────────────────────────┘
-                            │  bb kge bake / compile
+                            │  bb kami bake / compile
         ┌───────────────────┴────────────────────┐
         ▼                                         ▼
   snapshot.edn (scene data)              game.wasm  (kami-engine-clj → kami:engine/kami-game)
@@ -267,11 +267,11 @@ Switch}::spec()` returns the `jit_allowed` / `LogicHost` (wasmi vs wasmtime vs b
 default for each, plus `host_feature()` (the cargo feature the host links). 5 tests pin the
 invariants — iOS/PS5/Switch are no-JIT⇒wasmi, only consoles need the seam, mobile/Switch get
 ASTC — so the per-platform decisions can't silently regress as the host crates land. The
-`bb kge host/package` tooling and CI consume this instead of re-encoding the matrix in prose.
-A `kge` CLI (`cargo run -p kami-script-runtime --bin kge -- targets | plan <target>`) makes
+`bb kami host/package` tooling and CI consume this instead of re-encoding the matrix in prose.
+A `kami` CLI (`cargo run -p kami-script-runtime --bin kami -- targets | plan <target>`) makes
 it actionable: it prints the full matrix and, per target, the JIT/host/texfmt/render/input
 decision + rustc triple + the exact `cargo build` command for the host (or "NDA console SDK"
-for PS5/Switch). This is the seam `bb kge host/package` shells out to.
+for PS5/Switch). This is the seam `bb kami host/package` shells out to.
 
 ---
 

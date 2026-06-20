@@ -3,7 +3,7 @@
 //! The cross-platform decisions (does this target ban JIT? which WASM host,
 //! texture format, renderer backend, and default input does it use?) were prose
 //! in ADR-0037; this module makes them a single source of truth the packaging
-//! tooling (`bb kge host/package`) and CI consume. Pure data + pure functions,
+//! tooling (`bb kami host/package`) and CI consume. Pure data + pure functions,
 //! no platform deps — fully unit-tested on any host.
 //!
 //! The load-bearing invariant: **iOS, PS5, and Switch forbid runtime codegen**,
@@ -85,7 +85,7 @@ impl Target {
         [Web, Mac, Linux, Windows, Ios, Android, Ps5, Switch]
     }
 
-    /// Lowercase tag used on the `bb kge --target <tag>` CLI and in `:platform`.
+    /// Lowercase tag used on the `bb kami --target <tag>` CLI and in `:platform`.
     pub fn tag(self) -> &'static str {
         use Target::*;
         match self {
