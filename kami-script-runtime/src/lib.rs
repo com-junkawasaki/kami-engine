@@ -467,10 +467,14 @@ impl KamiScriptRuntime {
         let (_, instance) = self.modules.get(name)
             .ok_or_else(|| RuntimeError::NotLoaded(name.to_string()))?;
         let instance = *instance;
+        // The kami-engine-clj codegen is all-i64, so the `on-event` export is
+        // (i64,i64,i64)->i64 — not the WIT's nominal i32s. Matching that is what
+        // makes this work (previously it requested i32s and always missed).
         let f = instance
-            .get_typed_func::<(i32, i32, i32), i32>(&mut self.store, "on-event")
+            .get_typed_func::<(i64, i64, i64), i64>(&mut self.store, "on-event")
             .map_err(|_| RuntimeError::MissingExport("on-event".into(), name.to_string()))?;
-        Ok(f.call(&mut self.store, (kind, 0, 0))?)
+        let ret = f.call(&mut self.store, (kind as i64, 0, 0))?;
+        Ok(ret as i32)
     }
 
     /// Drain draw commands accumulated during the last tick.
@@ -1484,6 +1488,30 @@ mod tests {
             ),
             1
         );
+    }
+
+    #[test]
+    fn call_event_dispatches_on_kind() {
+        // The third lifecycle export (init/tick/on-event) was untested — and
+        // call_event requested an i32 signature the all-i64 codegen never emits,
+        // so it silently never worked. This pins the fixed behavior on both backends:
+        // on-event reacts to the event kind.
+        let w = world();
+        let mut rt = KamiScriptRuntime::new(w.clone()).unwrap();
+        let src = r#"
+            (defn init [] 0)
+            (defn on-event [kind ptr len]
+              (when (= kind 5) (spawn-entity "evt"))
+              0)
+        "#;
+        rt.load_clj("g", src).unwrap();
+        rt.call_init("g").unwrap();
+        rt.call_event("g", 3, &[]).unwrap(); // non-matching kind → no spawn
+        rt.call_event("g", 5, &[]).unwrap(); // match → spawn
+        rt.call_event("g", 5, &[]).unwrap(); // match → spawn
+        let world = w.lock().unwrap();
+        let mut q = world.query::<&Tag>();
+        assert_eq!(q.iter().filter(|(_, t)| t.0 == "evt").count(), 2);
     }
 
     #[test]
