@@ -1380,6 +1380,64 @@ mod tests {
     }
 
     #[test]
+    fn prelude_timer_fires_after_period() {
+        // GAME_PRELUDE timer: fires once elapsed ≥ period, then resets. Used by
+        // games for cooldowns — previously only compile-tested, now behavioral.
+        let src = r#"(defn init []
+            (let [t (timer-make 100)]
+              (when (= (timer-fired? t) 0) (spawn-entity "a"))   ;; elapsed 0   < 100
+              (timer-tick! t 60)
+              (when (= (timer-fired? t) 0) (spawn-entity "a"))   ;; elapsed 60  < 100
+              (timer-tick! t 60)
+              (when (= (timer-fired? t) 1) (spawn-entity "b"))   ;; elapsed 120 ≥ 100 → fire+reset
+              (when (= (timer-fired? t) 0) (spawn-entity "c")))) ;; elapsed 0 again
+        "#;
+        assert_eq!(run_init_count(src, "a"), 2, "not fired before the period");
+        assert_eq!(run_init_count(src, "b"), 1, "fires once elapsed ≥ period");
+        assert_eq!(run_init_count(src, "c"), 1, "firing resets the timer");
+    }
+
+    #[test]
+    fn prelude_vec3_and_entity_pos_round_trip() {
+        // vec3-make / vec3-y store + read f32 bit-patterns through the heap.
+        assert_eq!(
+            run_init_count(
+                r#"(defn init []
+                      (let [v (vec3-make (f32 1.0) (f32 2.0) (f32 3.0))]
+                        (when (= (vec3-y v) (f32 2.0)) (spawn-entity "ok"))))"#,
+                "ok",
+            ),
+            1
+        );
+        // entity-pos reads an entity's transform into a fresh Vec3.
+        assert_eq!(
+            run_init_count(
+                r#"(defn init []
+                      (let [e (spawn-entity "p")]
+                        (set-position! e (f32 7.0) (f32 0.0) (f32 0.0))
+                        (let [v (entity-pos e)]
+                          (when (= (vec3-x v) (f32 7.0)) (spawn-entity "ok")))))"#,
+                "ok",
+            ),
+            1
+        );
+    }
+
+    #[test]
+    fn prelude_f32_constants() {
+        // The prelude's F32-* bit-pattern constants match `(f32 …)` literals.
+        assert_eq!(
+            run_init_count(
+                r#"(defn init []
+                      (when (= (f32 1.0) F32-ONE)  (spawn-entity "ok"))
+                      (when (= (f32 0.0) F32-ZERO) (spawn-entity "ok")))"#,
+                "ok",
+            ),
+            2
+        );
+    }
+
+    #[test]
     fn count_tagged_via_world() {
         // spawn tags entities so count/query can see them.
         let w = world();
