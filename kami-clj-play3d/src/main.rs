@@ -215,6 +215,13 @@ struct Particle3 {
     life: f32,
 }
 
+/// A travelling bullet (real ballistics: it moves and can miss).
+struct Bullet {
+    pos: Vec3,
+    vel: Vec3,
+    life: f32,
+}
+
 /// Append a blocky humanoid (legs/torso/arms/head/visor) to `inst`, standing on
 /// `ground`, facing `yaw`, with a walk cycle when `moving`. Stylized boxes — no
 /// skinned mesh, but reads as a character with motion.
@@ -448,6 +455,9 @@ impl Game {
         }
         (player, out)
     }
+    fn despawn(&mut self, id: u32) {
+        self.rt.despawn_id(id);
+    }
     fn set_player(&self, x: f32, y: f32) {
         let w = self.world.lock().unwrap();
         for (_, (t, p)) in w.query::<(&Tag, &mut Position)>().iter() {
@@ -480,6 +490,9 @@ struct App {
     props: Vec<Instance>, // static world dressing
     walls: Vec<Instance>, // player-built wall pieces
     particles: Vec<Particle3>,
+    bullets: Vec<Bullet>,
+    hp: f32,
+    lives: u32,
     prev_bots: HashMap<u32, Vec3>, // for hit-burst detection
     score: u32,
     build_pressed: bool,
@@ -508,6 +521,9 @@ impl App {
             props,
             walls: Vec::new(),
             particles: Vec::new(),
+            bullets: Vec::new(),
+            hp: 100.0,
+            lives: 3,
             prev_bots: HashMap::new(),
             score: 0,
             build_pressed: false,
@@ -866,6 +882,69 @@ impl App {
         }
         self.particles.retain(|p| p.age < p.life);
 
+        // --- real bullets: fire at the nearest bot, travel, then collide ---
+        let chest = pw + Vec3::new(0.0, 1.4, 0.0);
+        if self.frames % 9 == 0 {
+            let mut best: Option<(Vec3, f32)> = None;
+            for (t, p, _) in &ents {
+                if t == "bot" {
+                    let bw = Vec3::new(p[0] * gs, 1.0, p[1] * gs);
+                    let d = (bw - chest).length();
+                    if d < 9.0 && best.map_or(true, |(_, bd)| d < bd) {
+                        best = Some((bw, d));
+                    }
+                }
+            }
+            if let Some((bw, _)) = best {
+                let dir = (bw - chest).normalize_or_zero();
+                self.bullets.push(Bullet { pos: chest, vel: dir * 45.0, life: 0.8 });
+            }
+        }
+        for b in &mut self.bullets {
+            b.pos += b.vel * dt_p;
+            b.life -= dt_p;
+        }
+        let mut hit_ids: Vec<u32> = Vec::new();
+        let mut surviving = Vec::new();
+        for b in std::mem::take(&mut self.bullets) {
+            let mut hit = false;
+            for (t, p, id) in &ents {
+                if t == "bot" {
+                    let bw = Vec3::new(p[0] * gs, 1.0, p[1] * gs);
+                    if (b.pos - bw).length() < 1.2 {
+                        hit_ids.push(*id);
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+            if !hit && b.life > 0.0 {
+                surviving.push(b);
+            }
+        }
+        self.bullets = surviving;
+        for id in hit_ids {
+            self.game.despawn(id); // bot vanishes → next frame's diff fires the burst + score
+        }
+
+        // --- storm: take damage outside the safe circle; respawn / new match on 0 lives ---
+        let pdist = (player[0] * player[0] + player[1] * player[1]).sqrt();
+        if pdist > self.storm_radius {
+            self.hp -= 18.0 * dt_p;
+            if self.hp <= 0.0 {
+                self.lives = self.lives.saturating_sub(1);
+                self.hp = 100.0;
+                self.game.set_player(0.0, 0.0); // respawn at the centre
+                if self.lives == 0 {
+                    self.lives = 3;
+                    self.score = 0;
+                    self.storm_radius = 600.0; // new match
+                }
+            }
+        } else if self.hp < 100.0 {
+            self.hp = (self.hp + 8.0 * dt_p).min(100.0); // heal inside the circle
+        }
+
         // --- camera follow ---
         let target = pw + Vec3::new(0.0, self.scene.camera_height * 0.5, 0.0);
         let (spi, cpi) = self.cam_pitch.sin_cos();
@@ -902,6 +981,10 @@ impl App {
                 push_shadow(&mut inst, Vec3::new(pos[0] * gs, 0.0, pos[1] * gs), p.w * 0.7);
                 push_character(&mut inst, ground, yaw, walk, moving, p.h / 1.9, p.color);
             }
+        }
+        // bullets: bright tracer cubes
+        for b in &self.bullets {
+            inst.push(Instance { model: model_box(b.pos, 0.16, 0.16), color: [1.0, 0.95, 0.45, 1.0] });
         }
         // hit particles: small bright cubes that fade as they age
         for p in &self.particles {
@@ -1005,8 +1088,8 @@ impl App {
         }
         if let Some(w) = self.window.as_ref() {
             w.set_title(&format!(
-                "{} · {:.0} fps · kills {} · {} bots · [B] build",
-                self.scene.title, self.fps, self.score,
+                "{} · {:.0} fps · HP {:.0} · lives {} · kills {} · {} bots · [B] build",
+                self.scene.title, self.fps, self.hp, self.lives, self.score,
                 ents.iter().filter(|(t, _, _)| t == "bot").count()
             ));
         }

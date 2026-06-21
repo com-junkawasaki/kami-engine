@@ -285,6 +285,20 @@ impl KamiScriptRuntime {
         self.store.data_mut().rng = seed | 1;
     }
 
+    /// Despawn an entity by its guest-side id (e.g. a host-side projectile hit),
+    /// cleaning the name/id registries. Returns true if it existed.
+    pub fn despawn_id(&mut self, id: u32) -> bool {
+        let s = self.store.data_mut();
+        if let Some(e) = s.entity_by_id.remove(&id) {
+            s.entity_registry.retain(|_, v| *v != e);
+            let world = s.world.clone();
+            let _ = world.lock().unwrap().despawn(e);
+            true
+        } else {
+            false
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Input snapshot setters — call these from the engine's input handler
     // -----------------------------------------------------------------------

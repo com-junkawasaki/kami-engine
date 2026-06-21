@@ -46,12 +46,5 @@
           (when (not= near -1)
             (move-toward! e near bot-speed)))))))
 
-;; auto-fire: on the fire cadence, cull the nearest bot within weapon range.
-;; The host renders the hit (particle burst) by watching for bots that vanish.
-(defsystem weapon [dt]
-  (let [p (player)]
-    (when (not= p -1)
-      (when (zero? (mod (tick-n) fire-every))
-        (let [hit (nearest-tagged "bot" (get-x p) (get-y p) weapon-range)]
-          (when (not= hit -1)
-            (despawn-entity hit)))))))
+;; (shooting moved to the host: real travelling bullets do collision + despawn,
+;;  so a bot can be missed; the host watches for vanishing bots to spawn the FX.)
