@@ -151,7 +151,8 @@ struct Globals {
     sky_zenith: [f32; 4],
     sky_horizon: [f32; 4],
     ground_col: [f32; 4],
-    params: [f32; 4], // fog, time, res_w, res_h
+    params: [f32; 4],  // fog, time, res_w, res_h
+    params2: [f32; 4], // storm_radius, _, _, _
 }
 
 #[repr(C)]
@@ -213,10 +214,39 @@ struct Particle3 {
     life: f32,
 }
 
+/// Append a blocky humanoid (legs/torso/arms/head/visor) to `inst`, standing on
+/// `ground`, facing `yaw`, with a walk cycle when `moving`. Stylized boxes — no
+/// skinned mesh, but reads as a character with motion.
+fn push_character(inst: &mut Vec<Instance>, ground: Vec3, yaw: f32, walk: f32, moving: bool, scale: f32, color: [f32; 3]) {
+    let rot = Mat4::from_rotation_y(yaw);
+    let tint = |m: f32| [color[0] * m, color[1] * m, color[2] * m, 1.0];
+    let mut part = |local: Vec3, size: Vec3, col: [f32; 4]| {
+        let m = Mat4::from_translation(ground) * rot * Mat4::from_translation(local * scale) * Mat4::from_scale(size * scale);
+        inst.push(Instance { model: m.to_cols_array_2d(), color: col });
+    };
+    let sw = if moving { walk.sin() } else { 0.0 };
+    let bob = if moving { (walk * 2.0).sin().abs() * 0.07 } else { 0.0 };
+    // forward is -z; legs/arms swing along z, opposite each other
+    part(Vec3::new(-0.18, 0.45 + bob, sw * 0.35), Vec3::new(0.26, 0.95, 0.30), tint(0.7));
+    part(Vec3::new(0.18, 0.45 + bob, -sw * 0.35), Vec3::new(0.26, 0.95, 0.30), tint(0.7));
+    part(Vec3::new(0.0, 1.25 + bob, 0.0), Vec3::new(0.70, 0.90, 0.45), tint(1.0)); // torso
+    part(Vec3::new(-0.5, 1.30 + bob, -sw * 0.30), Vec3::new(0.20, 0.80, 0.24), tint(0.92)); // arms
+    part(Vec3::new(0.5, 1.30 + bob, sw * 0.30), Vec3::new(0.20, 0.80, 0.24), tint(0.92));
+    part(Vec3::new(0.0, 1.95 + bob, 0.0), Vec3::new(0.45, 0.45, 0.45), tint(1.15)); // head
+    part(Vec3::new(0.0, 1.95 + bob, -0.24), Vec3::new(0.30, 0.18, 0.05), [0.1, 0.1, 0.12, 1.0]); // visor (shows facing)
+}
+
+/// A soft blob shadow: a dark flat box on the ground (cheap grounding, no shadow map).
+fn push_shadow(inst: &mut Vec<Instance>, ground: Vec3, r: f32) {
+    let m = Mat4::from_translation(ground + Vec3::new(0.0, 0.05, 0.0)) * Mat4::from_scale(Vec3::new(r, 0.05, r));
+    inst.push(Instance { model: m.to_cols_array_2d(), color: [0.05, 0.06, 0.07, 1.0] });
+}
+
 const SHADER: &str = r#"
 struct G {
   view_proj: mat4x4<f32>, cam_pos: vec4<f32>, sun_dir: vec4<f32>, sun_col: vec4<f32>,
   sky_zenith: vec4<f32>, sky_horizon: vec4<f32>, ground_col: vec4<f32>, params: vec4<f32>,
+  params2: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> g: G;
 
@@ -256,9 +286,17 @@ fn box_vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>,
   return o;
 }
 fn shade(wpos: vec3<f32>, n: vec3<f32>, base: vec3<f32>) -> vec3<f32> {
+  let N = normalize(n);
   let L = normalize(-g.sun_dir.xyz);
-  let lambert = max(dot(normalize(n), L), 0.0);
-  var col = base * (0.38 + lambert * g.sun_col.rgb * 0.85);
+  let V = normalize(g.cam_pos.xyz - wpos);
+  let H = normalize(L + V);
+  let lambert = max(dot(N, L), 0.0);
+  let amb = mix(g.ground_col.rgb * 0.25, g.sky_zenith.rgb * 0.45, N.y * 0.5 + 0.5);
+  let spec = pow(max(dot(N, H), 0.0), 32.0) * 0.25 * lambert;
+  var col = base * (amb + lambert * g.sun_col.rgb * 0.85) + g.sun_col.rgb * spec;
+  let sd = length(wpos.xz);
+  let storm = smoothstep(g.params2.x - 5.0, g.params2.x + 5.0, sd);
+  col = mix(col, vec3<f32>(0.55, 0.25, 0.8), storm * 0.55);
   let dist = length(wpos - g.cam_pos.xyz);
   let fog = clamp(1.0 - exp(-dist * g.params.x), 0.0, 1.0);
   return mix(col, g.sky_horizon.rgb, fog);
@@ -389,6 +427,8 @@ struct App {
     score: u32,
     build_pressed: bool,
     rng: u32,
+    storm_radius: f32,
+    face_yaw: f32, // player facing (kept while idle)
     cam_yaw: f32,
     cam_pitch: f32,
     jump_v: f32,
@@ -415,6 +455,8 @@ impl App {
             score: 0,
             build_pressed: false,
             rng: 0x1357_2468,
+            storm_radius: 600.0,
+            face_yaw: 0.0,
             cam_yaw: 0.6,
             cam_pitch: 0.5,
             jump_v: 0.0,
@@ -617,8 +659,15 @@ impl App {
         if self.keys.d { mv += right; }
         if self.keys.a { mv -= right; }
         if mv.length_squared() > 0.0 { mv = mv.normalize(); }
+        let player_moving = mv.length_squared() > 0.0;
+        if player_moving {
+            self.face_yaw = (-mv.x).atan2(-mv.y); // face the movement direction
+        }
         let sp = self.scene.player_speed;
         self.game.step(mv.x * sp, mv.y * sp);
+
+        // storm closes in over time (down to a small final circle).
+        self.storm_radius = (self.storm_radius - 6.0 * 0.016).max(90.0);
 
         // --- gravity / jump (host owns height) ---
         let (h, v) = integrate_jump(self.height, self.jump_v, self.scene.gravity, dt);
@@ -653,6 +702,18 @@ impl App {
                     vel: Vec3::new(vx, vy, vz),
                     age: 0.0,
                     life,
+                });
+            }
+            // bullet tracer: a brief streak of points from the player to the hit.
+            let chest = pw + Vec3::new(0.0, 1.4, 0.0);
+            let hit = kpos + Vec3::new(0.0, 1.0, 0.0);
+            for k in 0..9 {
+                let t = k as f32 / 8.0;
+                self.particles.push(Particle3 {
+                    pos: chest.lerp(hit, t),
+                    vel: Vec3::ZERO,
+                    age: 0.0,
+                    life: 0.12,
                 });
             }
         }
@@ -693,14 +754,20 @@ impl App {
         // --- build instance list: static props + built walls + entities + particles ---
         let mut inst = self.props.clone();
         inst.extend(self.walls.iter().cloned());
-        for (tag, pos, _) in &ents {
+        for (tag, pos, id) in &ents {
             if let Some(p) = self.scene.profiles.get(tag) {
                 let h = if tag == "player" { self.height } else { 0.0 };
-                let base = Vec3::new(pos[0] * gs, h, pos[1] * gs);
-                inst.push(Instance { model: model_box(base, p.w, p.h), color: [p.color[0], p.color[1], p.color[2], 1.0] });
-                // little "head" cube so characters read as figures
-                let head = Vec3::new(pos[0] * gs, h + p.h, pos[1] * gs);
-                inst.push(Instance { model: model_box(head, p.w * 0.6, p.w * 0.6), color: [p.color[0] * 1.1, p.color[1] * 1.1, p.color[2] * 1.1, 1.0] });
+                let ground = Vec3::new(pos[0] * gs, h, pos[1] * gs);
+                // facing: player faces its movement; bots face the player
+                let (yaw, moving) = if tag == "player" {
+                    (self.face_yaw, player_moving)
+                } else {
+                    ((-(player[0] - pos[0])).atan2(-(player[1] - pos[1])), true)
+                };
+                let walk = self.time * 9.0 + (*id as f32) * 0.6;
+                // blob shadow on the ground (stays grounded even mid-jump)
+                push_shadow(&mut inst, Vec3::new(pos[0] * gs, 0.0, pos[1] * gs), p.w * 0.7);
+                push_character(&mut inst, ground, yaw, walk, moving, p.h / 1.9, p.color);
             }
         }
         // hit particles: small bright cubes that fade as they age
@@ -723,6 +790,7 @@ impl App {
             sky_horizon: [sky.sky_horizon[0], sky.sky_horizon[1], sky.sky_horizon[2], 1.0],
             ground_col: [sky.ground_col[0], sky.ground_col[1], sky.ground_col[2], 1.0],
             params: [sky.fog, self.time, gpu.config.width as f32, gpu.config.height as f32],
+            params2: [self.storm_radius, 0.0, 0.0, 0.0],
         };
         gpu.queue.write_buffer(&gpu.globals_buf, 0, bytemuck::bytes_of(&globals));
         gpu.queue.write_buffer(&gpu.instance_buf, 0, bytemuck::cast_slice(&inst[..count as usize]));
