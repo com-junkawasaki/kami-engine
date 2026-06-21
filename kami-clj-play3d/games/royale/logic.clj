@@ -10,6 +10,8 @@
 (def bot-speed   (f32 60.0))
 (def hunt-range  (f32 900.0))
 (def ring        (f32 700.0))
+(def fire-every   12)            ;; ticks between auto-fire shots
+(def weapon-range (f32 340.0))   ;; auto-fire reach (ground units)
 
 (defn player []
   (nearest-tagged "player" (f32 0.0) (f32 0.0) (f32 9000000.0)))
@@ -43,3 +45,6 @@
         (let [near (nearest-tagged "player" (get-x e) (get-y e) hunt-range)]
           (when (not= near -1)
             (move-toward! e near bot-speed)))))))
+
+;; (shooting moved to the host: real travelling bullets do collision + despawn,
+;;  so a bot can be missed; the host watches for vanishing bots to spawn the FX.)
