@@ -206,6 +206,39 @@ fn cube() -> (Vec<Vertex>, Vec<u16>) {
     (v, idx)
 }
 
+/// Procedural ground height (world units) — gentle rolling hills + a lake basin
+/// near the water plane. Sampled both for the mesh and to ground entities.
+fn terrain_h(x: f32, z: f32) -> f32 {
+    let hills = (x * 0.016).sin() * 2.5 + (z * 0.02).cos() * 2.5 + ((x + z) * 0.0075).sin() * 6.0;
+    let ld = ((x + 22.0) * (x + 22.0) + (z - 14.0) * (z - 14.0)).sqrt();
+    let basin = -3.5 * (1.0 - ld / 16.0).max(0.0); // dip the lake bed below water level
+    hills + basin
+}
+
+/// Build a tessellated heightmap mesh over ±extent (world), `res`×`res` quads.
+fn build_terrain(extent: f32, res: usize) -> (Vec<Vertex>, Vec<u32>) {
+    let step = extent * 2.0 / res as f32;
+    let mut v = Vec::with_capacity((res + 1) * (res + 1));
+    for j in 0..=res {
+        for i in 0..=res {
+            let x = -extent + i as f32 * step;
+            let z = -extent + j as f32 * step;
+            let e = 1.0;
+            let n = Vec3::new(terrain_h(x - e, z) - terrain_h(x + e, z), 2.0 * e, terrain_h(x, z - e) - terrain_h(x, z + e)).normalize();
+            v.push(Vertex { pos: [x, terrain_h(x, z), z], normal: [n.x, n.y, n.z] });
+        }
+    }
+    let w = (res + 1) as u32;
+    let mut idx = Vec::with_capacity(res * res * 6);
+    for j in 0..res as u32 {
+        for i in 0..res as u32 {
+            let a = j * w + i;
+            idx.extend_from_slice(&[a, a + 1, a + w, a + 1, a + w + 1, a + w]);
+        }
+    }
+    (v, idx)
+}
+
 fn model_box(base: Vec3, w: f32, h: f32) -> [[f32; 4]; 4] {
     // a box of footprint w×w and height h whose base sits on `base`.
     (Mat4::from_translation(base + Vec3::new(0.0, h * 0.5, 0.0)) * Mat4::from_scale(Vec3::new(w, h, w)))
@@ -531,17 +564,14 @@ fn box_fs(i: VO) -> @location(0) vec4<f32> {
   return vec4<f32>(select(lit, emis, i.color.a < 0.5), 1.0);
 }
 
-// ---- ground (big quad with grid) ----
+// ---- terrain (CPU heightmap mesh: pos + normal already in world space) ----
 @vertex
-fn ground_vs(@builtin(vertex_index) vi: u32) -> VO {
-  var q = array<vec2<f32>,6>(
-    vec2<f32>(-1.0,-1.0), vec2<f32>(1.0,-1.0), vec2<f32>(1.0,1.0),
-    vec2<f32>(-1.0,-1.0), vec2<f32>(1.0,1.0), vec2<f32>(-1.0,1.0));
-  let s = 600.0;
-  let world = vec3<f32>(q[vi].x * s, 0.0, q[vi].y * s);
+fn ground_vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>) -> VO {
   var o: VO;
-  o.clip = g.view_proj * vec4<f32>(world, 1.0);
-  o.wpos = world; o.wnormal = vec3<f32>(0.0,1.0,0.0); o.color = vec4<f32>(g.ground_col.rgb, 1.0);
+  o.clip = g.view_proj * vec4<f32>(pos, 1.0);
+  o.wpos = pos;
+  o.wnormal = normal;
+  o.color = vec4<f32>(g.ground_col.rgb, 1.0);
   return o;
 }
 @fragment
@@ -619,6 +649,9 @@ struct Gpu {
     shadow_pipeline: wgpu::RenderPipeline,
     shadow_view: wgpu::TextureView,
     shadow_bind: wgpu::BindGroup,
+    terrain_vbuf: wgpu::Buffer,
+    terrain_ibuf: wgpu::Buffer,
+    terrain_index_count: u32,
     ui_pipeline: wgpu::RenderPipeline,
     ui_buf: wgpu::Buffer,
     ui_cap: u32,
@@ -788,7 +821,7 @@ impl App {
             score: 0,
             build_pressed: false,
             rng: 0x1357_2468,
-            storm_radius: 600.0,
+            storm_radius: 7000.0,
             face_yaw: 0.0,
             cam_yaw: 0.6,
             cam_pitch: 0.5,
@@ -950,10 +983,23 @@ impl App {
             multiview: None,
             cache: None,
         });
+        // terrain heightmap mesh (vast, undulating ground)
+        let (tverts, tindices) = build_terrain(220.0, 168);
+        let terrain_vbuf = create_init_buffer(&device, "tv", bytemuck::cast_slice(&tverts), wgpu::BufferUsages::VERTEX);
+        let terrain_ibuf = create_init_buffer(&device, "ti", bytemuck::cast_slice(&tindices), wgpu::BufferUsages::INDEX);
+        let terrain_index_count = tindices.len() as u32;
+        let terrain_vbl = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as u64,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 0 },
+                wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 12, shader_location: 1 },
+            ],
+        };
         let ground_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("ground"),
             layout: Some(&pl_lit),
-            vertex: wgpu::VertexState { module: &shader, entry_point: Some("ground_vs"), buffers: &[], compilation_options: Default::default() },
+            vertex: wgpu::VertexState { module: &shader, entry_point: Some("ground_vs"), buffers: &[terrain_vbl], compilation_options: Default::default() },
             fragment: Some(wgpu::FragmentState { module: &shader, entry_point: Some("ground_fs"), targets: &[Some(config.format.into())], compilation_options: Default::default() }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: Some(depth_state(true, wgpu::CompareFunction::LessEqual)),
@@ -1063,7 +1109,7 @@ impl App {
         let (verts, indices) = cube();
         let vbuf = create_init_buffer(&device, "v", bytemuck::cast_slice(&verts), wgpu::BufferUsages::VERTEX);
         let ibuf = create_init_buffer(&device, "i", bytemuck::cast_slice(&indices), wgpu::BufferUsages::INDEX);
-        let instance_cap = 2048u32;
+        let instance_cap = 8192u32;
         let instance_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("inst"),
             size: (instance_cap as usize * std::mem::size_of::<Instance>()) as u64,
@@ -1074,7 +1120,9 @@ impl App {
 
         self.gpu = Some(Gpu {
             device, queue, surface, config, depth, sky_pipeline, ground_pipeline, water_pipeline, box_pipeline,
-            shadow_pipeline, shadow_view, shadow_bind, ui_pipeline, ui_buf, ui_cap,
+            shadow_pipeline, shadow_view, shadow_bind,
+            terrain_vbuf, terrain_ibuf, terrain_index_count,
+            ui_pipeline, ui_buf, ui_cap,
             globals_buf, bind, vbuf, ibuf, index_count: indices.len() as u32, instance_buf, instance_cap,
         });
     }
@@ -1211,13 +1259,13 @@ impl App {
                 self.height = h;
                 self.jump_v = v;
                 // storm only closes in once you're on the ground.
-                self.storm_radius = (self.storm_radius - 6.0 * 0.016).max(90.0);
+                self.storm_radius = (self.storm_radius - 55.0 * 0.016).max(400.0);
             }
         }
 
         let (player, ents) = self.game.snapshot();
         let gs = self.scene.ground_scale;
-        let pw = Vec3::new(player[0] * gs, self.height, player[1] * gs);
+        let pw = Vec3::new(player[0] * gs, terrain_h(player[0] * gs, player[1] * gs) + self.height, player[1] * gs);
 
         // --- shooting feedback: the CLJ weapon despawns bots; burst where one vanished ---
         let cur_bots: HashMap<u32, Vec3> = ents
@@ -1308,7 +1356,7 @@ impl App {
             let mut best: Option<(Vec3, f32)> = None;
             for (t, p, _) in &ents {
                 if t == "bot" {
-                    let bw = Vec3::new(p[0] * gs, 1.0, p[1] * gs);
+                    let bw = Vec3::new(p[0] * gs, terrain_h(p[0] * gs, p[1] * gs) + 1.0, p[1] * gs);
                     let d = (bw - chest).length();
                     if d < range && best.map_or(true, |(_, bd)| d < bd) {
                         best = Some((bw, d));
@@ -1341,7 +1389,7 @@ impl App {
             let mut hit_at: Option<Vec3> = None;
             for (t, p, id) in &ents {
                 if t == "bot" {
-                    let bw = Vec3::new(p[0] * gs, 1.0, p[1] * gs);
+                    let bw = Vec3::new(p[0] * gs, terrain_h(p[0] * gs, p[1] * gs) + 1.0, p[1] * gs);
                     if (b.pos - bw).length() < 1.2 {
                         hit_ids.push(*id);
                         hit_at = Some(b.pos);
@@ -1386,7 +1434,7 @@ impl App {
                 if self.lives == 0 {
                     self.lives = 3;
                     self.score = 0;
-                    self.storm_radius = 600.0; // new match
+                    self.storm_radius = 7000.0; // new match
                 }
             }
         } else if self.hp < 100.0 {
@@ -1446,7 +1494,7 @@ impl App {
         for (tag, pos, id) in &ents {
             if let Some(p) = self.scene.profiles.get(tag) {
                 let h = if tag == "player" { self.height } else { 0.0 };
-                let ground = Vec3::new(pos[0] * gs, h, pos[1] * gs);
+                let ground = Vec3::new(pos[0] * gs, terrain_h(pos[0] * gs, pos[1] * gs) + h, pos[1] * gs);
                 // facing: player faces its movement; bots face the player
                 let (yaw, moving) = if tag == "player" {
                     (self.face_yaw, player_moving)
@@ -1462,7 +1510,7 @@ impl App {
                     (1.0, p.color)
                 };
                 // blob shadow on the ground (stays grounded even mid-jump)
-                push_shadow(&mut inst, Vec3::new(pos[0] * gs, 0.0, pos[1] * gs), p.w * 0.7 * scl);
+                push_shadow(&mut inst, Vec3::new(pos[0] * gs, terrain_h(pos[0] * gs, pos[1] * gs), pos[1] * gs), p.w * 0.7 * scl);
                 push_character(&mut inst, ground, yaw, walk, moving, p.h / 1.9 * scl, col);
             }
         }
@@ -1479,10 +1527,10 @@ impl App {
         }
         // storm wall: a ring of glowing pillars at the current safe radius
         let sr = self.storm_radius * gs;
-        let ring = 72usize;
+        let ring = 140usize;
         for kk in 0..ring {
             let ang = (kk as f32 / ring as f32) * std::f32::consts::TAU;
-            let rp = Vec3::new(ang.cos() * sr, 0.0, ang.sin() * sr);
+            let rp = Vec3::new(ang.cos() * sr, terrain_h(ang.cos() * sr, ang.sin() * sr), ang.sin() * sr);
             inst.push(Instance { model: model_box(rp, 0.6, 7.0), color: [0.72, 0.32, 1.0, 1.0] });
         }
         // building loot: a bobbing, spinning crate colored by kind
@@ -1557,7 +1605,7 @@ impl App {
         let mmh = mmw * aspect;
         ui.push(UiRect::screen(mmx, mmy, mmw, mmh, [0.05, 0.07, 0.1, 0.55]));
         let (mcx, mcy) = (mmx + mmw * 0.5, mmy + mmh * 0.5);
-        let range = 600.0_f32;
+        let range = 7000.0_f32;
         let dot = |wx: f32, wz: f32, ds: f32, col: [f32; 4], list: &mut Vec<UiRect>| {
             let (dx, dz) = ((wx - player[0]) / range, (wz - player[1]) / range);
             if dx.abs() <= 1.0 && dz.abs() <= 1.0 {
@@ -1630,7 +1678,9 @@ impl App {
             rp.draw(0..3, 0..1);
             rp.set_pipeline(&gpu.ground_pipeline);
             rp.set_bind_group(1, &gpu.shadow_bind, &[]); // shadow map (ground + box use it)
-            rp.draw(0..6, 0..1);
+            rp.set_vertex_buffer(0, gpu.terrain_vbuf.slice(..));
+            rp.set_index_buffer(gpu.terrain_ibuf.slice(..), wgpu::IndexFormat::Uint32);
+            rp.draw_indexed(0..gpu.terrain_index_count, 0, 0..1);
             rp.set_pipeline(&gpu.water_pipeline); // animated lake (group 0 only)
             rp.draw(0..6, 0..1);
             if count > 0 {
@@ -1695,7 +1745,7 @@ fn scatter_props(s: &Scene3) -> (Vec<Instance>, Vec<Aabb>, Vec<Vec3>) {
         if (x * x + z * z).sqrt() < 11.0 {
             continue; // keep the spawn area clear (room-sized buffer)
         }
-        let base = Vec3::new(x, 0.0, z);
+        let base = Vec3::new(x, terrain_h(x, z), z);
         let kind = rnd();
         if kind < 0.18 {
             // rock cluster (spatial detail, no collision)

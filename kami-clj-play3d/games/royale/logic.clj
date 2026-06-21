@@ -7,9 +7,9 @@
 
 (def max-bots    24)
 (def spawn-every 30)
-(def bot-speed   (f32 60.0))
-(def hunt-range  (f32 900.0))
-(def ring        (f32 700.0))
+(def bot-speed   (f32 120.0))     ;; vast map → bots move faster
+(def hunt-range  (f32 3000.0))    ;; engage across the bigger arena
+(def ring        (f32 3500.0))    ;; spawn spread across the vast map
 (def fire-every   12)            ;; ticks between auto-fire shots
 (def weapon-range (f32 340.0))   ;; auto-fire reach (ground units)
 
