@@ -170,6 +170,20 @@ struct Vertex {
     normal: [f32; 3],
 }
 
+/// A screen-space UI quad (NDC rect + colour) for the HUD / minimap.
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct UiRect {
+    rect: [f32; 4], // x, y, w, h in NDC (origin centre, y up)
+    color: [f32; 4],
+}
+impl UiRect {
+    /// from screen fractions (0..1, origin top-left) → NDC rect.
+    fn screen(x: f32, y: f32, w: f32, h: f32, color: [f32; 4]) -> UiRect {
+        UiRect { rect: [x * 2.0 - 1.0, 1.0 - (y + h) * 2.0, w * 2.0, h * 2.0], color }
+    }
+}
+
 fn cube() -> (Vec<Vertex>, Vec<u16>) {
     // 6 faces, per-face normal, unit cube centered at origin.
     let faces: [([f32; 3], [[f32; 3]; 4]); 6] = [
@@ -250,6 +264,23 @@ impl Weapon {
             Weapon::Rifle => (5, 8.0, 1, 0.04, [0.6, 0.9, 1.0]),
             Weapon::Shotgun => (30, 5.0, 6, 0.20, [1.0, 0.6, 0.3]),
         }
+    }
+    /// (magazine size, reload time in frames)
+    fn ammo_spec(self) -> (u32, u32) {
+        match self {
+            Weapon::Pistol => (12, 50),
+            Weapon::Rifle => (30, 80),
+            Weapon::Shotgun => (6, 70),
+        }
+    }
+}
+
+/// Enemy archetype by entity id → (size scale, colour, hit points).
+fn bot_kind(id: u32) -> (f32, [f32; 3], u32) {
+    match id % 3 {
+        0 => (1.5, [0.9, 0.3, 0.25], 3), // brute: big, red, tanky
+        2 => (0.8, [0.95, 0.85, 0.3], 1), // runner: small, yellow
+        _ => (1.0, [0.6, 0.7, 0.85], 1),  // grunt: normal
     }
 }
 
@@ -535,6 +566,25 @@ fn water_fs(i: VO) -> @location(0) vec4<f32> {
   let fog = clamp(1.0 - exp(-dist * g.params.x), 0.0, 1.0);
   return vec4<f32>(mix(col, g.sky_horizon.rgb, fog), 1.0);
 }
+
+// ---- screen-space UI (HUD + minimap), NDC quads, alpha-blended ----
+struct UO { @builtin(position) clip: vec4<f32>, @location(0) color: vec4<f32> };
+@vertex
+fn ui_vs(@builtin(vertex_index) vi: u32,
+         @location(0) rect: vec4<f32>, @location(1) color: vec4<f32>) -> UO {
+  var q = array<vec2<f32>,6>(
+    vec2<f32>(0.0,0.0), vec2<f32>(1.0,0.0), vec2<f32>(1.0,1.0),
+    vec2<f32>(0.0,0.0), vec2<f32>(1.0,1.0), vec2<f32>(0.0,1.0));
+  let p = rect.xy + q[vi] * rect.zw;
+  var o: UO;
+  o.clip = vec4<f32>(p, 0.0, 1.0);
+  o.color = color;
+  return o;
+}
+@fragment
+fn ui_fs(o: UO) -> @location(0) vec4<f32> {
+  return o.color;
+}
 "#;
 
 struct Gpu {
@@ -550,6 +600,9 @@ struct Gpu {
     shadow_pipeline: wgpu::RenderPipeline,
     shadow_view: wgpu::TextureView,
     shadow_bind: wgpu::BindGroup,
+    ui_pipeline: wgpu::RenderPipeline,
+    ui_buf: wgpu::Buffer,
+    ui_cap: u32,
     globals_buf: wgpu::Buffer,
     bind: wgpu::BindGroup,
     vbuf: wgpu::Buffer,
@@ -643,6 +696,10 @@ struct App {
     bullets: Vec<Bullet>,
     phase: Phase,
     weapon: Weapon,
+    ammo: u32,
+    reserve: u32,
+    reload_t: u32, // frames left in a reload (0 = ready)
+    bot_hp: HashMap<u32, u32>,
     items: Vec<Item>, // building loot
     hp: f32,
     lives: u32,
@@ -691,6 +748,10 @@ impl App {
             bullets: Vec::new(),
             phase: Phase::Skydive,
             weapon: Weapon::Pistol,
+            ammo: 12,
+            reserve: 240,
+            reload_t: 0,
+            bot_hp: HashMap::new(),
             items,
             hp: 100.0,
             lives: 3,
@@ -928,6 +989,48 @@ impl App {
             cache: None,
         });
 
+        // screen-space UI pipeline (HUD + minimap): NDC quads, alpha blend, no depth write
+        let ui_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("ui-pl"),
+            bind_group_layouts: &[],
+            push_constant_ranges: &[],
+        });
+        let ui_ibl = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<UiRect>() as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 0, shader_location: 0 },
+                wgpu::VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 16, shader_location: 1 },
+            ],
+        };
+        let ui_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("ui"),
+            layout: Some(&ui_pl),
+            vertex: wgpu::VertexState { module: &shader, entry_point: Some("ui_vs"), buffers: &[ui_ibl], compilation_options: Default::default() },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("ui_fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: Some(depth_state(false, wgpu::CompareFunction::Always)),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+        let ui_cap = 512u32;
+        let ui_buf = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("ui"),
+            size: (ui_cap as usize * std::mem::size_of::<UiRect>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         let (verts, indices) = cube();
         let vbuf = create_init_buffer(&device, "v", bytemuck::cast_slice(&verts), wgpu::BufferUsages::VERTEX);
         let ibuf = create_init_buffer(&device, "i", bytemuck::cast_slice(&indices), wgpu::BufferUsages::INDEX);
@@ -942,9 +1045,16 @@ impl App {
 
         self.gpu = Some(Gpu {
             device, queue, surface, config, depth, sky_pipeline, ground_pipeline, water_pipeline, box_pipeline,
-            shadow_pipeline, shadow_view, shadow_bind,
+            shadow_pipeline, shadow_view, shadow_bind, ui_pipeline, ui_buf, ui_cap,
             globals_buf, bind, vbuf, ibuf, index_count: indices.len() as u32, instance_buf, instance_cap,
         });
+    }
+
+    /// Swap weapon, top up its magazine, cancel any reload in progress.
+    fn set_weapon(&mut self, w: Weapon) {
+        self.weapon = w;
+        self.ammo = w.ammo_spec().0;
+        self.reload_t = 0;
     }
 
     /// xorshift → [0,1) for hit-particle scatter.
@@ -1055,6 +1165,11 @@ impl App {
                 });
             }
         }
+        // enemy variety: give newly-seen bots their archetype HP, forget the gone
+        for id in cur_bots.keys() {
+            self.bot_hp.entry(*id).or_insert_with(|| bot_kind(*id).2);
+        }
+        self.bot_hp.retain(|id, _| cur_bots.contains_key(id));
         self.prev_bots = cur_bots;
 
         // --- building: place a wall in front of the player on B ---
@@ -1080,7 +1195,21 @@ impl App {
         // --- real bullets: per-weapon fire at the nearest bot in range ---
         let chest = pw + Vec3::new(0.0, 1.4, 0.0);
         let (fire_period, range, pellets, spread, _) = self.weapon.params();
-        if self.phase == Phase::Playing && self.frames % fire_period == 0 {
+        let (mag, reload_frames) = self.weapon.ammo_spec();
+        if self.phase == Phase::Playing {
+            if self.reload_t > 0 {
+                self.reload_t -= 1;
+                if self.reload_t == 0 {
+                    let take = (mag - self.ammo).min(self.reserve);
+                    self.ammo += take;
+                    self.reserve -= take;
+                }
+            } else if self.ammo == 0 && self.reserve > 0 {
+                self.reload_t = reload_frames; // auto-reload when the magazine runs dry
+            }
+        }
+        let can_fire = self.phase == Phase::Playing && self.reload_t == 0 && self.ammo > 0;
+        if can_fire && self.frames % fire_period == 0 {
             let mut best: Option<(Vec3, f32)> = None;
             for (t, p, _) in &ents {
                 if t == "bot" {
@@ -1102,6 +1231,7 @@ impl App {
                     let dir = (base_dir + jitter).normalize_or_zero();
                     self.bullets.push(Bullet { pos: chest, vel: dir * 48.0, life: 0.8 });
                 }
+                self.ammo -= 1; // one trigger pull = one round (shotgun pellets included)
             }
         }
         for b in &mut self.bullets {
@@ -1136,7 +1266,16 @@ impl App {
         }
         self.bullets = surviving;
         for id in hit_ids {
-            self.game.despawn(id); // bot vanishes → next frame's diff fires the burst + score
+            // enemy variety: brutes take several hits; despawn only at 0 HP
+            match self.bot_hp.get_mut(&id) {
+                Some(h) => {
+                    *h = h.saturating_sub(1);
+                    if *h == 0 {
+                        self.game.despawn(id); // → next frame's diff fires the kill burst + score
+                    }
+                }
+                None => self.game.despawn(id),
+            }
         }
 
         // --- storm: take damage outside the safe circle; respawn / new match on 0 lives ---
@@ -1169,8 +1308,14 @@ impl App {
             let it = self.items.remove(i);
             match it.kind {
                 Loot::Health => self.hp = 100.0,
-                Loot::Rifle => self.weapon = Weapon::Rifle,
-                Loot::Shotgun => self.weapon = Weapon::Shotgun,
+                Loot::Rifle => {
+                    self.set_weapon(Weapon::Rifle);
+                    self.reserve += 90;
+                }
+                Loot::Shotgun => {
+                    self.set_weapon(Weapon::Shotgun);
+                    self.reserve += 36;
+                }
             }
             for _ in 0..12 {
                 let j = Vec3::new(self.rng_next() * 2.0 - 1.0, self.rng_next() * 2.0, self.rng_next() * 2.0 - 1.0);
@@ -1211,9 +1356,16 @@ impl App {
                     ((-(player[0] - pos[0])).atan2(-(player[1] - pos[1])), true)
                 };
                 let walk = self.time * 9.0 + (*id as f32) * 0.6;
+                // enemy variety: grunt / runner / brute differ in size + colour
+                let (scl, col) = if tag == "bot" {
+                    let (s, c, _) = bot_kind(*id);
+                    (s, c)
+                } else {
+                    (1.0, p.color)
+                };
                 // blob shadow on the ground (stays grounded even mid-jump)
-                push_shadow(&mut inst, Vec3::new(pos[0] * gs, 0.0, pos[1] * gs), p.w * 0.7);
-                push_character(&mut inst, ground, yaw, walk, moving, p.h / 1.9, p.color);
+                push_shadow(&mut inst, Vec3::new(pos[0] * gs, 0.0, pos[1] * gs), p.w * 0.7 * scl);
+                push_character(&mut inst, ground, yaw, walk, moving, p.h / 1.9 * scl, col);
             }
         }
         // glider canopy above the player while skydiving
@@ -1279,6 +1431,54 @@ impl App {
         gpu.queue.write_buffer(&gpu.globals_buf, 0, bytemuck::bytes_of(&globals));
         gpu.queue.write_buffer(&gpu.instance_buf, 0, bytemuck::cast_slice(&inst[..count as usize]));
 
+        // --- HUD + minimap (screen-space quads) ---
+        let aspect = gpu.config.width as f32 / gpu.config.height as f32;
+        let (mag, reload_frames) = self.weapon.ammo_spec();
+        let mut ui: Vec<UiRect> = Vec::new();
+        // HP bar (bottom-left)
+        ui.push(UiRect::screen(0.03, 0.93, 0.26, 0.028, [0.0, 0.0, 0.0, 0.5]));
+        let hpf = (self.hp / 100.0).clamp(0.0, 1.0);
+        ui.push(UiRect::screen(0.03, 0.93, 0.26 * hpf, 0.028, [1.0 - hpf, 0.2 + 0.7 * hpf, 0.25, 0.95]));
+        // ammo / reload bar (above HP)
+        ui.push(UiRect::screen(0.03, 0.885, 0.26, 0.024, [0.0, 0.0, 0.0, 0.5]));
+        if self.reload_t > 0 {
+            let rf = 1.0 - self.reload_t as f32 / reload_frames as f32;
+            ui.push(UiRect::screen(0.03, 0.885, 0.26 * rf, 0.024, [1.0, 0.7, 0.1, 0.95]));
+        } else {
+            let af = self.ammo as f32 / mag as f32;
+            ui.push(UiRect::screen(0.03, 0.885, 0.26 * af, 0.024, [0.85, 0.85, 0.9, 0.95]));
+        }
+        // weapon swatch + lives pips
+        let (_, _, _, _, wcol) = self.weapon.params();
+        ui.push(UiRect::screen(0.03, 0.845, 0.03, 0.03, [wcol[0], wcol[1], wcol[2], 1.0]));
+        for k in 0..self.lives {
+            ui.push(UiRect::screen(0.075 + k as f32 * 0.022, 0.85, 0.016, 0.02, [0.3, 1.0, 0.4, 0.95]));
+        }
+        // minimap (top-right)
+        let (mmx, mmy, mmw) = (0.80, 0.04, 0.17);
+        let mmh = mmw * aspect;
+        ui.push(UiRect::screen(mmx, mmy, mmw, mmh, [0.05, 0.07, 0.1, 0.55]));
+        let (mcx, mcy) = (mmx + mmw * 0.5, mmy + mmh * 0.5);
+        let range = 600.0_f32;
+        let dot = |wx: f32, wz: f32, ds: f32, col: [f32; 4], list: &mut Vec<UiRect>| {
+            let (dx, dz) = ((wx - player[0]) / range, (wz - player[1]) / range);
+            if dx.abs() <= 1.0 && dz.abs() <= 1.0 {
+                list.push(UiRect::screen(mcx + dx * mmw * 0.5 - ds * 0.5, mcy + dz * mmh * 0.5 - ds * 0.5, ds, ds, col));
+            }
+        };
+        for (t, p, id) in &ents {
+            if t == "bot" {
+                let c = bot_kind(*id).1;
+                dot(p[0], p[1], 0.012, [c[0], c[1], c[2], 1.0], &mut ui);
+            }
+        }
+        for it in &self.items {
+            dot(it.pos.x / gs, it.pos.z / gs, 0.012, [0.3, 1.0, 0.45, 1.0], &mut ui);
+        }
+        dot(player[0], player[1], 0.016, [1.0, 1.0, 1.0, 1.0], &mut ui);
+        let ui_count = ui.len().min(gpu.ui_cap as usize) as u32;
+        gpu.queue.write_buffer(&gpu.ui_buf, 0, bytemuck::cast_slice(&ui[..ui_count as usize]));
+
         let frame = match gpu.surface.get_current_texture() {
             Ok(f) => f,
             Err(_) => {
@@ -1343,6 +1543,12 @@ impl App {
                 rp.set_index_buffer(gpu.ibuf.slice(..), wgpu::IndexFormat::Uint16);
                 rp.draw_indexed(0..gpu.index_count, 0, 0..count);
             }
+            // HUD + minimap on top (screen-space, alpha-blended, no bind groups)
+            if ui_count > 0 {
+                rp.set_pipeline(&gpu.ui_pipeline);
+                rp.set_vertex_buffer(0, gpu.ui_buf.slice(..));
+                rp.draw(0..6, 0..ui_count);
+            }
         }
         gpu.queue.submit(Some(enc.finish()));
         frame.present();
@@ -1363,9 +1569,10 @@ impl App {
             if self.phase == Phase::Skydive {
                 w.set_title(&format!("{} · {:.0} fps · SKYDIVE — alt {:.0}m · WASD steer", self.scene.title, self.fps, self.height));
             } else {
+                let ammo_str = if self.reload_t > 0 { "RELOADING".to_string() } else { format!("{}/{}", self.ammo, self.reserve) };
                 w.set_title(&format!(
-                    "{} · {:.0} fps · {} · HP {:.0} · lives {} · kills {} · {} bots · [1/2/3] weapon [B] build",
-                    self.scene.title, self.fps, self.weapon.name(), self.hp, self.lives, self.score,
+                    "{} · {:.0} fps · {} {} · HP {:.0} · lives {} · kills {} · {} bots · [1/2/3] wpn [R] reload [B] build",
+                    self.scene.title, self.fps, self.weapon.name(), ammo_str, self.hp, self.lives, self.score,
                     ents.iter().filter(|(t, _, _)| t == "bot").count()
                 ));
             }
@@ -1457,9 +1664,15 @@ impl ApplicationHandler for App {
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyB) if down => self.build_pressed = true,
-                    PhysicalKey::Code(KeyCode::Digit1) if down => self.weapon = Weapon::Pistol,
-                    PhysicalKey::Code(KeyCode::Digit2) if down => self.weapon = Weapon::Rifle,
-                    PhysicalKey::Code(KeyCode::Digit3) if down => self.weapon = Weapon::Shotgun,
+                    PhysicalKey::Code(KeyCode::Digit1) if down => self.set_weapon(Weapon::Pistol),
+                    PhysicalKey::Code(KeyCode::Digit2) if down => self.set_weapon(Weapon::Rifle),
+                    PhysicalKey::Code(KeyCode::Digit3) if down => self.set_weapon(Weapon::Shotgun),
+                    PhysicalKey::Code(KeyCode::KeyR) if down => {
+                        let (mag, rf) = self.weapon.ammo_spec();
+                        if self.reload_t == 0 && self.ammo < mag && self.reserve > 0 {
+                            self.reload_t = rf;
+                        }
+                    }
                     PhysicalKey::Code(KeyCode::KeyW) => self.keys.w = down,
                     PhysicalKey::Code(KeyCode::KeyA) => self.keys.a = down,
                     PhysicalKey::Code(KeyCode::KeyS) => self.keys.s = down,
