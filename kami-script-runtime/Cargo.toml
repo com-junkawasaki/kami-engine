@@ -5,7 +5,9 @@ edition.workspace = true
 description = "kami-script-runtime — WASM host (wasmtime JIT or wasmi no-JIT) that binds kami:engine/* imports to live Rust game-engine state. Loads compiled kami-engine-clj WASM modules and drives init/tick/on-event lifecycle."
 
 [dependencies]
-kami-engine-clj = { path = "../kami-engine-clj" }
+# Compiler comes through kototama (the one Clojure→WASM runtime), not directly from
+# kami-engine-clj — single compiler entry point for native + web.
+kototama = { path = "../../kototama", default-features = false }
 kami-core = { path = "../kami-core" }
 kami-input = { path = "../kami-input" }
 kami-audio = { path = "../kami-audio" }
