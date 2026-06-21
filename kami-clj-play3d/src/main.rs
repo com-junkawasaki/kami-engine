@@ -222,6 +222,41 @@ struct Bullet {
     life: f32,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum Weapon {
+    Pistol,
+    Rifle,
+    Shotgun,
+}
+impl Weapon {
+    fn name(self) -> &'static str {
+        match self {
+            Weapon::Pistol => "PISTOL",
+            Weapon::Rifle => "RIFLE",
+            Weapon::Shotgun => "SHOTGUN",
+        }
+    }
+    /// (frames between shots, range (world), pellets/shot, spread radians, bullet color)
+    fn params(self) -> (u64, f32, u32, f32, [f32; 3]) {
+        match self {
+            Weapon::Pistol => (12, 9.0, 1, 0.0, [1.0, 0.95, 0.45]),
+            Weapon::Rifle => (5, 8.0, 1, 0.04, [0.6, 0.9, 1.0]),
+            Weapon::Shotgun => (30, 5.0, 6, 0.20, [1.0, 0.6, 0.3]),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Loot {
+    Health,
+    Rifle,
+    Shotgun,
+}
+struct Item {
+    pos: Vec3, // ground spot (world)
+    kind: Loot,
+}
+
 /// Append a blocky humanoid (legs/torso/arms/head/visor) to `inst`, standing on
 /// `ground`, facing `yaw`, with a walk cycle when `moving`. Stylized boxes — no
 /// skinned mesh, but reads as a character with motion.
@@ -550,6 +585,8 @@ struct App {
     walls: Vec<Instance>, // player-built wall pieces
     particles: Vec<Particle3>,
     bullets: Vec<Bullet>,
+    weapon: Weapon,
+    items: Vec<Item>, // building loot
     hp: f32,
     lives: u32,
     prev_bots: HashMap<u32, Vec3>, // for hit-burst detection
@@ -570,7 +607,20 @@ struct App {
 
 impl App {
     fn new(logic: &str, scene: Scene3) -> Self {
-        let (props, wall_aabbs) = scatter_props(&scene);
+        let (props, wall_aabbs, centers) = scatter_props(&scene);
+        // one loot item per building, kind cycling health / rifle / shotgun
+        let items = centers
+            .iter()
+            .enumerate()
+            .map(|(i, c)| Item {
+                pos: *c,
+                kind: match i % 3 {
+                    0 => Loot::Health,
+                    1 => Loot::Rifle,
+                    _ => Loot::Shotgun,
+                },
+            })
+            .collect();
         Self {
             window: None,
             gpu: None,
@@ -582,6 +632,8 @@ impl App {
             walls: Vec::new(),
             particles: Vec::new(),
             bullets: Vec::new(),
+            weapon: Weapon::Pistol,
+            items,
             hp: 100.0,
             lives: 3,
             prev_bots: HashMap::new(),
@@ -942,22 +994,31 @@ impl App {
         }
         self.particles.retain(|p| p.age < p.life);
 
-        // --- real bullets: fire at the nearest bot, travel, then collide ---
+        // --- real bullets: per-weapon fire at the nearest bot in range ---
         let chest = pw + Vec3::new(0.0, 1.4, 0.0);
-        if self.frames % 9 == 0 {
+        let (fire_period, range, pellets, spread, _) = self.weapon.params();
+        if self.frames % fire_period == 0 {
             let mut best: Option<(Vec3, f32)> = None;
             for (t, p, _) in &ents {
                 if t == "bot" {
                     let bw = Vec3::new(p[0] * gs, 1.0, p[1] * gs);
                     let d = (bw - chest).length();
-                    if d < 9.0 && best.map_or(true, |(_, bd)| d < bd) {
+                    if d < range && best.map_or(true, |(_, bd)| d < bd) {
                         best = Some((bw, d));
                     }
                 }
             }
             if let Some((bw, _)) = best {
-                let dir = (bw - chest).normalize_or_zero();
-                self.bullets.push(Bullet { pos: chest, vel: dir * 45.0, life: 0.8 });
+                let base_dir = (bw - chest).normalize_or_zero();
+                for _ in 0..pellets {
+                    let jitter = Vec3::new(
+                        (self.rng_next() * 2.0 - 1.0) * spread,
+                        (self.rng_next() * 2.0 - 1.0) * spread,
+                        (self.rng_next() * 2.0 - 1.0) * spread,
+                    );
+                    let dir = (base_dir + jitter).normalize_or_zero();
+                    self.bullets.push(Bullet { pos: chest, vel: dir * 48.0, life: 0.8 });
+                }
             }
         }
         for b in &mut self.bullets {
@@ -967,19 +1028,27 @@ impl App {
         let mut hit_ids: Vec<u32> = Vec::new();
         let mut surviving = Vec::new();
         for b in std::mem::take(&mut self.bullets) {
-            let mut hit = false;
+            let mut hit_at: Option<Vec3> = None;
             for (t, p, id) in &ents {
                 if t == "bot" {
                     let bw = Vec3::new(p[0] * gs, 1.0, p[1] * gs);
                     if (b.pos - bw).length() < 1.2 {
                         hit_ids.push(*id);
-                        hit = true;
+                        hit_at = Some(b.pos);
                         break;
                     }
                 }
             }
-            if !hit && b.life > 0.0 {
-                surviving.push(b);
+            match hit_at {
+                Some(at) => {
+                    // hit-detection viz: a quick white impact spark at contact
+                    for _ in 0..6 {
+                        let j = Vec3::new(self.rng_next() * 2.0 - 1.0, self.rng_next() * 2.0 - 1.0, self.rng_next() * 2.0 - 1.0);
+                        self.particles.push(Particle3 { pos: at, vel: j * 5.0, age: 0.0, life: 0.18 });
+                    }
+                }
+                None if b.life > 0.0 => surviving.push(b),
+                None => {}
             }
         }
         self.bullets = surviving;
@@ -1003,6 +1072,27 @@ impl App {
             }
         } else if self.hp < 100.0 {
             self.hp = (self.hp + 8.0 * dt_p).min(100.0); // heal inside the circle
+        }
+
+        // --- building loot: pick up items the player walks over ---
+        let pxz = glam::vec2(pw.x, pw.z);
+        let mut picked: Vec<usize> = Vec::new();
+        for (i, it) in self.items.iter().enumerate() {
+            if glam::vec2(it.pos.x, it.pos.z).distance(pxz) < 1.6 {
+                picked.push(i);
+            }
+        }
+        for &i in picked.iter().rev() {
+            let it = self.items.remove(i);
+            match it.kind {
+                Loot::Health => self.hp = 100.0,
+                Loot::Rifle => self.weapon = Weapon::Rifle,
+                Loot::Shotgun => self.weapon = Weapon::Shotgun,
+            }
+            for _ in 0..12 {
+                let j = Vec3::new(self.rng_next() * 2.0 - 1.0, self.rng_next() * 2.0, self.rng_next() * 2.0 - 1.0);
+                self.particles.push(Particle3 { pos: it.pos + Vec3::new(0.0, 1.0, 0.0), vel: j * 4.0, age: 0.0, life: 0.5 });
+            }
         }
 
         // --- camera follow ---
@@ -1042,9 +1132,31 @@ impl App {
                 push_character(&mut inst, ground, yaw, walk, moving, p.h / 1.9, p.color);
             }
         }
-        // bullets: bright tracer cubes
+        // storm wall: a ring of glowing pillars at the current safe radius
+        let sr = self.storm_radius * gs;
+        let ring = 72usize;
+        for kk in 0..ring {
+            let ang = (kk as f32 / ring as f32) * std::f32::consts::TAU;
+            let rp = Vec3::new(ang.cos() * sr, 0.0, ang.sin() * sr);
+            inst.push(Instance { model: model_box(rp, 0.6, 7.0), color: [0.72, 0.32, 1.0, 1.0] });
+        }
+        // building loot: a bobbing, spinning crate colored by kind
+        for it in &self.items {
+            let bob = (self.time * 2.0).sin() * 0.2 + 1.0;
+            let col = match it.kind {
+                Loot::Health => [0.3, 1.0, 0.45],
+                Loot::Rifle => [0.5, 0.8, 1.0],
+                Loot::Shotgun => [1.0, 0.6, 0.3],
+            };
+            let m = Mat4::from_translation(it.pos + Vec3::new(0.0, bob, 0.0))
+                * Mat4::from_rotation_y(self.time * 2.0)
+                * Mat4::from_scale(Vec3::splat(0.6));
+            inst.push(Instance { model: m.to_cols_array_2d(), color: [col[0], col[1], col[2], 1.0] });
+        }
+        // bullets: bright tracer cubes (tinted by weapon)
+        let (_, _, _, _, bcol) = self.weapon.params();
         for b in &self.bullets {
-            inst.push(Instance { model: model_box(b.pos, 0.16, 0.16), color: [1.0, 0.95, 0.45, 1.0] });
+            inst.push(Instance { model: model_box(b.pos, 0.16, 0.16), color: [bcol[0], bcol[1], bcol[2], 1.0] });
         }
         // hit particles: small bright cubes that fade as they age
         for p in &self.particles {
@@ -1151,15 +1263,15 @@ impl App {
         }
         if let Some(w) = self.window.as_ref() {
             w.set_title(&format!(
-                "{} · {:.0} fps · HP {:.0} · lives {} · kills {} · {} bots · [B] build",
-                self.scene.title, self.fps, self.hp, self.lives, self.score,
+                "{} · {:.0} fps · {} · HP {:.0} · lives {} · kills {} · {} bots · [1/2/3] weapon [B] build",
+                self.scene.title, self.fps, self.weapon.name(), self.hp, self.lives, self.score,
                 ents.iter().filter(|(t, _, _)| t == "bot").count()
             ));
         }
     }
 }
 
-fn scatter_props(s: &Scene3) -> (Vec<Instance>, Vec<Aabb>) {
+fn scatter_props(s: &Scene3) -> (Vec<Instance>, Vec<Aabb>, Vec<Vec3>) {
     let mut rng = 0x9E37_79B9u32;
     let mut rnd = || {
         rng ^= rng << 13;
@@ -1169,6 +1281,7 @@ fn scatter_props(s: &Scene3) -> (Vec<Instance>, Vec<Aabb>) {
     };
     let mut out = Vec::new();
     let mut aabbs = Vec::new();
+    let mut centers = Vec::new();
     for _ in 0..s.prop_count {
         let x = (rnd() * 2.0 - 1.0) * s.prop_spread;
         let z = (rnd() * 2.0 - 1.0) * s.prop_spread;
@@ -1186,9 +1299,10 @@ fn scatter_props(s: &Scene3) -> (Vec<Instance>, Vec<Aabb>) {
             let h = b.min_h + rnd() * (b.max_h - b.min_h);
             let room = 6.0 + rnd() * 3.0;
             make_building(base, room, h.max(3.0), b.color, &mut out, &mut aabbs);
+            centers.push(base);
         }
     }
-    (out, aabbs)
+    (out, aabbs, centers)
 }
 
 fn create_init_buffer(device: &wgpu::Device, label: &str, data: &[u8], usage: wgpu::BufferUsages) -> wgpu::Buffer {
@@ -1232,6 +1346,9 @@ impl ApplicationHandler for App {
                         }
                     }
                     PhysicalKey::Code(KeyCode::KeyB) if down => self.build_pressed = true,
+                    PhysicalKey::Code(KeyCode::Digit1) if down => self.weapon = Weapon::Pistol,
+                    PhysicalKey::Code(KeyCode::Digit2) if down => self.weapon = Weapon::Rifle,
+                    PhysicalKey::Code(KeyCode::Digit3) if down => self.weapon = Weapon::Shotgun,
                     PhysicalKey::Code(KeyCode::KeyW) => self.keys.w = down,
                     PhysicalKey::Code(KeyCode::KeyA) => self.keys.a = down,
                     PhysicalKey::Code(KeyCode::KeyS) => self.keys.s = down,
