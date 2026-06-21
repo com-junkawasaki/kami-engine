@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use kami_script_runtime::{KamiScriptRuntime, load_and_init};
+use kami_script_runtime::KamiScriptRuntime;
 
 fn make_runtime() -> KamiScriptRuntime {
     let world = Arc::new(Mutex::new(hecs::World::new()));

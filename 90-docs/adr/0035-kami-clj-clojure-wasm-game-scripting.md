@@ -1,8 +1,14 @@
-# ADR-0035: kami-clj — Clojure/EDN → WASM Game Scripting
+# ADR-0035: kami-engine-clj — Clojure/EDN → WASM Game Scripting
 
 **Date**: 2026-06-13  
-**Status**: Accepted — Phase 1 + Phase 2 complete  
+**Status**: Accepted — Phase 1 + Phase 2 complete; Phase 4 done (see ADR-0037)  
 **Author**: kami-engine team
+
+> **Note (ADR-0038):** the crate introduced here as `kami-clj` was renamed to
+> **`kami-engine-clj`** (consistency with `kami-engine-sdk-clj`; it is the language
+> tier of the CLJ game layer). The canonical architecture that situates it — Rust
+> base + CLJ/EDN/Datomic game layer, Model A vs B — is **ADR-0038**. Body text below
+> keeps the original `kami-clj` name for historical fidelity.
 
 ---
 

@@ -523,9 +523,10 @@ pub fn parse_program(src: &str) -> Result<Program, CljError> {
             "def"       => defs.push(lower_def(items)?),
             "defn"      => functions.push(lower_defn(items)?),
             "defsystem" => functions.push(lower_defsystem(items)?),
+            "defentity" => functions.push(lower_defentity(items)?),
             other       => {
                 return Err(CljError::Lower(format!(
-                    "unsupported top-level form `({other} …)` — expected def/defn/ns/defsystem"
+                    "unsupported top-level form `({other} …)` — expected def/defn/ns/defsystem/defentity"
                 )))
             }
         }
@@ -586,6 +587,47 @@ fn lower_defsystem(items: &[EdnValue]) -> Result<Function, CljError> {
     let params = lower_param_vec(&items[2], &name)?;
     let body   = items[3..].iter().map(lower_expr).collect::<Result<Vec<_>, _>>()?;
     Ok(Function { name: tick_name, params, body })
+}
+
+/// `(defentity name [params…] body…)` — entity-template constructor sugar.
+///
+/// Desugars to a fn that spawns a fresh entity tagged `"name"`, binds it to
+/// `self` for the body to initialize, and returns the entity id — the Phase-4
+/// prefab DSL, so a whole game's spawn templates live in one guest wasm.
+///
+/// ```clojure
+/// (defentity enemy [x y]
+///   (set-position! self x y (f32 0.0)))
+/// ;; ≡ (defn enemy [x y]
+/// ;;     (let [self (spawn-entity "enemy")]
+/// ;;       (set-position! self x y (f32 0.0))
+/// ;;       self))
+/// ```
+fn lower_defentity(items: &[EdnValue]) -> Result<Function, CljError> {
+    if items.len() < 4 {
+        return Err(CljError::Lower(
+            "defentity requires: (defentity name [params…] body…)".into(),
+        ));
+    }
+    let name   = sym_name(&items[1], "defentity name")?;
+    let params = lower_param_vec(&items[2], &name)?;
+    let mut body = items[3..]
+        .iter()
+        .map(lower_expr)
+        .collect::<Result<Vec<_>, _>>()?;
+    // The constructor returns `self` so callers can hold/seed the spawned id.
+    body.push(Expr::Var("self".to_string()));
+    // `self` = a fresh entity tagged with the template name (the host's
+    // `spawn` tags it, so query/count/nearest find it by that tag).
+    let spawn = Expr::Builtin {
+        op:   Builtin::SpawnEntity,
+        args: vec![Expr::Str(name.clone().into_bytes())],
+    };
+    let let_expr = Expr::Let {
+        bindings: vec![("self".to_string(), spawn)],
+        body,
+    };
+    Ok(Function { name, params, body: vec![let_expr] })
 }
 
 fn lower_param_vec(v: &EdnValue, ctx: &str) -> Result<Vec<String>, CljError> {

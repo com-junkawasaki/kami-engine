@@ -52,9 +52,9 @@ fn main() {
     };
 
     let compiled = if prelude {
-        kami_clj::compile_str_with_prelude(&src)
+        kami_engine_clj::compile_str_with_prelude(&src)
     } else {
-        kami_clj::compile_str(&src)
+        kami_engine_clj::compile_str(&src)
     };
     let wasm = match compiled {
         Ok(w) => w,

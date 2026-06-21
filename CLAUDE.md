@@ -16,6 +16,46 @@ See also: `ARCHITECTURE.md` for ownership boundaries and authority rules across 
 |---|---|---|
 | `gftd:kami-cine@1.0.0` | `wit/cine/package.wit` | 8-stage neural cinematic pipeline (world-model → usd-scene → neural-geom → temporal-field → neural-render → diffusion-pass → exr-seq → encode). Consumed by `60-apps/ai-gftd-project-{mangaka,animeka,dogaka}/`. Stage records live in shared `app.etzhayyim.apps.cine.*` lexicons (`00-contracts/lexicons/ai/gftd/apps/cine/`). Execution is pod-side per ADR-2605111200; CF Workers only dispatch. Rust crate impl deferred — `kami-cine-{world-model,usd,neural-geom,temporal-field,neural-render,diffusion-pass,exr,encode}` planned. |
 
+## CLJ/EDN Game Layer (ADR-0035/0036/0037/0038)
+
+**Premise (ADR-0038, canonical):** Rust is the per-platform-optimised low-level base
+(fastest); a **game** is authored as **data in Datomic + behaviour in a Clojure subset**
+(code-as-data) and ships as a write-once artifact (compiled-guest WASM + EDN scene) that the
+Rust base runs on **web / mac / iOS / Android / PS5 / Switch**. Everything hot (render,
+physics, audio) stays native Rust; only gameplay glue is CLJ (measured ~0.15–0.19 ms/step,
+not the hot path).
+
+### Crates
+
+| Crate | Tier | Role |
+|---|---|---|
+| **kami-engine-clj** | language | Clojure/EDN-subset → **WASM compiler** (`wasm-encoder`, all-i64 ABI, f32, `defsystem`/`defentity`, vec/map prelude). WIT world `kami:engine/kami-game`. `--bin kamiclj` compiles `logic.clj` → `game.wasm`. |
+| **kami-script-runtime** | host | Drives `game.wasm` over `hecs`, binding `kami:engine/*` (scene/physics/input/render/audio/time/random). **Two WASM backends, one binding codebase**: `backend-wasmtime` (JIT) and `backend-wasmi` (no-JIT → iOS/PS5/Switch). Deterministic: both backends produce **bit-identical** runs (golden-frame test). Also hosts `input_map`, `platform`, and the `kami` CLI bin. |
+| **kami-scene** | data | Tolerant EDN accessors for `scene.edn` (shared by the players; unit-tested). |
+| **kami-clj-play** / **kami-clj-play3d** | player | Native winit + wgpu/Metal players (2D survivors / stylized 3D battle-royale). The GPU arm; load `logic.clj` + `scene.edn`, hardcode no game content. |
+| **kami-engine-sdk-clj** | brain (Model A) | Clojure/CLJS SDK: Datomic/datalevin source of truth → ECS → render-IR. |
+| **kami-clj-host** | brain GPU bridge | Decodes the render-IR → `kami-render` (for the Model-A SDK). |
+
+### Two runtime models (ADR-0038 §2)
+
+- **Model A — brain-on-host** (`kami-engine-sdk-clj` + `kami-clj-host`): the sim loop runs in
+  JVM Clojure / browser CLJS, **live Datomic** (`as-of` undo, Datalog). Web/desktop **authoring/dev** only.
+- **Model B — compiled-guest** (`kami-engine-clj` → wasm, `kami-script-runtime`): the whole game
+  is one wasm a Rust host drives. The **universal ship path** (incl. no-JIT consoles). Datomic is
+  baked to an EDN snapshot a frame never queries.
+- Canonical pipeline: author in A (live Datomic) → **bake** snapshot + **compile** logic → **ship** via B.
+- `kami-app` (Rust-direct games) is the **escape hatch**, not the default — gameplay should be CLJ.
+
+### Tooling & tests
+
+- **`bb kami`** (root `bb.edn`): `targets` / `plan <t>` / `spec <t>` (packaging matrix, single
+  source of truth in `kami-script-runtime::platform`) · `bake` (datalevin → scene.edn) · `compile`
+  (logic.clj → game.wasm) · `host <t>` (cross-build, feature+triple from `kami spec`) · `package mac`
+  (relocatable `.app`) · `play` · `test`.
+- **`scripts/test-script-backends.sh`** — runs the suite under **both** wasmtime and wasmi and fails
+  on any divergence. Reference game: `kami-clj-play/games/survivors/` (`author.clj` transacts datoms →
+  Datalog query → `scene.edn`; player loads `logic.clj` + `scene.edn`).
+
 ## Crate Structure (Rust, 29 crates)
 
 ### Core
