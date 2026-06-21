@@ -250,6 +250,64 @@ fn push_shadow(inst: &mut Vec<Instance>, ground: Vec3, r: f32) {
     inst.push(Instance { model: m.to_cols_array_2d(), color: [0.05, 0.06, 0.07, 1.0] });
 }
 
+/// An axis-aligned wall footprint in world XZ, for player collision.
+#[derive(Clone, Copy)]
+struct Aabb {
+    min: glam::Vec2,
+    max: glam::Vec2,
+}
+
+/// A hollow building you can walk into: 4 walls (a door gap on the south side) +
+/// a roof. Pushes the wall boxes to `inst` and their footprints to `aabbs`.
+fn make_building(c: Vec3, room: f32, h: f32, color: [f32; 3], inst: &mut Vec<Instance>, aabbs: &mut Vec<Aabb>) {
+    let half = room * 0.5;
+    let th = 0.5;
+    let col = [color[0], color[1], color[2], 1.0];
+    let mut wall = |center: Vec3, yaw: f32, w: f32, depth: f32, ax_min: glam::Vec2, ax_max: glam::Vec2| {
+        inst.push(Instance { model: model_wall(center, yaw, w, h, depth), color: col });
+        aabbs.push(Aabb { min: ax_min, max: ax_max });
+    };
+    let (cx, cz) = (c.x, c.z);
+    // north / east / west walls (full)
+    wall(Vec3::new(cx, 0.0, cz + half), 0.0, room, th,
+         glam::vec2(cx - half, cz + half - th * 0.5), glam::vec2(cx + half, cz + half + th * 0.5));
+    wall(Vec3::new(cx + half, 0.0, cz), std::f32::consts::FRAC_PI_2, room, th,
+         glam::vec2(cx + half - th * 0.5, cz - half), glam::vec2(cx + half + th * 0.5, cz + half));
+    wall(Vec3::new(cx - half, 0.0, cz), std::f32::consts::FRAC_PI_2, room, th,
+         glam::vec2(cx - half - th * 0.5, cz - half), glam::vec2(cx - half + th * 0.5, cz + half));
+    // south wall with a centred door gap → two segments
+    let gd = room * 0.45;
+    let seg = (room - gd) * 0.5;
+    wall(Vec3::new(cx - half + seg * 0.5, 0.0, cz - half), 0.0, seg, th,
+         glam::vec2(cx - half, cz - half - th * 0.5), glam::vec2(cx - half + seg, cz - half + th * 0.5));
+    wall(Vec3::new(cx + half - seg * 0.5, 0.0, cz - half), 0.0, seg, th,
+         glam::vec2(cx + half - seg, cz - half - th * 0.5), glam::vec2(cx + half, cz - half + th * 0.5));
+    // roof (no collision; player can't reach it)
+    inst.push(Instance { model: model_box(Vec3::new(cx, h, cz), room, th), color: [color[0] * 0.85, color[1] * 0.85, color[2] * 0.85, 1.0] });
+}
+
+/// Push the player (world XZ) out of any wall AABB it has entered (with radius `r`).
+fn resolve_collision(mut p: glam::Vec2, r: f32, aabbs: &[Aabb]) -> glam::Vec2 {
+    for a in aabbs {
+        let (minx, maxx) = (a.min.x - r, a.max.x + r);
+        let (minz, maxz) = (a.min.y - r, a.max.y + r);
+        if p.x > minx && p.x < maxx && p.y > minz && p.y < maxz {
+            let (dl, dr, dd, du) = (p.x - minx, maxx - p.x, p.y - minz, maxz - p.y);
+            let m = dl.min(dr).min(dd).min(du);
+            if m == dl {
+                p.x = minx;
+            } else if m == dr {
+                p.x = maxx;
+            } else if m == dd {
+                p.y = minz;
+            } else {
+                p.y = maxz;
+            }
+        }
+    }
+    p
+}
+
 const SHADER: &str = r#"
 struct G {
   view_proj: mat4x4<f32>, cam_pos: vec4<f32>, sun_dir: vec4<f32>, sun_col: vec4<f32>,
@@ -488,6 +546,7 @@ struct App {
     scene: Scene3,
     keys: Keys,
     props: Vec<Instance>, // static world dressing
+    wall_aabbs: Vec<Aabb>, // building walls, for player collision
     walls: Vec<Instance>, // player-built wall pieces
     particles: Vec<Particle3>,
     bullets: Vec<Bullet>,
@@ -511,7 +570,7 @@ struct App {
 
 impl App {
     fn new(logic: &str, scene: Scene3) -> Self {
-        let props = scatter_props(&scene);
+        let (props, wall_aabbs) = scatter_props(&scene);
         Self {
             window: None,
             gpu: None,
@@ -519,6 +578,7 @@ impl App {
             scene,
             keys: Keys::default(),
             props,
+            wall_aabbs,
             walls: Vec::new(),
             particles: Vec::new(),
             bullets: Vec::new(),
@@ -1077,10 +1137,13 @@ impl App {
         gpu.queue.submit(Some(enc.finish()));
         frame.present();
 
-        // keep the player on the ground plane (no leaving the map limits)
+        // keep the player in-bounds, then resolve collision against building walls
+        // (blocked by walls, but can walk in through the door gap).
         let lim = self.scene.prop_spread * 1.4 / gs.max(1e-4);
-        let cp = [player[0].clamp(-lim, lim), player[1].clamp(-lim, lim)];
-        self.game.set_player(cp[0], cp[1]);
+        let cx = player[0].clamp(-lim, lim);
+        let cz = player[1].clamp(-lim, lim);
+        let world = resolve_collision(glam::vec2(cx * gs, cz * gs), 0.6, &self.wall_aabbs);
+        self.game.set_player(world.x / gs, world.y / gs);
 
         self.frames += 1;
         if self.frames % 120 == 0 {
@@ -1096,7 +1159,7 @@ impl App {
     }
 }
 
-fn scatter_props(s: &Scene3) -> Vec<Instance> {
+fn scatter_props(s: &Scene3) -> (Vec<Instance>, Vec<Aabb>) {
     let mut rng = 0x9E37_79B9u32;
     let mut rnd = || {
         rng ^= rng << 13;
@@ -1105,24 +1168,27 @@ fn scatter_props(s: &Scene3) -> Vec<Instance> {
         (rng as f32 / u32::MAX as f32)
     };
     let mut out = Vec::new();
+    let mut aabbs = Vec::new();
     for _ in 0..s.prop_count {
         let x = (rnd() * 2.0 - 1.0) * s.prop_spread;
         let z = (rnd() * 2.0 - 1.0) * s.prop_spread;
-        if (x * x + z * z).sqrt() < 6.0 {
-            continue; // keep spawn area clear
+        if (x * x + z * z).sqrt() < 11.0 {
+            continue; // keep the spawn area clear (room-sized buffer)
         }
         let base = Vec3::new(x, 0.0, z);
         if rnd() < s.tree_ratio {
-            // tree: trunk + canopy
+            // tree: trunk + canopy (solid decoration, no collision)
             out.push(Instance { model: model_box(base, s.tree_w * 0.3, s.tree_h * 0.5), color: [0.45, 0.32, 0.2, 1.0] });
             out.push(Instance { model: model_box(base + Vec3::new(0.0, s.tree_h * 0.5, 0.0), s.tree_w, s.tree_h * 0.6), color: [s.tree_color[0], s.tree_color[1], s.tree_color[2], 1.0] });
         } else {
+            // a hollow, enterable building with collidable walls + a door
             let b = &s.buildings[(rnd() * s.buildings.len() as f32) as usize % s.buildings.len()];
             let h = b.min_h + rnd() * (b.max_h - b.min_h);
-            out.push(Instance { model: model_box(base, b.w, h), color: [b.color[0], b.color[1], b.color[2], 1.0] });
+            let room = 6.0 + rnd() * 3.0;
+            make_building(base, room, h.max(3.0), b.color, &mut out, &mut aabbs);
         }
     }
-    out
+    (out, aabbs)
 }
 
 fn create_init_buffer(device: &wgpu::Device, label: &str, data: &[u8], usage: wgpu::BufferUsages) -> wgpu::Buffer {
