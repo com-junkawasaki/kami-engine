@@ -201,6 +201,12 @@ pub fn render_to_pixels(ir_edn: &str, w: u32, h: u32) -> Vec<u8> {
     pollster::block_on(render_async(&g, &insts, w, h))
 }
 
+/// Render from already-parsed globals + instances (for callers that build the scene in
+/// Rust rather than from EDN text). Returns RGBA8 pixels (w*h*4).
+pub fn render(g: &Globals, insts: &[Instance], w: u32, h: u32) -> Vec<u8> {
+    pollster::block_on(render_async(g, insts, w, h))
+}
+
 async fn render_async(g: &Globals, insts: &[Instance], w: u32, h: u32) -> Vec<u8> {
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
     let adapter = instance

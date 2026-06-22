@@ -2923,6 +2923,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "glam",
+ "image",
  "kami-scene",
  "kotoba-edn",
  "pollster",
