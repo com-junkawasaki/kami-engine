@@ -627,6 +627,34 @@ mod tests {
     }
 
     #[test]
+    fn scene_to_ir_is_deterministic() {
+        // the xorshift scatter must be reproducible (web + native must agree on the world)
+        let scene = "{:render/sky {:horizon [0.7 0.8 0.9] :sun-dir [-0.4 -0.85 -0.35] :sun [1 1 1]}
+                      :render/props {:count 50 :spread 60.0
+                        :buildings [{:color [0.6 0.6 0.66] :min-h 2 :max-h 6 :w 2}]
+                        :trees {:color [0.28 0.55 0.30] :h 2.6 :w 1.1 :ratio 0.4}}}";
+        let (_, a) = scene_to_ir(scene);
+        let (_, b) = scene_to_ir(scene);
+        assert_eq!(a.len(), b.len(), "same instance count");
+        assert_eq!(a[1].pos, b[1].pos, "deterministic scatter (fixed seed)");
+        assert_eq!(a.last().unwrap().pos, b.last().unwrap().pos);
+    }
+
+    #[test]
+    fn scene_to_ir_empty_props_is_just_ground() {
+        let (g, insts) = scene_to_ir("{:render/sky {:horizon [0.7 0.8 0.9] :sun-dir [0 -1 0] :sun [1 1 1]}}");
+        assert_eq!(insts.len(), 1, "no props → only the ground plane");
+        assert_eq!(insts[0].size, [400.0, 1.0]);
+        assert_eq!(g.horizon, [0.7, 0.8, 0.9]);
+    }
+
+    #[test]
+    fn scene_to_ir_ground_color_from_sky() {
+        let (_, insts) = scene_to_ir("{:render/sky {:horizon [0.7 0.8 0.9] :sun-dir [0 -1 0] :sun [1 1 1] :ground [0.2 0.5 0.3]}}");
+        assert_eq!(insts[0].color, [0.2, 0.5, 0.3], "ground plane uses sky :ground");
+    }
+
+    #[test]
     fn renders_geometry_headless() {
         // a single building filling the view; centre must differ from the sky clear.
         let edn = "{:globals {:sky {:horizon [0.74 0.84 0.95] :sun-dir [-0.4 -0.85 -0.35] :sun [1.0 0.96 0.85]}
