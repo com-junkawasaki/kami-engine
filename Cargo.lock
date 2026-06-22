@@ -2056,6 +2056,7 @@ dependencies = [
  "kami-core",
  "kami-scene",
  "kami-script-runtime",
+ "kami-webgpu-rs",
  "kotoba-edn",
  "pollster",
  "rodio",

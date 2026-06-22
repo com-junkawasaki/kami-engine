@@ -13,6 +13,9 @@ kami-script-runtime = { path = "../kami-script-runtime", default-features = fals
 kami-core  = { path = "../kami-core" }
 kotoba-edn = { path = "../../kotoba/crates/kotoba-edn" }
 kami-scene = { path = "../kami-scene" }
+# Data-driven renderer (same EDN render-IR the web runs). Adopted incrementally — see
+# ADR-0041; the kami-webgpu-rs winit `live` example is the reference integration.
+kami-webgpu-rs = { path = "../kami-webgpu-rs" }
 hecs       = { workspace = true }
 glam       = { workspace = true }
 wgpu       = "24"
