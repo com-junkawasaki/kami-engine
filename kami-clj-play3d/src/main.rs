@@ -1872,8 +1872,20 @@ fn game_dir() -> std::path::PathBuf {
 
 fn main() {
     let base = game_dir();
+    let scene_src = read_or_exit(&base, "scene.edn");
+    // ADR-0041 step 2/3: opt-in data-driven renderer (the same EDN the web runs, via
+    // kami-webgpu-rs). KAMI_DATA_RENDERER=png renders scene.edn headless to a PNG and
+    // exits — a viewable golden frame proving the bridge, no window needed.
+    if std::env::var("KAMI_DATA_RENDERER").as_deref() == Ok("png") {
+        let (g, insts) = kami_webgpu_rs::scene_to_ir(&scene_src);
+        let (w, h) = (960u32, 600u32);
+        let px = kami_webgpu_rs::render(&g, &insts, w, h);
+        image::save_buffer("play3d-data-render.png", &px, w, h, image::ExtendedColorType::Rgba8).unwrap();
+        println!("kami-clj-play3d: data-renderer PNG → play3d-data-render.png ({} instances)", insts.len());
+        return;
+    }
     let logic = read_or_exit(&base, "logic.clj");
-    let scene = parse_scene(&read_or_exit(&base, "scene.edn")).unwrap_or_else(|| {
+    let scene = parse_scene(&scene_src).unwrap_or_else(|| {
         eprintln!("kami-clj-play3d: {} is not a valid EDN scene map", base.join("scene.edn").display());
         std::process::exit(2);
     });

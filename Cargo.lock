@@ -2053,6 +2053,7 @@ dependencies = [
  "gilrs",
  "glam",
  "hecs",
+ "image",
  "kami-core",
  "kami-scene",
  "kami-script-runtime",

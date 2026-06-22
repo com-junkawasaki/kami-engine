@@ -89,6 +89,62 @@ pub fn parse_ir(edn: &str) -> (Globals, Vec<Instance>) {
     (globals, insts)
 }
 
+/// Bridge: a kami-clj `scene.edn` → render-IR (globals + scattered prop instances),
+/// mirroring the web's deterministic scatter. This is what play3d feeds the data-driven
+/// Renderer (ADR-0041 step 2). Live entities (player/bots) are appended by the caller.
+pub fn scene_to_ir(scene_src: &str) -> (Globals, Vec<Instance>) {
+    let root = match root_map(scene_src) { Some(m) => m, None => return (Globals::default(), vec![]) };
+    let mut g = Globals::default();
+    let mut ground_color = [0.34, 0.52, 0.30];
+    if let Some(sky) = mget(&root, "render/sky").and_then(|x| x.as_map().cloned()) {
+        g.horizon = vec3(mget(&sky, "horizon"));
+        g.sun_dir = vec3(mget(&sky, "sun-dir"));
+        g.sun = vec3(mget(&sky, "sun"));
+        if mget(&sky, "ground").is_some() { ground_color = vec3(mget(&sky, "ground")); }
+    }
+    // camera rig (optional) → eye/target at origin
+    if let Some(cam) = mget(&root, "camera").and_then(|x| x.as_map().cloned()) {
+        let dist = num(mget(&cam, "distance")); let h = num(mget(&cam, "height"));
+        let az = num(mget(&cam, "azimuth")); let lh = num(mget(&cam, "look-height"));
+        g.eye = Some([dist * az.cos(), h, dist * az.sin()]);
+        g.target = Some([0.0, lh, 0.0]);
+    }
+    let mut insts = vec![Instance { pos: [0.0, -0.5, 0.0], color: ground_color, size: [400.0, 1.0], yaw: 0.0, metallic: 0.0, roughness: 0.95, emissive: 0.0 }];
+
+    if let Some(props) = mget(&root, "render/props").and_then(|x| x.as_map().cloned()) {
+        let count = num(mget(&props, "count")) as i32;
+        let spread = { let s = num(mget(&props, "spread")); if s == 0.0 { 140.0 } else { s } };
+        let buildings: Vec<_> = mget(&props, "buildings").and_then(|x| x.as_vector())
+            .map(|v| v.iter().filter_map(|b| b.as_map().cloned()).collect()).unwrap_or_default();
+        let trees = mget(&props, "trees").and_then(|x| x.as_map().cloned());
+        let tratio = trees.as_ref().map(|t| num(mget(t, "ratio"))).unwrap_or(0.0);
+        let mut seed: u32 = 2654435769;
+        let mut rnd = || { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; (seed & 0x7fffffff) as f32 / 2147483647.0 };
+        let mut i = 0;
+        while i < count {
+            i += 1;
+            let x = (rnd() * 2.0 - 1.0) * spread;
+            let z = (rnd() * 2.0 - 1.0) * spread;
+            if (x * x + z * z).sqrt() < 11.0 { continue; }
+            if rnd() < tratio {
+                if let Some(t) = &trees {
+                    let tw = num(mget(t, "w")); let th = num(mget(t, "h"));
+                    let (tm, tr) = (num(mget(t, "metallic")), { let r = num(mget(t, "roughness")); if r == 0.0 { 0.95 } else { r } });
+                    insts.push(Instance { pos: [x, 0.0, z], color: [0.45, 0.32, 0.2], size: [tw * 0.3, th * 0.5], yaw: 0.0, metallic: 0.0, roughness: 0.9, emissive: 0.0 });
+                    insts.push(Instance { pos: [x, th * 0.5, z], color: vec3(mget(t, "color")), size: [tw, th * 0.6], yaw: 0.0, metallic: tm, roughness: tr, emissive: 0.0 });
+                }
+            } else if !buildings.is_empty() {
+                let b = &buildings[(rnd() * buildings.len() as f32) as usize % buildings.len()];
+                let mn = num(mget(b, "min-h")); let mx = num(mget(b, "max-h"));
+                let h = mn + rnd() * (mx - mn);
+                let rgh = { let r = num(mget(b, "roughness")); if r == 0.0 { 0.7 } else { r } };
+                insts.push(Instance { pos: [x, 0.0, z], color: vec3(mget(b, "color")), size: [num(mget(b, "w")), h], yaw: 0.0, metallic: num(mget(b, "metallic")), roughness: rgh, emissive: 0.0 });
+            }
+        }
+    }
+    (g, insts)
+}
+
 // --- cube (pos+normal), 24 verts / 36 indices — same mesh as the web ---------
 
 fn cube() -> (Vec<f32>, Vec<u16>) {
