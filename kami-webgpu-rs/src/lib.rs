@@ -594,6 +594,39 @@ mod tests {
     }
 
     #[test]
+    fn cube_mesh_shape() {
+        let (verts, idx) = cube();
+        assert_eq!(verts.len(), 24 * 6, "24 verts × (pos3 + normal3)");
+        assert_eq!(idx.len(), 36, "6 faces × 2 tris × 3 indices");
+        assert!(idx.iter().all(|&i| i < 24), "all indices reference a real vertex");
+        assert_eq!(*idx.iter().max().unwrap(), 23);
+    }
+
+    #[test]
+    fn model_mat_translates_lifts_and_scales() {
+        let i = Instance {
+            pos: [10.0, 0.0, 20.0], color: [1.0, 1.0, 1.0], size: [2.0, 4.0],
+            yaw: 0.0, metallic: 0.0, roughness: 0.5, emissive: 0.0,
+        };
+        let m = model_mat(&i);
+        // local origin → world: x,z from pos; y lifted by h/2 so the box sits on the ground
+        let p = m.transform_point3(Vec3::ZERO);
+        assert!((p.x - 10.0).abs() < 1e-4 && (p.z - 20.0).abs() < 1e-4, "xz from pos: {p:?}");
+        assert!((p.y - 2.0).abs() < 1e-4, "y lifted by h/2: {}", p.y);
+        // +0.5 local-x corner scales by w=2 → +1 world half-extent
+        let c = m.transform_point3(Vec3::new(0.5, 0.0, 0.0));
+        assert!((c.x - 11.0).abs() < 1e-4, "scaled half-extent: {}", c.x);
+    }
+
+    #[test]
+    fn align256_rounds_up_to_256() {
+        assert_eq!(align256(1), 256);
+        assert_eq!(align256(256), 256);
+        assert_eq!(align256(257), 512);
+        assert_eq!(align256(3600), 3840); // 900px × 4 bytes (3600) → next 256-multiple
+    }
+
+    #[test]
     fn renders_geometry_headless() {
         // a single building filling the view; centre must differ from the sky clear.
         let edn = "{:globals {:sky {:horizon [0.74 0.84 0.95] :sun-dir [-0.4 -0.85 -0.35] :sun [1.0 0.96 0.85]}
