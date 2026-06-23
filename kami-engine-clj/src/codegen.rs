@@ -609,6 +609,39 @@ impl<'a> FnCtx<'a> {
 
     // ---- builtins -----------------------------------------------------------
 
+    /// Emit a variadic comparison as a pairwise AND-chain:
+    /// `(op a b c …)` ≡ `(a op b) and (b op c) and …`.
+    /// Each argument is evaluated exactly once into a local (so a side-effecting operand
+    /// — e.g. a host call — is not re-run), then adjacent locals are compared and the 0/1
+    /// results AND-folded. Handles n == 2 as the single-pair case; n < 2 is vacuously true.
+    fn cmp_chain(
+        &mut self,
+        cmp:  Instruction<'static>,
+        args: &[Expr],
+    ) -> Result<Vec<Instruction<'static>>, CljError> {
+        if args.len() < 2 {
+            return Ok(vec![Instruction::I64Const(1)]);
+        }
+        let mut out = Vec::new();
+        let locals: Vec<u32> = (0..args.len()).map(|_| self.alloc_local()).collect();
+        for (i, a) in args.iter().enumerate() {
+            out.extend(self.emit(a)?);
+            out.push(Instruction::LocalSet(locals[i]));
+        }
+        out.push(Instruction::LocalGet(locals[0]));
+        out.push(Instruction::LocalGet(locals[1]));
+        out.push(cmp.clone());
+        out.push(Instruction::I64ExtendI32U);
+        for w in 2..args.len() {
+            out.push(Instruction::LocalGet(locals[w - 1]));
+            out.push(Instruction::LocalGet(locals[w]));
+            out.push(cmp.clone());
+            out.push(Instruction::I64ExtendI32U);
+            out.push(Instruction::I64And);
+        }
+        Ok(out)
+    }
+
     fn emit_builtin(
         &mut self,
         op:   Builtin,
@@ -685,46 +718,19 @@ impl<'a> FnCtx<'a> {
                 out.push(Instruction::End);
                 self.ctrl_depth -= 1;
             }
-            Eq => {
-                out.extend(self.emit(&args[0])?);
-                for a in &args[1..] {
-                    out.extend(self.emit(a)?);
-                    out.push(Instruction::I64Eq);
-                    out.push(Instruction::I64ExtendI32U);
-                }
-                if args.len() > 2 {
-                    // chain: A==B && B==C → simplified as A==B; for multi-arg, fold with AND
-                    // TODO: proper chain; for now emit pairwise AND
-                }
-            }
+            // Variadic comparisons are pairwise AND-chains: (op a b c …) =
+            // (a op b) and (b op c) and … — see `cmp_chain`. The old >2-arg paths were
+            // unsound (Eq folded its own boolean result back in; the ordered ops silently
+            // dropped every operand past the second).
+            Eq => out.extend(self.cmp_chain(Instruction::I64Eq, args)?),
+            Lt => out.extend(self.cmp_chain(Instruction::I64LtS, args)?),
+            Gt => out.extend(self.cmp_chain(Instruction::I64GtS, args)?),
+            Le => out.extend(self.cmp_chain(Instruction::I64LeS, args)?),
+            Ge => out.extend(self.cmp_chain(Instruction::I64GeS, args)?),
             NotEq => {
                 out.extend(self.emit(&args[0])?);
                 out.extend(self.emit(&args[1])?);
                 out.push(Instruction::I64Ne);
-                out.push(Instruction::I64ExtendI32U);
-            }
-            Lt => {
-                out.extend(self.emit(&args[0])?);
-                out.extend(self.emit(&args[1])?);
-                out.push(Instruction::I64LtS);
-                out.push(Instruction::I64ExtendI32U);
-            }
-            Gt => {
-                out.extend(self.emit(&args[0])?);
-                out.extend(self.emit(&args[1])?);
-                out.push(Instruction::I64GtS);
-                out.push(Instruction::I64ExtendI32U);
-            }
-            Le => {
-                out.extend(self.emit(&args[0])?);
-                out.extend(self.emit(&args[1])?);
-                out.push(Instruction::I64LeS);
-                out.push(Instruction::I64ExtendI32U);
-            }
-            Ge => {
-                out.extend(self.emit(&args[0])?);
-                out.extend(self.emit(&args[1])?);
-                out.push(Instruction::I64GeS);
                 out.push(Instruction::I64ExtendI32U);
             }
             Zero => {
