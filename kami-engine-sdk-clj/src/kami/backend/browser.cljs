@@ -9,7 +9,7 @@
   `wasm-pack build --target web --features host`; its JS glue exposes
   `KamiCljHost.create(canvas) -> Promise<host>`."
   (:require [kami.gpu :as gpu]
-            [cljs.core.async :refer [go]]))
+            [cljs.core.async :refer [chan put!]]))
 
 (defn- ->u8 [buffer]
   "Convert the packed :buffer (a vector of 0-255 ints) to a Uint8Array for the
@@ -22,19 +22,22 @@
 ;; A thin record wrapping the wasm `KamiCljHost` instance.
 (defrecord BrowserBackend [host]
   gpu/IGpuBackend
+  ;; `^js` on the host hints Closure not to munge the wasm-bindgen method names
+  ;; under :advanced (without it, register_mesh/submit_frame get renamed → the
+  ;; "this.host.xd is not a function" failure on a real GPU run).
   (register-mesh! [_ id vertices indices]
-    (.register_mesh host id (->f32 vertices) (->u32 indices)))
+    (.register_mesh ^js host id (->f32 vertices) (->u32 indices)))
   (register-material! [_ id params]
-    (.register_material host id (->f32 (or params []))))
+    (.register_material ^js host id (->f32 (or params []))))
   (register-shader! [_ id wgsl layout]
-    (.register_shader host id wgsl (or layout "")))
+    (.register_shader ^js host id wgsl (or layout "")))
   (submit-frame! [_ packed]
     ;; packed = {:buffer :len :meta …}; meta travels as JSON, buffer as bytes.
-    (.submit_frame host
+    (.submit_frame ^js host
                    (js/JSON.stringify (clj->js (:meta packed)))
                    (->u8 (:buffer packed))))
   (resize! [_ w h]
-    (.resize host w h)))
+    (.resize ^js host w h)))
 
 (defn make
   "Create a browser GPU backend bound to canvas id `:canvas`. Returns a channel
@@ -42,8 +45,12 @@
   request). `:host-ctor` lets callers inject the wasm class (default
   `js/KamiCljHost`)."
   [{:keys [canvas host-ctor]}]
-  (go
-    (let [el   (.getElementById js/document canvas)
-          ctor (or host-ctor js/KamiCljHost)
-          host (js/await (.create ctor el))]
-      (->BrowserBackend host))))
+  ;; `KamiCljHost.create` returns a JS Promise; bridge it to the result channel.
+  ;; (cljs `go` has no `await`; convert the promise with `.then` + `put!`.)
+  (let [out  (chan)
+        el   (.getElementById js/document canvas)
+        ctor (or host-ctor js/KamiCljHost)]
+    (-> (.create ctor el)
+        (.then  (fn [host] (put! out (->BrowserBackend host))))
+        (.catch (fn [err] (js/console.error "KamiCljHost.create failed" err))))
+    out))
