@@ -2930,6 +2930,7 @@ dependencies = [
  "kami-scene",
  "kotoba-edn",
  "pollster",
+ "serde_json",
  "wgpu",
  "winit",
 ]
