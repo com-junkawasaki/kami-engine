@@ -2229,6 +2229,7 @@ dependencies = [
  "kotoba-edn",
  "thiserror 2.0.18",
  "wasm-encoder 0.221.3",
+ "wasmi",
  "wasmtime",
  "wat",
  "wit-component",
@@ -5150,6 +5151,7 @@ dependencies = [
  "wasmi_core",
  "wasmi_ir",
  "wasmparser 0.239.0",
+ "wat",
 ]
 
 [[package]]
