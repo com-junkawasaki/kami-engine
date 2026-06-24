@@ -133,6 +133,13 @@ pub struct HostState {
     pub audio_queue: Vec<(String, [f32; 3])>,
     pub draw_queue:  Vec<DrawCommand>,
 
+    // --- Binaural listener pose (set-listener!): [px,py,pz, fx,fy,fz] -------
+    /// Read by the audio backend (kami-audio) to spatialize `audio_queue`.
+    pub listener: [f32; 6],
+    // --- Active ray-tracing recipe (rt-enable!) ----------------------------
+    /// Name of the kami.rt recipe for this frame; `None` = raster path.
+    pub rt_recipe: Option<String>,
+
     // --- Time counters (written by the engine before each tick) ------------
     pub delta_ms:   i64,
     pub elapsed_ms: i64,
@@ -176,6 +183,8 @@ impl HostState {
             pointer_y:        0.0,
             audio_queue:      Vec::new(),
             draw_queue:       Vec::new(),
+            listener:         [0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+            rt_recipe:        None,
             delta_ms:         0,
             elapsed_ms:       0,
             tick_n:           0,
@@ -499,6 +508,18 @@ impl KamiScriptRuntime {
     /// Drain audio-play commands accumulated during the last tick.
     pub fn drain_audio_queue(&mut self) -> Vec<(String, [f32; 3])> {
         std::mem::take(&mut self.store.data_mut().audio_queue)
+    }
+
+    /// Listener pose [px,py,pz, fx,fy,fz] last set via `set-listener!`
+    /// (feeds the kami-audio binaural mixer).
+    pub fn listener(&self) -> [f32; 6] {
+        self.store.data().listener
+    }
+
+    /// Active ray-tracing recipe name set via `rt-enable!`, if any
+    /// (selects the kami.rt path for this frame).
+    pub fn rt_recipe(&self) -> Option<String> {
+        self.store.data().rt_recipe.clone()
     }
 }
 
@@ -864,6 +885,11 @@ fn bind_render(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     })?;
     linker.func_wrap(m, "spawn-particle", |_: Caller<'_, HostState>, _ptr: i32, _len: i32, _x: f32, _y: f32, _z: f32| {})?;
     linker.func_wrap(m, "draw-line", |_: Caller<'_, HostState>, _x0: f32, _y0: f32, _z0: f32, _x1: f32, _y1: f32, _z1: f32, _color: i64| {})?;
+    // rt-enable(ptr: i32, len: i32) — name a kami.rt recipe for this frame.
+    linker.func_wrap(m, "rt-enable", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| {
+        let name = read_guest_str(&mut caller, ptr, len);
+        caller.data_mut().rt_recipe = if name.is_empty() { None } else { Some(name) };
+    })?;
 
     Ok(())
 }
@@ -885,6 +911,10 @@ fn bind_audio(linker: &mut Linker<HostState>) -> Result<(), RuntimeError> {
     linker.func_wrap(m, "play-at", |mut caller: Caller<'_, HostState>, ptr: i32, len: i32, x: f32, y: f32, z: f32| {
         let name = read_guest_str(&mut caller, ptr, len);
         caller.data_mut().audio_queue.push((name, [x, y, z]));
+    })?;
+    // set-listener(x, y, z, fx, fy, fz) — listener pose for binaural mixing.
+    linker.func_wrap(m, "set-listener", |mut caller: Caller<'_, HostState>, x: f32, y: f32, z: f32, fx: f32, fy: f32, fz: f32| {
+        caller.data_mut().listener = [x, y, z, fx, fy, fz];
     })?;
 
     Ok(())

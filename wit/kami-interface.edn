@@ -53,13 +53,20 @@
   {:doc "draw calls issued from script (the real renderer is wgpu)"
    :funcs {:draw-mesh      {:params [[:mesh :str] [:x :f32] [:y :f32] [:z :f32]]}
            :spawn-particle {:params [[:preset :str] [:x :f32] [:y :f32] [:z :f32]]}
-           :draw-line      {:params [[:x0 :f32] [:y0 :f32] [:z0 :f32] [:x1 :f32] [:y1 :f32] [:z1 :f32] [:color :i32]]}}}
+           :draw-line      {:params [[:x0 :f32] [:y0 :f32] [:z0 :f32] [:x1 :f32] [:y1 :f32] [:z1 :f32] [:color :i32]]}
+           ;; Switch the frame to a named ray-tracing recipe (kami.rt IR). Empty
+           ;; name disables RT and falls back to the raster path. Host executes
+           ;; via the platform RT backend (WGSL ray-query / Metal RT / …).
+           :rt-enable      {:params [[:recipe :str]]}}}
 
   :audio
-  {:doc "fire-and-forget sound triggers"
+  {:doc "fire-and-forget sound triggers + binaural listener pose"
    :funcs {:play    {:params [[:name :str]]}
            :stop    {:params [[:name :str]]}
-           :play-at {:params [[:name :str] [:x :f32] [:y :f32] [:z :f32]]}}}
+           :play-at {:params [[:name :str] [:x :f32] [:y :f32] [:z :f32]]}
+           ;; Position + orientation of the listener's ears for binaural mixing
+           ;; (kami.binaural). pos (x,y,z) + forward (fx,fy,fz); up stays world-up.
+           :set-listener {:params [[:x :f32] [:y :f32] [:z :f32] [:fx :f32] [:fy :f32] [:fz :f32]]}}}
 
   :time
   {:doc "game clock"

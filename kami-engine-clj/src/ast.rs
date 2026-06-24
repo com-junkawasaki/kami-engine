@@ -139,6 +139,9 @@ pub enum Builtin {
     SpawnParticle,
     /// `(draw-line! x0 y0 z0 x1 y1 z1 color)`
     DrawLine,
+    /// `(rt-enable! recipe-str)` — switch the frame to a named ray-tracing
+    /// recipe (kami.rt IR); empty string falls back to the raster path.
+    RtEnable,
 
     // ---- KAMI audio ---------------------------------------------------------
     /// `(play-sound name-str)` → void
@@ -147,6 +150,9 @@ pub enum Builtin {
     StopSound,
     /// `(play-sound-at name-str x y z)` — spatial audio
     PlaySoundAt,
+    /// `(set-listener! x y z fx fy fz)` — listener pose for binaural mixing
+    /// (kami.binaural); pos (x,y,z) + forward (fx,fy,fz) as f32.
+    SetListener,
 
     // ---- KAMI time ----------------------------------------------------------
     /// `(delta-ms)` → i64
@@ -208,9 +214,11 @@ impl Builtin {
             DrawMesh       => Some(HostImport::RenderDrawMesh),
             SpawnParticle  => Some(HostImport::RenderSpawnParticle),
             DrawLine       => Some(HostImport::RenderDrawLine),
+            RtEnable       => Some(HostImport::RenderRtEnable),
             PlaySound      => Some(HostImport::AudioPlay),
             StopSound      => Some(HostImport::AudioStop),
             PlaySoundAt    => Some(HostImport::AudioPlayAt),
+            SetListener    => Some(HostImport::AudioSetListener),
             DeltaMs        => Some(HostImport::TimeDeltaMs),
             ElapsedMs      => Some(HostImport::TimeElapsedMs),
             TickN          => Some(HostImport::TimeTick),
@@ -307,10 +315,12 @@ impl Builtin {
             "draw-mesh!"      => DrawMesh,
             "spawn-particle!" => SpawnParticle,
             "draw-line!"      => DrawLine,
+            "rt-enable!"      => RtEnable,
             // audio
             "play-sound"      => PlaySound,
             "stop-sound"      => StopSound,
             "play-sound-at"   => PlaySoundAt,
+            "set-listener!"   => SetListener,
             // time
             "delta-ms"        => DeltaMs,
             "elapsed-ms"      => ElapsedMs,
@@ -369,9 +379,9 @@ pub enum HostImport {
     // input
     InputKeyDown, InputKeyPressed, InputAxis, InputPointerX, InputPointerY,
     // render
-    RenderDrawMesh, RenderSpawnParticle, RenderDrawLine,
+    RenderDrawMesh, RenderSpawnParticle, RenderDrawLine, RenderRtEnable,
     // audio
-    AudioPlay, AudioStop, AudioPlayAt,
+    AudioPlay, AudioStop, AudioPlayAt, AudioSetListener,
     // time
     TimeDeltaMs, TimeElapsedMs, TimeTick,
     // query / RNG (survivors)
@@ -410,9 +420,11 @@ impl HostImport {
             RenderDrawMesh    => ("kami:engine/render@1.0.0",  "draw-mesh"),
             RenderSpawnParticle=> ("kami:engine/render@1.0.0", "spawn-particle"),
             RenderDrawLine    => ("kami:engine/render@1.0.0",  "draw-line"),
+            RenderRtEnable    => ("kami:engine/render@1.0.0",  "rt-enable"),
             AudioPlay         => ("kami:engine/audio@1.0.0",   "play"),
             AudioStop         => ("kami:engine/audio@1.0.0",   "stop"),
             AudioPlayAt       => ("kami:engine/audio@1.0.0",   "play-at"),
+            AudioSetListener  => ("kami:engine/audio@1.0.0",   "set-listener"),
             TimeDeltaMs       => ("kami:engine/time@1.0.0",    "delta-ms"),
             TimeElapsedMs     => ("kami:engine/time@1.0.0",    "elapsed-ms"),
             TimeTick          => ("kami:engine/time@1.0.0",    "tick"),
@@ -448,8 +460,10 @@ impl HostImport {
             RenderDrawMesh    => &[StringHandle, F32, F32, F32],
             RenderSpawnParticle=> &[StringHandle, F32, F32, F32],
             RenderDrawLine    => &[F32, F32, F32, F32, F32, F32, I64],
+            RenderRtEnable    => &[StringHandle],
             AudioPlay | AudioStop => &[StringHandle],
             AudioPlayAt       => &[StringHandle, F32, F32, F32],
+            AudioSetListener  => &[F32, F32, F32, F32, F32, F32],
             TimeDeltaMs | TimeElapsedMs | TimeTick => &[],
             RandomInt         => &[I64],
             SceneQueryBegin   => &[StringHandle],
@@ -477,8 +491,8 @@ impl HostImport {
             InputKeyDown | InputKeyPressed     => I32,
             InputAxis                          => F32,
             InputPointerX | InputPointerY      => F32,
-            RenderDrawMesh | RenderSpawnParticle | RenderDrawLine => Void,
-            AudioPlay | AudioStop | AudioPlayAt => Void,
+            RenderDrawMesh | RenderSpawnParticle | RenderDrawLine | RenderRtEnable => Void,
+            AudioPlay | AudioStop | AudioPlayAt | AudioSetListener => Void,
             TimeDeltaMs | TimeElapsedMs | TimeTick => I64,
             RandomInt | SceneQueryBegin | SceneQueryNext
             | SceneCountTagged | SceneNearest => I64,
@@ -924,6 +938,7 @@ fn check_builtin_arity(op: Builtin, n: usize) -> Result<(), CljError> {
         | PlaySound | StopSound
         | KeyDown | KeyPressed | Axis
         | RandInt | QueryBegin | QueryNext | CountTagged
+        | RtEnable
         | SpawnEntity => n == 1,
 
         PointerX | PointerY | DeltaMs | ElapsedMs | TickN => n == 0,
@@ -938,6 +953,7 @@ fn check_builtin_arity(op: Builtin, n: usize) -> Result<(), CljError> {
 
         SetRotation => n == 5,
         Raycast     => n == 6,
+        SetListener => n == 6,
         DrawLine    => n == 7,
 
         Sub => n >= 1,
