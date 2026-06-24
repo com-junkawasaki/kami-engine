@@ -23,6 +23,12 @@
              [clojure.edn :as edn]
              [clojure.string :as str])
 
+  ;; ---- single-source interface gate --------------------------------------
+  wit-check  {:doc  "Gate: the kami:engine EDN IDL == world.wit == kami-clj Builtin host-imports."
+              :task (load-file "scripts/wit_test.clj")}
+  gen-wit    {:doc  "Print world.wit regenerated from wit/kami-interface.edn (the EDN IDL)."
+              :task (binding [*command-line-args* ["--gen"]] (load-file "scripts/wit_test.clj"))}
+
   ;; ---- matrix -------------------------------------------------------------
   targets    {:doc  "Print the packaging matrix (all targets)."
               :task (shell "cargo" "run" "-q" "--target" "aarch64-apple-darwin"

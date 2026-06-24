@@ -1,0 +1,78 @@
+;; kami-interface.edn — the kami:engine host interface as ONE EDN source.
+;;
+;; The same host ABI is currently spelled three times: this WIT contract (wit/kami-game/world.wit),
+;; the kami-clj Builtin→HostImport map (kami-engine-clj/src/ast.rs), and the Rust host bindings.
+;; This file is the single source: `bb gen-wit` regenerates world.wit from it, and `bb wit-check`
+;; gates that the generated WIT matches the committed one — so the three can't silently drift.
+;;
+;; Semantic types are lowered to the all-i64/i32 WASM ABI by the codegen:
+;;   :eid :i64 → s64   ·   :f32 :i32 → s32 (f32 is an IEEE-754 bit-pattern carried in i32)
+;;   :str       → two s32 params  <name>-ptr, <name>-len   ·   :unit / missing :ret → no result
+{:package "kami:engine@1.0.0"
+ :world   "kami-game"
+
+ :interfaces
+ {:scene
+  {:doc "ECS entity lifecycle and transform queries"
+   :funcs {:spawn        {:params [[:kind :str]] :ret :eid}
+           :despawn      {:params [[:entity :eid]]}
+           :get-x        {:params [[:entity :eid]] :ret :f32}
+           :get-y        {:params [[:entity :eid]] :ret :f32}
+           :get-z        {:params [[:entity :eid]] :ret :f32}
+           :set-position {:params [[:entity :eid] [:x :f32] [:y :f32] [:z :f32]]}
+           :get-vx       {:params [[:entity :eid]] :ret :f32}
+           :get-vy       {:params [[:entity :eid]] :ret :f32}
+           :get-vz       {:params [[:entity :eid]] :ret :f32}
+           :set-velocity {:params [[:entity :eid] [:vx :f32] [:vy :f32] [:vz :f32]]}
+           :get-rx       {:params [[:entity :eid]] :ret :f32}
+           :get-ry       {:params [[:entity :eid]] :ret :f32}
+           :get-rz       {:params [[:entity :eid]] :ret :f32}
+           :get-rw       {:params [[:entity :eid]] :ret :f32}
+           :set-rotation {:params [[:entity :eid] [:rx :f32] [:ry :f32] [:rz :f32] [:rw :f32]]}
+           :query-begin  {:params [[:tag :str]] :ret :eid}
+           :query-next   {:params [[:it :eid]] :ret :eid}
+           :count-tagged {:params [[:tag :str]] :ret :i64}
+           :nearest      {:params [[:tag :str] [:x :f32] [:y :f32] [:maxd :f32]] :ret :eid}
+           :move-toward  {:params [[:entity :eid] [:target :eid] [:speed :f32]]}}}
+
+  :physics
+  {:doc "impulse / force application and raycast"
+   :funcs {:apply-impulse {:params [[:entity :eid] [:ix :f32] [:iy :f32] [:iz :f32]]}
+           :apply-force   {:params [[:entity :eid] [:fx :f32] [:fy :f32] [:fz :f32]]}
+           :raycast       {:params [[:ox :f32] [:oy :f32] [:oz :f32] [:dx :f32] [:dy :f32] [:dz :f32]] :ret :eid}}}
+
+  :input
+  {:doc "discrete and analog input queries"
+   :funcs {:key-down    {:params [[:key :str]] :ret :i32}
+           :key-pressed {:params [[:key :str]] :ret :i32}
+           :axis        {:params [[:name :str]] :ret :f32}
+           :pointer-x   {:params [] :ret :f32}
+           :pointer-y   {:params [] :ret :f32}}}
+
+  :render
+  {:doc "draw calls issued from script (the real renderer is wgpu)"
+   :funcs {:draw-mesh      {:params [[:mesh :str] [:x :f32] [:y :f32] [:z :f32]]}
+           :spawn-particle {:params [[:preset :str] [:x :f32] [:y :f32] [:z :f32]]}
+           :draw-line      {:params [[:x0 :f32] [:y0 :f32] [:z0 :f32] [:x1 :f32] [:y1 :f32] [:z1 :f32] [:color :i32]]}}}
+
+  :audio
+  {:doc "fire-and-forget sound triggers"
+   :funcs {:play    {:params [[:name :str]]}
+           :stop    {:params [[:name :str]]}
+           :play-at {:params [[:name :str] [:x :f32] [:y :f32] [:z :f32]]}}}
+
+  :time
+  {:doc "game clock"
+   :funcs {:delta-ms   {:params [] :ret :i64}
+           :elapsed-ms {:params [] :ret :i64}
+           :tick       {:params [] :ret :i64}}}
+
+  :random
+  {:doc "host-owned seeded PRNG (shared-seed determinism for online/replay)"
+   :funcs {:int {:params [[:n :i64]] :ret :i64}}}}
+
+ ;; what every compiled Clojure game module exports back to the host.
+ :exports {:cabi_realloc {:params [[:old-ptr :i32] [:old-size :i32] [:align :i32] [:new-size :i32]] :ret :i32}
+           :init         {:params []}
+           :tick         {:params [[:dt-ms :i64]]}
+           :on-event     {:params [[:kind :i32] [:payload :str]] :ret :i32}}}
