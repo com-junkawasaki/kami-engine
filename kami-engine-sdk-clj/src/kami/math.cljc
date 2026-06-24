@@ -64,3 +64,29 @@
      (- (+ (* r01 tx) (* r11 ty) (* r21 tz)))
      (- (+ (* r02 tx) (* r12 ty) (* r22 tz)))
      1.0]))
+
+;; ---------------------------------------------------------------------------
+;; vec3 — minimal pure helpers shared by ray-tracing (kami.rt) and spatial
+;; audio (kami.binaural). Vectors are [x y z]; everything is double, .cljc.
+;; ---------------------------------------------------------------------------
+
+(defn v- "Component-wise a-b." [[ax ay az] [bx by bz]] [(- ax bx) (- ay by) (- az bz)])
+(defn v+ "Component-wise a+b." [[ax ay az] [bx by bz]] [(+ ax bx) (+ ay by) (+ az bz)])
+(defn v* "Scale v by scalar s." [s [x y z]] [(* s x) (* s y) (* s z)])
+(defn dot "Dot product a·b." [[ax ay az] [bx by bz]] (+ (* ax bx) (* ay by) (* az bz)))
+
+(defn cross "Cross product a×b."
+  [[ax ay az] [bx by bz]]
+  [(- (* ay bz) (* az by))
+   (- (* az bx) (* ax bz))
+   (- (* ax by) (* ay bx))])
+
+(defn length "Euclidean length of v." [v] (Math/sqrt (dot v v)))
+
+(defn normalize
+  "Unit vector in v's direction; returns [0 0 0] for a (near-)zero vector."
+  [v]
+  (let [l (length v)]
+    (if (< l 1e-12) [0.0 0.0 0.0] (v* (/ 1.0 l) v))))
+
+(defn clamp "Clamp x into [lo hi]." [x lo hi] (max lo (min hi x)))

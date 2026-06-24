@@ -34,6 +34,9 @@ pub mod wgpu_renderer;
 #[cfg(feature = "wgpu-backend")]
 pub mod scene_pipelines;
 
+#[cfg(feature = "wgpu-backend")]
+pub mod raytrace;
+
 #[cfg(feature = "gaussian-splat")]
 pub mod splat_pipeline;
 
