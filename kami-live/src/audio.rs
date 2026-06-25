@@ -51,7 +51,9 @@ pub struct DrumPattern {
 
 impl DrumPattern {
     pub fn empty() -> Self {
-        Self { steps: [[0.0; 8]; 8] }
+        Self {
+            steps: [[0.0; 8]; 8],
+        }
     }
 
     pub fn set(&mut self, slot: DrumSlot, step: usize, velocity: f32) -> &mut Self {
@@ -286,4 +288,66 @@ mod tests {
         assert_ne!(o.lead_arp, e.lead_arp);
         assert_ne!(o.pad_chord, b.pad_chord);
     }
+}
+
+/// A Web-Audio cue recipe — the same shape as the EDN-driven `kami.audio` CLJS
+/// player (`{:wave :freq :to :dur :gain}`): a tiny data recipe synthesised with
+/// no asset files. The dance projects each [`AudioCue`] / `:sound` into one of
+/// these so the browser plays the show with the same data-driven soundscape.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SoundCue {
+    /// Oscillator waveform: `"sine"` / `"square"` / `"triangle"` / `"sawtooth"`.
+    pub wave: String,
+    /// Start frequency (Hz).
+    pub freq: f32,
+    /// Optional sweep-to frequency (Hz) over `dur`.
+    pub to: Option<f32>,
+    /// Duration (seconds).
+    pub dur: f32,
+    /// Peak gain.
+    pub gain: f32,
+}
+
+impl SoundCue {
+    fn new(wave: &str, freq: f32, to: Option<f32>, dur: f32, gain: f32) -> Self {
+        Self { wave: wave.into(), freq, to, dur, gain }
+    }
+}
+
+impl DrumSlot {
+    /// The sound-bank entry name for this drum slot.
+    pub fn bank_name(self) -> &'static str {
+        match self {
+            DrumSlot::Kick => "kick",
+            DrumSlot::Snare => "snare",
+            DrumSlot::ClosedHat => "closed-hat",
+            DrumSlot::OpenHat => "open-hat",
+            DrumSlot::Clap => "clap",
+            DrumSlot::Crash => "crash",
+            DrumSlot::Tom => "tom",
+            DrumSlot::Rim => "rim",
+        }
+    }
+}
+
+/// The default soundscape: a drum kit + bass + the common trigger `:sound`s
+/// (coin / whoosh / …), each a `kami.audio`-style recipe. A `:dance/audio :bank`
+/// map overrides or extends these per scene.
+pub fn default_sound_bank() -> std::collections::BTreeMap<String, SoundCue> {
+    use std::collections::BTreeMap;
+    let mut b = BTreeMap::new();
+    let mut put = |n: &str, c: SoundCue| { b.insert(n.to_string(), c); };
+    put("kick", SoundCue::new("sine", 120.0, Some(45.0), 0.18, 0.5));
+    put("snare", SoundCue::new("triangle", 220.0, Some(160.0), 0.12, 0.35));
+    put("closed-hat", SoundCue::new("square", 8000.0, Some(6000.0), 0.03, 0.12));
+    put("open-hat", SoundCue::new("square", 7000.0, Some(5000.0), 0.12, 0.12));
+    put("clap", SoundCue::new("triangle", 1200.0, Some(800.0), 0.08, 0.25));
+    put("crash", SoundCue::new("square", 6000.0, Some(3000.0), 0.5, 0.15));
+    put("tom", SoundCue::new("sine", 180.0, Some(90.0), 0.2, 0.3));
+    put("rim", SoundCue::new("square", 1800.0, Some(1500.0), 0.04, 0.15));
+    put("bass", SoundCue::new("sawtooth", 80.0, None, 0.25, 0.4));
+    put("pad", SoundCue::new("sine", 261.0, None, 0.6, 0.1));
+    put("coin", SoundCue::new("square", 988.0, Some(1319.0), 0.12, 0.2));
+    put("whoosh", SoundCue::new("sine", 800.0, Some(200.0), 0.2, 0.15));
+    b
 }

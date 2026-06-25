@@ -64,6 +64,14 @@
   :params  {:ParamEyeLOpen 1.0}
   :motions [{:name "idle" :file "idle.motion3.json"}]}
 
+ ;; Web-Audio sound bank (kami.audio recipes): the show's drum/bass/:sound cues
+ ;; resolve to these {:wave :freq :to :dur :gain} data recipes — no audio files.
+ ;; A CLJS / Web Audio host plays each DanceFrame.sounds entry directly.
+ :dance/audio
+ {:bank {:kick  {:wave "sine"     :freq 110 :to 40  :dur 0.20 :gain 0.55}
+         :snare {:wave "triangle" :freq 240 :to 170 :dur 0.11 :gain 0.38}
+         :coin  {:wave "square"   :freq 988 :to 1319 :dur 0.12 :gain 0.22}}}
+
  ;; post-processing chain (kami-postfx-scene effect ids), applied in order.
  :dance/post
  [{:effect :bloom :threshold 1.0 :intensity 0.6}

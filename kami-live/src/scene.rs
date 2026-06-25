@@ -47,7 +47,9 @@ use glam::Vec3;
 use kami_scene::{EdnValue, mget, num, root_map, vec3};
 use std::collections::BTreeMap;
 
-use crate::audio::{AudioPattern, BassLine, BassNote, DrumPattern, DrumSlot};
+use crate::audio::{
+    default_sound_bank, midi_to_hz, AudioPattern, BassLine, BassNote, DrumPattern, DrumSlot, SoundCue,
+};
 use crate::crowd::CrowdConfig;
 use crate::lighting::{Envelope, LightingCue, LightingFixture};
 use crate::setlist::{CueKind, CuePoint, Track, TrackId};
@@ -394,6 +396,9 @@ pub struct DanceScene {
     /// Static stage set pieces (`:dance/stage :props`) dressed into the render-IR
     /// `:instances` each frame (LED wall / risers / truss / speakers).
     pub stage: Vec<StageProp>,
+    /// Web-Audio cue bank (`:dance/audio :bank`, kami.audio recipes). Drum/bass
+    /// cues and `:sound` triggers resolve to these recipes → `DanceFrame.sounds`.
+    pub sound_bank: BTreeMap<String, SoundCue>,
 }
 
 impl DanceScene {
@@ -447,6 +452,11 @@ pub struct DanceFrame {
     /// stop), synthesised from the active track's `:audio` program. A host's Web
     /// Audio bridge plays them; empty when the track has no `:audio`.
     pub audio: Vec<crate::audio::AudioCue>,
+    /// The same sounds projected into `kami.audio`-style EDN recipe maps
+    /// (`{:wave :freq :to :dur :gain :at}`) — drum/bass cues + fired `:sound`
+    /// triggers resolved through the scene's `:dance/audio :bank`. A CLJS / Web
+    /// Audio host plays each directly; no asset files (ADR-0038 "everything EDN").
+    pub sounds: Vec<EdnValue>,
 }
 
 impl DanceFrame {
@@ -582,6 +592,56 @@ pub fn cue_kind_by_name(name: &str) -> CueKind {
         "callout" => CueKind::Callout,
         _ => CueKind::Custom,
     }
+}
+
+/// Build the scene's sound bank: the [`default_sound_bank`] plus any
+/// `:dance/audio :bank {<name> {:wave :freq :to :dur :gain}}` overrides/additions.
+fn parse_sound_bank(root: &BTreeMap<EdnValue, EdnValue>) -> BTreeMap<String, SoundCue> {
+    let mut bank = default_sound_bank();
+    if let Some(bm) = mget(root, "dance/audio")
+        .and_then(|v| v.as_map())
+        .and_then(|am| mget(am, "bank").and_then(|v| v.as_map()))
+    {
+        for (k, v) in bm {
+            let name = k
+                .as_keyword()
+                .map(|kw| kw.0.name.clone())
+                .or_else(|| k.as_string().map(|s| s.to_string()));
+            let (Some(name), Some(cm)) = (name, v.as_map()) else { continue };
+            bank.insert(
+                name,
+                SoundCue {
+                    wave: mget(cm, "wave")
+                        .and_then(|v| v.as_string().map(|s| s.to_string()))
+                        .or_else(|| ident(mget(cm, "wave")))
+                        .unwrap_or_else(|| "sine".into()),
+                    freq: mget(cm, "freq").map(|v| num(Some(v))).unwrap_or(440.0),
+                    to: mget(cm, "to").map(|v| num(Some(v))),
+                    dur: mget(cm, "dur").map(|v| num(Some(v))).unwrap_or(0.1),
+                    gain: mget(cm, "gain").map(|v| num(Some(v))).unwrap_or(0.2),
+                },
+            );
+        }
+    }
+    bank
+}
+
+/// Project a [`SoundCue`] recipe into a `kami.audio`-style EDN map
+/// (`{:wave :freq :to? :dur :gain :at}`), scaling gain by `vel` and overriding
+/// the frequency for pitched notes (bass / pad).
+fn sound_cue_to_edn(c: &SoundCue, at: f32, vel: f32, freq: Option<f32>) -> EdnValue {
+    let f = |x: f32| EdnValue::float(x as f64);
+    let mut entries = vec![
+        (EdnValue::kw_bare("wave"), EdnValue::string(c.wave.clone())),
+        (EdnValue::kw_bare("freq"), f(freq.unwrap_or(c.freq))),
+        (EdnValue::kw_bare("dur"), f(c.dur)),
+        (EdnValue::kw_bare("gain"), f(c.gain * vel.clamp(0.0, 1.0).max(0.05))),
+        (EdnValue::kw_bare("at"), f(at)),
+    ];
+    if let Some(to) = c.to {
+        entries.insert(2, (EdnValue::kw_bare("to"), f(to)));
+    }
+    EdnValue::map(entries)
 }
 
 /// Resolve a named full audio program (`:opener` / `:ballad` / `:encore`); an
@@ -864,6 +924,38 @@ impl DanceScene {
             self.active_camera = Some(shot);
         }
         let snap = self.show.snapshot();
+
+        // project audio cues + fired `:sound` triggers into kami.audio EDN recipes
+        // (`{:wave :freq :to :dur :gain :at}`) via the scene's sound bank.
+        let mut sounds = Vec::new();
+        for cue in &audio {
+            match cue {
+                crate::audio::AudioCue::Drum { at_time, slot, velocity } => {
+                    if let Some(c) = self.sound_bank.get(slot.bank_name()) {
+                        sounds.push(sound_cue_to_edn(c, *at_time, *velocity, None));
+                    }
+                }
+                crate::audio::AudioCue::Note { at_time, midi, velocity, .. } => {
+                    if let Some(c) = self.sound_bank.get("bass") {
+                        sounds.push(sound_cue_to_edn(c, *at_time, *velocity, Some(midi_to_hz(*midi))));
+                    }
+                }
+                crate::audio::AudioCue::Pad { at_time, midis } => {
+                    if let Some(c) = self.sound_bank.get("pad") {
+                        sounds.push(sound_cue_to_edn(c, *at_time, 1.0, Some(midi_to_hz(midis[0]))));
+                    }
+                }
+                crate::audio::AudioCue::Stop { .. } => {}
+            }
+        }
+        for a in &actions {
+            if let Some(name) = a.action("sound") {
+                if let Some(c) = self.sound_bank.get(&name) {
+                    sounds.push(sound_cue_to_edn(c, snap.phase.time, 1.0, None));
+                }
+            }
+        }
+
         let render_ir =
             crate::render::show_to_render_ir(&snap, &self.avatar, &self.camera, &self.stage);
         // inject scene-level keys (post-fx chain, active camera shot) into the
@@ -918,6 +1010,7 @@ impl DanceScene {
             actions,
             live2d,
             audio,
+            sounds,
         }
     }
 
@@ -1110,6 +1203,7 @@ impl DanceScene {
             active_camera: None,
             camera,
             stage,
+            sound_bank: parse_sound_bank(root),
         }
     }
 }
@@ -1704,6 +1798,33 @@ mod tests {
             saw_particles,
             "drop → :confetti → a :particles burst in the render-IR"
         );
+    }
+
+    #[test]
+    fn frame_emits_kami_audio_sound_recipes() {
+        // the track's :audio cues + :sound triggers project into kami.audio EDN
+        // recipes ({:wave :freq :dur :gain :at}) on DanceFrame.sounds.
+        const SRC: &str = r#"
+        {:dance/show    {:bpm 128.0 :stage :club}
+         :dance/audio   {:bank {:kick {:wave "sine" :freq 100 :dur 0.2 :gain 0.6}}}
+         :dance/setlist [{:title "A" :bpm 128.0 :bars 8 :dance :wota :audio :opener
+                          :cues [{:beat 1 :kind :drop :tag "h"}]}]}
+        "#;
+        let mut sc = DanceScene::from_edn(SRC).expect("scene");
+        // the EDN bank overrode :kick.
+        assert_eq!(sc.sound_bank.get("kick").map(|c| c.freq), Some(100.0));
+        sc.show.start();
+        let mut saw = false;
+        for _ in 0..600 {
+            let f = sc.frame(1.0 / 60.0);
+            if let Some(first) = f.sounds.first() {
+                let m = first.as_map().expect("recipe map");
+                assert!(mget(m, "wave").is_some() && mget(m, "freq").is_some() && mget(m, "at").is_some());
+                saw = true;
+                break;
+            }
+        }
+        assert!(saw, ":audio cues → kami.audio recipes on DanceFrame.sounds");
     }
 
     #[test]
