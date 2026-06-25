@@ -23,6 +23,21 @@ fn dance_scene_realises_render_ir() {
 }
 
 #[test]
+fn dance_post_chain_realises_into_effects() {
+    // `:dance/post` is authored as EDN and realised into kami-postfx structs via
+    // the kami-postfx-scene authoring tier (the `:effect` ids match across crates).
+    let scene = DanceScene::from_edn(SCENE).expect("scene");
+    let effects: Vec<kami_postfx::PostEffect> = scene
+        .post
+        .iter()
+        .filter_map(|v| v.as_map())
+        .filter_map(|m| kami_postfx_scene::effect_from_map(m).ok())
+        .collect();
+    assert_eq!(effects.len(), 3, "bloom + color-grade + vignette realised from :dance/post");
+    assert!(matches!(effects[0], kami_postfx::PostEffect::Bloom { .. }), "first fx is bloom");
+}
+
+#[test]
 fn avatar_expressions_authored_in_edn() {
     let scene = DanceScene::from_edn(SCENE).expect("scene");
     // `:dance/avatar :expressions` declares show→VRM-expression drives.
