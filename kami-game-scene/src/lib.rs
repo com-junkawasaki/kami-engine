@@ -40,11 +40,19 @@
 //! `:phase` field is itself a keyword id for the
 //! [`HeadBobPhase`](kami_game::animation::HeadBobPhase) sub-enum (`:rise` / `:hold` /
 //! `:drop` / `:wait`). Unknown `:clip` ids are an [`Error::UnknownClip`].
+//!
+//! ## Also in this crate
+//!
+//! [`catalog`] — the Godot game catalog (`island_gen::godot_game_catalog()`) as
+//! parity-tested EDN (ADR-0046).
+
+/// Godot game catalog (`island_gen::godot_game_catalog()`) as EDN → real `GameDef`s.
+pub mod catalog;
 
 use std::collections::BTreeMap;
 
 use kami_game::animation::{AnimationClip, AnimationState, HeadBobPhase};
-use kami_scene::{mget, num, root_map, EdnValue};
+use kami_scene::{EdnValue, mget, num, root_map};
 
 /// The canonical animation-preset CONFIG shipped with this crate (the preset table).
 /// This is the source of truth; the compiled-in preset factories are the parity-tested
@@ -263,8 +271,15 @@ impl PhaseSpec {
 /// untouched.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClipSpec {
-    Bobbing { amplitude: f32, frequency: f32, phase: f32 },
-    Spinning { speed: f32, angle: f32 },
+    Bobbing {
+        amplitude: f32,
+        frequency: f32,
+        phase: f32,
+    },
+    Spinning {
+        speed: f32,
+        angle: f32,
+    },
     SquashStretch {
         squash_scale: [f32; 3],
         stretch_scale: [f32; 3],
@@ -272,8 +287,17 @@ pub enum ClipSpec {
         timer: f32,
         active: bool,
     },
-    Wobble { intensity: f32, speed: f32, phase: f32 },
-    PopIn { target_scale: [f32; 3], duration: f32, timer: f32, overshoot: f32 },
+    Wobble {
+        intensity: f32,
+        speed: f32,
+        phase: f32,
+    },
+    PopIn {
+        target_scale: [f32; 3],
+        duration: f32,
+        timer: f32,
+        overshoot: f32,
+    },
     HeadBob {
         rise_height: f32,
         rise_time: f32,
@@ -283,15 +307,29 @@ pub enum ClipSpec {
         timer: f32,
         phase: PhaseSpec,
     },
-    PulseGlow { min_scale: f32, max_scale: f32, speed: f32, phase: f32 },
-    Glitch { interval: f32, timer: f32, intensity: f32, seed: u32 },
+    PulseGlow {
+        min_scale: f32,
+        max_scale: f32,
+        speed: f32,
+        phase: f32,
+    },
+    Glitch {
+        interval: f32,
+        timer: f32,
+        intensity: f32,
+        seed: u32,
+    },
 }
 
 impl ClipSpec {
     /// Project a real [`AnimationClip`] into the comparable [`ClipSpec`] (field-for-field).
     pub fn from_clip(c: &AnimationClip) -> Self {
         match c {
-            AnimationClip::Bobbing { amplitude, frequency, phase } => ClipSpec::Bobbing {
+            AnimationClip::Bobbing {
+                amplitude,
+                frequency,
+                phase,
+            } => ClipSpec::Bobbing {
                 amplitude: *amplitude,
                 frequency: *frequency,
                 phase: *phase,
@@ -313,12 +351,21 @@ impl ClipSpec {
                 timer: *timer,
                 active: *active,
             },
-            AnimationClip::Wobble { intensity, speed, phase } => ClipSpec::Wobble {
+            AnimationClip::Wobble {
+                intensity,
+                speed,
+                phase,
+            } => ClipSpec::Wobble {
                 intensity: *intensity,
                 speed: *speed,
                 phase: *phase,
             },
-            AnimationClip::PopIn { target_scale, duration, timer, overshoot } => ClipSpec::PopIn {
+            AnimationClip::PopIn {
+                target_scale,
+                duration,
+                timer,
+                overshoot,
+            } => ClipSpec::PopIn {
                 target_scale: *target_scale,
                 duration: *duration,
                 timer: *timer,
@@ -341,13 +388,23 @@ impl ClipSpec {
                 timer: *timer,
                 phase: PhaseSpec::from_phase(phase),
             },
-            AnimationClip::PulseGlow { min_scale, max_scale, speed, phase } => ClipSpec::PulseGlow {
+            AnimationClip::PulseGlow {
+                min_scale,
+                max_scale,
+                speed,
+                phase,
+            } => ClipSpec::PulseGlow {
                 min_scale: *min_scale,
                 max_scale: *max_scale,
                 speed: *speed,
                 phase: *phase,
             },
-            AnimationClip::Glitch { interval, timer, intensity, seed } => ClipSpec::Glitch {
+            AnimationClip::Glitch {
+                interval,
+                timer,
+                intensity,
+                seed,
+            } => ClipSpec::Glitch {
                 interval: *interval,
                 timer: *timer,
                 intensity: *intensity,
@@ -365,7 +422,11 @@ impl ClipSpec {
     /// [`ClipSpec::from_clip`]).
     pub fn to_clip(&self) -> AnimationClip {
         match self {
-            ClipSpec::Bobbing { amplitude, frequency, phase } => AnimationClip::Bobbing {
+            ClipSpec::Bobbing {
+                amplitude,
+                frequency,
+                phase,
+            } => AnimationClip::Bobbing {
                 amplitude: *amplitude,
                 frequency: *frequency,
                 phase: *phase,
@@ -387,12 +448,21 @@ impl ClipSpec {
                 timer: *timer,
                 active: *active,
             },
-            ClipSpec::Wobble { intensity, speed, phase } => AnimationClip::Wobble {
+            ClipSpec::Wobble {
+                intensity,
+                speed,
+                phase,
+            } => AnimationClip::Wobble {
                 intensity: *intensity,
                 speed: *speed,
                 phase: *phase,
             },
-            ClipSpec::PopIn { target_scale, duration, timer, overshoot } => AnimationClip::PopIn {
+            ClipSpec::PopIn {
+                target_scale,
+                duration,
+                timer,
+                overshoot,
+            } => AnimationClip::PopIn {
                 target_scale: *target_scale,
                 duration: *duration,
                 timer: *timer,
@@ -415,13 +485,23 @@ impl ClipSpec {
                 timer: *timer,
                 phase: phase.to_phase(),
             },
-            ClipSpec::PulseGlow { min_scale, max_scale, speed, phase } => AnimationClip::PulseGlow {
+            ClipSpec::PulseGlow {
+                min_scale,
+                max_scale,
+                speed,
+                phase,
+            } => AnimationClip::PulseGlow {
                 min_scale: *min_scale,
                 max_scale: *max_scale,
                 speed: *speed,
                 phase: *phase,
             },
-            ClipSpec::Glitch { interval, timer, intensity, seed } => AnimationClip::Glitch {
+            ClipSpec::Glitch {
+                interval,
+                timer,
+                intensity,
+                seed,
+            } => AnimationClip::Glitch {
                 interval: *interval,
                 timer: *timer,
                 intensity: *intensity,
@@ -483,7 +563,9 @@ pub fn animations_from_edn(src: &str) -> Result<BTreeMap<String, AnimationState>
 
     let mut by_id = BTreeMap::new();
     for (k, v) in table.iter() {
-        let Some(id) = kami_scene::kw_key(k) else { continue };
+        let Some(id) = kami_scene::kw_key(k) else {
+            continue;
+        };
         let Some(vec) = v.as_vector() else { continue };
         by_id.insert(id, animation_from_vec(vec)?);
     }
@@ -531,11 +613,26 @@ mod tests {
     #[test]
     fn animation_lengths_match_builtin() {
         // Clip counts (and thus order positions) match the hardcoded factories.
-        assert_eq!(shipped_animation("skibidi-idle").unwrap().animations.len(), 2);
-        assert_eq!(shipped_animation("grimace-wobble").unwrap().animations.len(), 2);
-        assert_eq!(shipped_animation("item-pickup").unwrap().animations.len(), 3);
+        assert_eq!(
+            shipped_animation("skibidi-idle").unwrap().animations.len(),
+            2
+        );
+        assert_eq!(
+            shipped_animation("grimace-wobble")
+                .unwrap()
+                .animations
+                .len(),
+            2
+        );
+        assert_eq!(
+            shipped_animation("item-pickup").unwrap().animations.len(),
+            3
+        );
         assert_eq!(shipped_animation("sigma-idle").unwrap().animations.len(), 0);
-        assert_eq!(shipped_animation("ohio-glitch").unwrap().animations.len(), 1);
+        assert_eq!(
+            shipped_animation("ohio-glitch").unwrap().animations.len(),
+            1
+        );
     }
 
     #[test]
