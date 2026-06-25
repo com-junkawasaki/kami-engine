@@ -23,12 +23,33 @@ pub struct PmxVertex {
     pub weights: [f32; 4],
 }
 
-/// A parsed PMX mesh: interleaved vertices + a triangle index list + model name.
+/// A PMX bone: name + rest position + parent index (-1 = root). The skeleton a
+/// `.vmd` motion retargets onto.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PmxBone {
+    pub name: String,
+    pub pos: Vec3,
+    pub parent: i32,
+}
+
+/// A PMX vertex morph (expression): per-vertex position offsets, keyed by name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PmxMorph {
+    pub name: String,
+    /// `(vertex index, position offset)` pairs (only vertex morphs; others skipped).
+    pub offsets: Vec<(u32, Vec3)>,
+}
+
+/// A parsed PMX model: mesh (vertices + faces) + skeleton (bones) + expression
+/// morphs + texture paths. The MMD counterpart of a loaded VRM.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PmxModel {
     pub name: String,
     pub vertices: Vec<PmxVertex>,
     pub indices: Vec<u32>,
+    pub bones: Vec<PmxBone>,
+    pub morphs: Vec<PmxMorph>,
+    pub textures: Vec<String>,
 }
 
 struct Cur<'a> {
@@ -36,7 +57,11 @@ struct Cur<'a> {
     p: usize,
     enc_utf16: bool,
     vidx: usize, // vertex index size
+    tidx: usize, // texture index size
+    midx: usize, // material index size
     bidx: usize, // bone index size
+    moidx: usize, // morph index size
+    rbidx: usize, // rigidbody index size
     add_uv: usize,
 }
 
@@ -95,10 +120,10 @@ pub fn pmx_to_model(bytes: &[u8]) -> Option<PmxModel> {
     let globals = bytes.get(9..9 + gcount)?;
     let enc_utf16 = *globals.first()? == 0;
     let add_uv = *globals.get(1)? as usize;
-    let vidx = *globals.get(2)? as usize; // vertex index size
-    let bidx = *globals.get(4)? as usize; // bone index size
+    let g = |i: usize| *globals.get(i).unwrap_or(&4) as usize;
+    let (vidx, tidx, midx, bidx, moidx, rbidx) = (g(2), g(3), g(5), g(4), g(6), g(7));
 
-    let mut c = Cur { b: bytes, p: 9 + gcount, enc_utf16, vidx, bidx, add_uv };
+    let mut c = Cur { b: bytes, p: 9 + gcount, enc_utf16, vidx, tidx, midx, bidx, moidx, rbidx, add_uv };
     // 4 text fields: model name (local/universal), comment (local/universal).
     let name = c.text()?;
     c.text()?;
@@ -157,7 +182,111 @@ pub fn pmx_to_model(bytes: &[u8]) -> Option<PmxModel> {
         indices.push(c.uidx(c.vidx)?);
     }
 
-    Some(PmxModel { name, vertices, indices })
+    // ── v2 sections (best-effort): textures → materials → bones → morphs ────
+    // A truncated / mesh-only PMX still returns the mesh with empty rig.
+    let mut model = PmxModel { name, vertices, indices, bones: vec![], morphs: vec![], textures: vec![] };
+    let _ = parse_rest(&mut c, &mut model);
+    Some(model)
+}
+
+/// Parse the post-face sections (textures / materials / bones / morphs) into
+/// `model`. Returns `None` on a truncated stream — the caller keeps the mesh.
+fn parse_rest(c: &mut Cur, model: &mut PmxModel) -> Option<()> {
+    // textures: count + paths.
+    let tex_n = c.i32()? as usize;
+    for _ in 0..tex_n {
+        model.textures.push(c.text()?);
+    }
+    // materials: read every field so we land exactly on the bone block.
+    let mat_n = c.i32()? as usize;
+    for _ in 0..mat_n {
+        c.text()?; // name local
+        c.text()?; // name universal
+        c.take(16 + 12 + 4 + 12)?; // diffuse(4) + specular(3) + spec-strength + ambient(3)
+        c.u8()?; // draw flags
+        c.take(16 + 4)?; // edge colour(4) + edge size
+        c.sidx(c.tidx)?; // texture index
+        c.sidx(c.tidx)?; // sphere texture index
+        c.u8()?; // sphere mode
+        if c.u8()? == 0 {
+            c.sidx(c.tidx)?; // toon = texture reference
+        } else {
+            c.u8()?; // toon = shared-toon value
+        }
+        c.text()?; // memo
+        c.i32()?; // surface (index) count for this material
+    }
+    // bones: extract name + position + parent; skip the flag-dependent tail.
+    let bone_n = c.i32()? as usize;
+    for _ in 0..bone_n {
+        let name = c.text()?;
+        c.text()?; // universal
+        let pos = c.vec3()?;
+        let parent = c.sidx(c.bidx)?;
+        c.i32()?; // transform layer
+        let flags = u16::from_le_bytes(c.take(2)?.try_into().ok()?);
+        if flags & 0x0001 == 0 {
+            c.take(12)?; // tail = offset vec3
+        } else {
+            c.sidx(c.bidx)?; // tail = bone index
+        }
+        if flags & (0x0100 | 0x0200) != 0 {
+            c.sidx(c.bidx)?;
+            c.f32()?; // inherit parent + weight
+        }
+        if flags & 0x0400 != 0 {
+            c.take(12)?; // fixed axis
+        }
+        if flags & 0x0800 != 0 {
+            c.take(24)?; // local coordinate (x,z axes)
+        }
+        if flags & 0x2000 != 0 {
+            c.i32()?; // external parent
+        }
+        if flags & 0x0020 != 0 {
+            // IK: target + loop + angle + link list.
+            c.sidx(c.bidx)?;
+            c.i32()?;
+            c.f32()?;
+            let links = c.i32()? as usize;
+            for _ in 0..links {
+                c.sidx(c.bidx)?;
+                if c.u8()? == 1 {
+                    c.take(24)?; // lower + upper limit vec3
+                }
+            }
+        }
+        model.bones.push(PmxBone { name, pos, parent });
+    }
+    // morphs: keep vertex morphs (expressions); read past the rest.
+    let morph_n = c.i32()? as usize;
+    for _ in 0..morph_n {
+        let name = c.text()?;
+        c.text()?; // universal
+        c.u8()?; // panel
+        let ty = c.u8()?;
+        let n = c.i32()? as usize;
+        if ty == 1 {
+            let mut offsets = Vec::with_capacity(n);
+            for _ in 0..n {
+                let vi = c.uidx(c.vidx)?;
+                offsets.push((vi, c.vec3()?));
+            }
+            model.morphs.push(PmxMorph { name, offsets });
+        } else {
+            // skip: per-offset byte size by morph type.
+            let each = match ty {
+                0 | 9 => c.moidx + 4,            // group / flip: morph idx + f32
+                2 => c.bidx + 28,                // bone: idx + pos(3) + rot(4)
+                3..=7 => c.vidx + 16,            // uv 0-4: vidx + vec4
+                8 => c.midx + 1 + 28 * 4,        // material: midx + op + 28 f32
+                10 => c.rbidx + 1 + 24,          // impulse: rb idx + flag + 2 vec3
+                _ => 0,
+            };
+            c.take(each * n)?;
+        }
+    }
+    Some(())
 }
 
 #[cfg(test)]
@@ -212,5 +341,53 @@ mod tests {
     #[test]
     fn rejects_non_pmx() {
         assert!(pmx_to_model(b"NOPE....").is_none());
+    }
+
+    /// The v1 mesh bytes + v2 sections: 0 textures, 0 materials, 1 bone, 1 vertex morph.
+    fn synthetic_pmx_full() -> Vec<u8> {
+        let mut v = synthetic_pmx();
+        let text = |v: &mut Vec<u8>, s: &[u8]| {
+            v.extend_from_slice(&(s.len() as i32).to_le_bytes());
+            v.extend_from_slice(s);
+        };
+        v.extend_from_slice(&0i32.to_le_bytes()); // 0 textures
+        v.extend_from_slice(&0i32.to_le_bytes()); // 0 materials
+        // 1 bone
+        v.extend_from_slice(&1i32.to_le_bytes());
+        text(&mut v, b"root");
+        text(&mut v, b"");
+        for f in [0.0f32, 1.0, 0.0] {
+            v.extend_from_slice(&f.to_le_bytes()); // position
+        }
+        v.push(0xFF); // parent = -1 (1-byte bone index)
+        v.extend_from_slice(&0i32.to_le_bytes()); // layer
+        v.extend_from_slice(&0u16.to_le_bytes()); // flags = 0 (tail = offset)
+        for f in [0.0f32, 0.0, 0.0] {
+            v.extend_from_slice(&f.to_le_bytes()); // tail offset vec3
+        }
+        // 1 vertex morph touching vertex 2
+        v.extend_from_slice(&1i32.to_le_bytes());
+        text(&mut v, b"smile");
+        text(&mut v, b"");
+        v.push(0); // panel
+        v.push(1); // type = vertex morph
+        v.extend_from_slice(&1i32.to_le_bytes()); // 1 offset
+        v.push(2); // vertex index (1 byte)
+        for f in [0.0f32, 0.1, 0.0] {
+            v.extend_from_slice(&f.to_le_bytes()); // position offset
+        }
+        v
+    }
+
+    #[test]
+    fn parses_pmx_rig_and_morph() {
+        let m = pmx_to_model(&synthetic_pmx_full()).expect("pmx");
+        assert_eq!(m.vertices.len(), 3, "mesh still parsed");
+        assert_eq!(m.bones.len(), 1, "one bone");
+        assert_eq!(m.bones[0].name, "root");
+        assert_eq!(m.bones[0].parent, -1);
+        assert_eq!(m.morphs.len(), 1, "one vertex morph");
+        assert_eq!(m.morphs[0].name, "smile");
+        assert_eq!(m.morphs[0].offsets, vec![(2u32, Vec3::new(0.0, 0.1, 0.0))]);
     }
 }
