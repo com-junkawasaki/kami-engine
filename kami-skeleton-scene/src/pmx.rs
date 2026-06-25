@@ -472,6 +472,43 @@ mod tests {
     }
 
     #[test]
+    fn pmx_mesh_deforms_under_vmd_motion() {
+        use glam::Mat4;
+        // the full MMD animation pipeline, headless: a .pmx mesh + skeleton, a .vmd
+        // motion evaluated on it, and CPU skinning — the mesh deforms over time.
+        let model = pmx_to_model(&synthetic_pmx_full("センター".as_bytes())).unwrap();
+        let skel = pmx_to_skeleton(&model);
+        // a 2-keyframe .vmd raising センター by +3 over 30 frames.
+        let vmd = {
+            let mut v = vec![0u8; 50];
+            v.extend_from_slice(&2u32.to_le_bytes());
+            let sjis = encoding_rs::SHIFT_JIS.encode("センター").0.into_owned();
+            for (frame, y) in [(0u32, 0.0f32), (30u32, 3.0f32)] {
+                let mut name = [0u8; 15];
+                let n = sjis.len().min(15);
+                name[..n].copy_from_slice(&sjis[..n]);
+                v.extend_from_slice(&name);
+                v.extend_from_slice(&frame.to_le_bytes());
+                for f in [0.0f32, y, 0.0, 0.0, 0.0, 0.0, 1.0] {
+                    v.extend_from_slice(&f.to_le_bytes());
+                }
+                v.extend_from_slice(&[0u8; 64]);
+            }
+            v
+        };
+        let clip = crate::vmd_to_clip(&vmd, 30.0, |n| skel.bones.iter().position(|b| b.name == n)).unwrap();
+        // vertex 0 is weighted 100% to bone 0; skin it = world·inverse-bind·pos.
+        let skin_y = |t: f32| {
+            let world = skel.evaluate(&clip, t);
+            let sk = world[0] * Mat4::from_cols_array_2d(&skel.bones[0].inverse_bind);
+            sk.transform_point3(model.vertices[0].pos).y
+        };
+        let rest = skin_y(0.0);
+        let moved = skin_y(1.0); // frame 30
+        assert!((moved - rest).abs() > 1.0, "the .vmd motion deforms the .pmx mesh: {rest} → {moved}");
+    }
+
+    #[test]
     fn pmx_skeleton_plays_a_vmd_motion() {
         // the full MMD path: a .pmx model's skeleton + a .vmd motion on the same
         // bone — the motion retargets onto the model rig by name.
