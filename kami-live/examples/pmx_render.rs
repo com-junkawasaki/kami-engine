@@ -36,7 +36,7 @@ fn cube_model() -> PmxModel {
         }
         indices.extend_from_slice(&[b, b + 1, b + 2, b, b + 2, b + 3]);
     }
-    PmxModel { name: "cube".into(), vertices, indices, bones: vec![], morphs: vec![], textures: vec![] }
+    PmxModel { name: "cube".into(), vertices, indices, bones: vec![], morphs: vec![], materials: vec![], textures: vec![] }
 }
 
 fn main() { pollster::block_on(run()); }

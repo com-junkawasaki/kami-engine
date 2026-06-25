@@ -40,6 +40,17 @@ pub struct PmxMorph {
     pub offsets: Vec<(u32, Vec3)>,
 }
 
+/// A PMX material: a contiguous run of `surface_count` indices drawn with a base
+/// colour + optional texture (index into [`PmxModel::textures`], -1 = none).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PmxMaterial {
+    pub name: String,
+    pub diffuse: [f32; 4],
+    pub texture: i32,
+    /// Number of vertex indices (3 × triangles) this material covers, in order.
+    pub surface_count: usize,
+}
+
 /// A parsed PMX model: mesh (vertices + faces) + skeleton (bones) + expression
 /// morphs + texture paths. The MMD counterpart of a loaded VRM.
 #[derive(Debug, Clone, PartialEq)]
@@ -49,6 +60,7 @@ pub struct PmxModel {
     pub indices: Vec<u32>,
     pub bones: Vec<PmxBone>,
     pub morphs: Vec<PmxMorph>,
+    pub materials: Vec<PmxMaterial>,
     pub textures: Vec<String>,
 }
 
@@ -184,7 +196,7 @@ pub fn pmx_to_model(bytes: &[u8]) -> Option<PmxModel> {
 
     // ── v2 sections (best-effort): textures → materials → bones → morphs ────
     // A truncated / mesh-only PMX still returns the mesh with empty rig.
-    let mut model = PmxModel { name, vertices, indices, bones: vec![], morphs: vec![], textures: vec![] };
+    let mut model = PmxModel { name, vertices, indices, bones: vec![], morphs: vec![], materials: vec![], textures: vec![] };
     let _ = parse_rest(&mut c, &mut model);
     Some(model)
 }
@@ -197,15 +209,16 @@ fn parse_rest(c: &mut Cur, model: &mut PmxModel) -> Option<()> {
     for _ in 0..tex_n {
         model.textures.push(c.text()?);
     }
-    // materials: read every field so we land exactly on the bone block.
+    // materials: extract name + diffuse + texture ref + surface run length.
     let mat_n = c.i32()? as usize;
     for _ in 0..mat_n {
-        c.text()?; // name local
+        let name = c.text()?; // name local
         c.text()?; // name universal
-        c.take(16 + 12 + 4 + 12)?; // diffuse(4) + specular(3) + spec-strength + ambient(3)
+        let diffuse = [c.f32()?, c.f32()?, c.f32()?, c.f32()?];
+        c.take(12 + 4 + 12)?; // specular(3) + spec-strength + ambient(3)
         c.u8()?; // draw flags
         c.take(16 + 4)?; // edge colour(4) + edge size
-        c.sidx(c.tidx)?; // texture index
+        let texture = c.sidx(c.tidx)?; // texture index (into model.textures)
         c.sidx(c.tidx)?; // sphere texture index
         c.u8()?; // sphere mode
         if c.u8()? == 0 {
@@ -214,7 +227,8 @@ fn parse_rest(c: &mut Cur, model: &mut PmxModel) -> Option<()> {
             c.u8()?; // toon = shared-toon value
         }
         c.text()?; // memo
-        c.i32()?; // surface (index) count for this material
+        let surface_count = c.i32()? as usize; // index run for this material
+        model.materials.push(PmxMaterial { name, diffuse, texture, surface_count });
     }
     // bones: extract name + position + parent; skip the flag-dependent tail.
     let bone_n = c.i32()? as usize;
@@ -379,7 +393,23 @@ mod tests {
             v.extend_from_slice(s);
         };
         v.extend_from_slice(&0i32.to_le_bytes()); // 0 textures
-        v.extend_from_slice(&0i32.to_le_bytes()); // 0 materials
+        // 1 material covering the single triangle
+        v.extend_from_slice(&1i32.to_le_bytes());
+        text(&mut v, b"mat");
+        text(&mut v, b"");
+        for f in [0.8f32, 0.7, 0.6, 1.0] {
+            v.extend_from_slice(&f.to_le_bytes()); // diffuse
+        }
+        v.extend_from_slice(&[0u8; 28]); // specular(3) + spec-strength + ambient(3)
+        v.push(0); // draw flags
+        v.extend_from_slice(&[0u8; 20]); // edge colour(4) + edge size
+        v.push(0xFF); // texture index = -1
+        v.push(0xFF); // sphere texture index = -1
+        v.push(0); // sphere mode
+        v.push(1); // toon flag = 1 (shared-toon value follows)
+        v.push(0); // toon value
+        text(&mut v, b""); // memo
+        v.extend_from_slice(&3i32.to_le_bytes()); // surface count
         // 1 bone
         v.extend_from_slice(&1i32.to_le_bytes());
         text(&mut v, bone);
@@ -417,6 +447,11 @@ mod tests {
         assert_eq!(m.morphs.len(), 1, "one vertex morph");
         assert_eq!(m.morphs[0].name, "smile");
         assert_eq!(m.morphs[0].offsets, vec![(2u32, Vec3::new(0.0, 0.1, 0.0))]);
+        assert_eq!(m.materials.len(), 1, "one material");
+        assert_eq!(m.materials[0].name, "mat");
+        assert_eq!(m.materials[0].diffuse, [0.8, 0.7, 0.6, 1.0]);
+        assert_eq!(m.materials[0].surface_count, 3);
+        assert_eq!(m.materials[0].texture, -1, "no texture bound");
     }
 
     /// Minimal 1-keyframe `.vmd` for a (Shift-JIS) bone name.
