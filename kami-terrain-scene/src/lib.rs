@@ -54,10 +54,18 @@
 //! [`BiomeSpec::to_heightmap_config`], mirroring `BiomePreset::heightmap(seed)`. Any
 //! heightmap key a biome omits inherits [`kami_terrain::HeightmapConfig::default`]
 //! (never transcribed here).
+//!
+//! ## Also in this crate
+//!
+//! [`waves`] — the default Gerstner ocean waves (`water::default_waves()`) as
+//! parity-tested EDN (ADR-0046).
+
+/// Default Gerstner ocean waves (`water::default_waves()`) as EDN → real `GerstnerWave`s.
+pub mod waves;
 
 use std::collections::BTreeMap;
 
-use kami_scene::{mget, num, root_map, vec3, EdnValue};
+use kami_scene::{EdnValue, mget, num, root_map, vec3};
 use kami_terrain::{BiomePreset, HeightmapConfig, MaterialPalette, SplatThresholds};
 
 /// The canonical biome CONFIG shipped with this crate (the preset table).
@@ -154,7 +162,11 @@ pub struct SplatSpec {
 impl SplatSpec {
     /// Read every field off a real [`SplatThresholds`] (the parity oracle).
     pub fn from_thresholds(t: &SplatThresholds) -> Self {
-        Self { sand_line: t.sand_line, snow_line: t.snow_line, rock_slope: t.rock_slope }
+        Self {
+            sand_line: t.sand_line,
+            snow_line: t.snow_line,
+            rock_slope: t.rock_slope,
+        }
     }
 
     /// Build from one biome's `:splat` EDN map (all three keys present in shipped data;
@@ -181,13 +193,19 @@ pub struct PaletteSpec {
 impl PaletteSpec {
     /// Read every colour off a real [`MaterialPalette`] (the parity oracle).
     pub fn from_palette(p: &MaterialPalette) -> Self {
-        Self { base: p.base, tip: p.tip }
+        Self {
+            base: p.base,
+            tip: p.tip,
+        }
     }
 
     /// Build from one biome's `:palette` EDN map. `:base` / `:tip` are each a vector of
     /// four `[r g b]` vectors; missing entries default to `[0,0,0]` via `vec3`.
     pub fn from_map(m: &BTreeMap<EdnValue, EdnValue>) -> Self {
-        Self { base: read_layers(mget(m, "base")), tip: read_layers(mget(m, "tip")) }
+        Self {
+            base: read_layers(mget(m, "base")),
+            tip: read_layers(mget(m, "tip")),
+        }
     }
 }
 
@@ -231,9 +249,22 @@ impl BiomeSpec {
     pub fn from_map(m: &BTreeMap<EdnValue, EdnValue>) -> Self {
         let sub = |key: &str| mget(m, key).and_then(|v| v.as_map());
         Self {
-            heightmap: sub("heightmap").map(HeightmapSpec::from_map).unwrap_or_else(HeightmapSpec::defaults),
-            splat: sub("splat").map(SplatSpec::from_map).unwrap_or_else(|| SplatSpec { sand_line: 0.0, snow_line: 0.0, rock_slope: 0.0 }),
-            palette: sub("palette").map(PaletteSpec::from_map).unwrap_or_else(|| PaletteSpec { base: [[0.0; 3]; 4], tip: [[0.0; 3]; 4] }),
+            heightmap: sub("heightmap")
+                .map(HeightmapSpec::from_map)
+                .unwrap_or_else(HeightmapSpec::defaults),
+            splat: sub("splat")
+                .map(SplatSpec::from_map)
+                .unwrap_or_else(|| SplatSpec {
+                    sand_line: 0.0,
+                    snow_line: 0.0,
+                    rock_slope: 0.0,
+                }),
+            palette: sub("palette")
+                .map(PaletteSpec::from_map)
+                .unwrap_or_else(|| PaletteSpec {
+                    base: [[0.0; 3]; 4],
+                    tip: [[0.0; 3]; 4],
+                }),
         }
     }
 
@@ -263,7 +294,10 @@ impl BiomeSpec {
     /// Convert the palette sub-spec into the real [`MaterialPalette`] — behaviourally
     /// identical to `BiomePreset::palette()`.
     pub fn to_material_palette(&self) -> MaterialPalette {
-        MaterialPalette { base: self.palette.base, tip: self.palette.tip }
+        MaterialPalette {
+            base: self.palette.base,
+            tip: self.palette.tip,
+        }
     }
 }
 
@@ -351,22 +385,27 @@ mod tests {
 
     #[test]
     fn missing_biomes_table_is_an_error() {
-        assert!(matches!(biomes_from_edn("{:other 1}"), Err(Error::NoBiomes)));
+        assert!(matches!(
+            biomes_from_edn("{:other 1}"),
+            Err(Error::NoBiomes)
+        ));
     }
 
     #[test]
     fn missing_heightmap_key_falls_back_to_default() {
         // A biome whose heightmap only sets max-height: every other field inherits the
         // engine HeightmapConfig default.
-        let b =
-            biomes_from_edn("{:terrain/biomes {:p {:heightmap {:max-height 50.0}}}}").unwrap();
+        let b = biomes_from_edn("{:terrain/biomes {:p {:heightmap {:max-height 50.0}}}}").unwrap();
         let hm = &b["p"].heightmap;
         let d = HeightmapSpec::defaults();
         assert_eq!(hm.max_height, 50.0);
         assert_eq!(hm.frequency, d.frequency, "absent → default frequency");
         assert_eq!(hm.octaves, d.octaves, "absent → default octaves");
         assert_eq!(hm.lacunarity, d.lacunarity, "absent → default lacunarity");
-        assert_eq!(hm.persistence, d.persistence, "absent → default persistence");
+        assert_eq!(
+            hm.persistence, d.persistence,
+            "absent → default persistence"
+        );
     }
 
     #[test]
