@@ -346,28 +346,6 @@ fn pipeline_from_vec(effects: &[EdnValue]) -> Result<PostFxPipeline, Error> {
     Ok(p)
 }
 
-/// Realise a **render-IR `:post` chain** (ADR-0044) into a [`PostFxPipeline`].
-///
-/// Where [`presets_from_edn`] reads the named `:postfx/presets` table, this reads
-/// the per-frame `:post [{:effect …} …]` vector a `kami-webgpu-rs` render-IR
-/// carries (the `:effect` id + params match this crate's `effect_from_map`), so a
-/// host turns the EDN render-IR's post chain straight into engine effect structs.
-/// Tolerant: non-map / unknown-effect entries are skipped (a render-IR is a
-/// runtime stream, not an authored preset table).
-pub fn chain_from_render_ir(src: &str) -> PostFxPipeline {
-    let mut p = PostFxPipeline::new();
-    if let Some(root) = root_map(src) {
-        if let Some(vec) = mget(&root, "post").and_then(|v| v.as_vector()) {
-            for v in vec {
-                if let Some(e) = v.as_map().and_then(|m| effect_from_map(m).ok()) {
-                    p.add(e);
-                }
-            }
-        }
-    }
-    p
-}
-
 /// Parse the whole `:postfx/presets` table from EDN `src` into a map keyed by the
 /// (hyphenated) preset id, each value the rebuilt [`PostFxPipeline`].
 pub fn presets_from_edn(src: &str) -> Result<BTreeMap<String, PostFxPipeline>, Error> {
@@ -415,24 +393,6 @@ pub fn shipped_preset(name: &str) -> Result<PostFxPipeline, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn realises_render_ir_post_chain() {
-        // a kami-webgpu-rs render-IR `:post` chain → PostFxPipeline.
-        let p = chain_from_render_ir(
-            r#"{:instances []
-                :post [{:effect :bloom :threshold 1.0 :intensity 0.6}
-                       {:effect :color-grade :gain [1.1 1.0 0.9]}
-                       {:effect :vignette :intensity 0.4}
-                       {:effect :no-such-effect}]}"#,
-        );
-        // unknown effect skipped → 3 realised, in order.
-        assert_eq!(p.effects.len(), 3);
-        assert!(matches!(p.effects[0], PostEffect::Bloom { .. }));
-        assert!(matches!(p.effects[2], PostEffect::Vignette { .. }));
-        // no :post → empty chain.
-        assert!(chain_from_render_ir("{:instances []}").effects.is_empty());
-    }
 
     #[test]
     fn shipped_has_all_presets() {

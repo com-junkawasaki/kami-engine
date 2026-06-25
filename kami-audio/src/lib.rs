@@ -5,6 +5,9 @@
 
 use glam::Vec3;
 
+pub mod binaural;
+pub mod wav;
+
 /// Audio source in 3D space.
 #[derive(Debug, Clone)]
 pub struct AudioSource {

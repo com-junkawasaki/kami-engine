@@ -12,6 +12,7 @@ gaussian-splat = ["wgpu-backend"]
 
 [dependencies]
 kami-core = { path = "../kami-core" }
+kami-rt = { path = "../kami-rt" }
 glam = { workspace = true }
 bytemuck = { workspace = true }
 log = { workspace = true }
@@ -29,3 +30,6 @@ flate2 = { workspace = true }
 
 # PNG/JPEG decode for glTF embedded images (KTX2/basisu handled in-crate).
 image = { workspace = true, optional = true }
+
+[dev-dependencies]
+pollster = "0.4"

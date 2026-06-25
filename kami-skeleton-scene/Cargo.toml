@@ -29,5 +29,3 @@ kami-skeleton = { path = "../kami-skeleton" }
 # scene.edn accessors so constraint config parses the same way games do.
 kami-scene = { path = "../kami-scene" }
 thiserror = { workspace = true }
-# Keyframe position/rotation types (Vec3/Quat) for EDN-authored clips.
-glam = { workspace = true }
