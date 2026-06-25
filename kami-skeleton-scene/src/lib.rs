@@ -54,6 +54,10 @@ pub use clip::clip_from_edn;
 pub mod vmd;
 pub use vmd::{mmd_bone_to_humanoid, vmd_to_clip};
 
+/// MMD `.pmx` model import (mesh → [`pmx::PmxModel`]).
+pub mod pmx;
+pub use pmx::{pmx_to_model, PmxModel, PmxVertex};
+
 /// The canonical default humanoid joint-constraint table shipped with this crate.
 /// This is the source of truth; the compiled-in `default_humanoid_constraints()`
 /// table is the parity-tested mirror.
