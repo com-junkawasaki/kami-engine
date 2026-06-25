@@ -185,11 +185,19 @@ async fn run() {
         let cr = fwd.cross(Vec3::Y).normalize_or_zero();
         let cu = cr.cross(fwd);
         // expression weights are authored in clj/edn (:dance/avatar :expressions).
-        let expr = cfg.avatar.expression_weights(
+        let mut expr = cfg.avatar.expression_weights(
             snap.cheer_loudness,
             snap.phase.beat_frac,
             snap.phase.time,
         );
+        // :dance/avatar :voice vowel timeline drives the mouth (a-i-u-e-o).
+        if let Some(voice) = &cfg.avatar.voice {
+            let beat = snap.phase.beat as f32 + snap.phase.beat_frac;
+            match voice.vowel_weight(beat) {
+                Some((name, w)) => { expr.insert(name.to_string(), w); }
+                None => { expr.insert("aa".to_string(), 0.0); }
+            }
+        }
         let (mv, palette) = model.frame(&pose, &expr, spring_enabled);
         let g = Globals {
             vp,

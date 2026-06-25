@@ -86,6 +86,9 @@ pub struct AvatarBinding {
     /// to `happy←cheer, aa←beat, blink←blink` when omitted. Resolved per frame by
     /// [`AvatarBinding::expression_weights`] → fed to `kami_vrm::ExpressionManager`.
     pub expressions: Vec<ExpressionDrive>,
+    /// Optional vocal lip-sync (`:dance/avatar :voice`): a vowel timeline driving
+    /// the VRM mouth (aa/ih/ou/ee/oh). When set it overrides the beat-driven `:aa`.
+    pub voice: Option<VoiceLine>,
 }
 
 /// Where a VRM performer's gaze points (VRM look-at).
@@ -194,6 +197,80 @@ pub enum ExprSource {
     Blink,
 }
 
+/// A mouth vowel for phoneme lip-sync (`:dance/avatar :voice`). Maps to the VRM
+/// vowel expression: A→aa, I→ih, U→ou, E→ee, O→oh.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Vowel { A, I, U, E, O }
+
+impl Vowel {
+    /// The VRM expression name this vowel drives.
+    pub fn vrm_expr(self) -> &'static str {
+        match self {
+            Vowel::A => "aa",
+            Vowel::I => "ih",
+            Vowel::U => "ou",
+            Vowel::E => "ee",
+            Vowel::O => "oh",
+        }
+    }
+    fn from_name(s: &str) -> Option<Vowel> {
+        match s {
+            "a" | "aa" => Some(Vowel::A),
+            "i" | "ih" => Some(Vowel::I),
+            "u" | "ou" => Some(Vowel::U),
+            "e" | "ee" => Some(Vowel::E),
+            "o" | "oh" => Some(Vowel::O),
+            _ => None,
+        }
+    }
+}
+
+/// One sung syllable: a `vowel` mouth shape held for `dur` beats from `at_beat`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Phoneme {
+    pub at_beat: f32,
+    pub vowel: Vowel,
+    pub dur: f32,
+}
+
+/// A vocal lip-sync line (`:dance/avatar :voice :phonemes`): a vowel timeline that
+/// drives the VRM mouth, beyond the beat-synced `:aa`. Authored as data.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct VoiceLine {
+    pub phonemes: Vec<Phoneme>,
+}
+
+impl VoiceLine {
+    /// The active vowel's VRM expression + mouth weight at a continuous beat,
+    /// with a short attack/release so syllables open and close. `None` between
+    /// syllables (mouth closed).
+    pub fn vowel_weight(&self, beat: f32) -> Option<(&'static str, f32)> {
+        if self.phonemes.is_empty() {
+            return None;
+        }
+        // loop the sung phrase over its span so the mouth keeps moving.
+        let span = self.phonemes.iter().map(|p| p.at_beat + p.dur).fold(0.0, f32::max);
+        let beat = if span > 1e-3 { beat - span * (beat / span).floor() } else { beat };
+        for p in &self.phonemes {
+            if beat >= p.at_beat && beat < p.at_beat + p.dur {
+                let t = beat - p.at_beat;
+                let edge = (p.dur * 0.25).min(0.15);
+                let w = if edge <= 0.0 {
+                    1.0
+                } else if t < edge {
+                    t / edge
+                } else if t > p.dur - edge {
+                    (p.dur - t) / edge
+                } else {
+                    1.0
+                };
+                return Some((p.vowel.vrm_expr(), w.clamp(0.0, 1.0)));
+            }
+        }
+        None
+    }
+}
+
 /// One show→expression drive: which VRM expression, driven by which signal.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExpressionDrive {
@@ -274,6 +351,7 @@ impl Default for AvatarBinding {
             spring: None,
             look_at_target: None,
             expressions: AvatarBinding::default_expressions(),
+            voice: None,
         }
     }
 }
@@ -1064,6 +1142,24 @@ fn parse_avatar(m: &BTreeMap<EdnValue, EdnValue>) -> AvatarBinding {
             .map(parse_expression_drives)
             .filter(|v| !v.is_empty())
             .unwrap_or_else(AvatarBinding::default_expressions),
+        voice: mget(m, "voice")
+            .and_then(|v| v.as_map())
+            .and_then(|vm| mget(vm, "phonemes").and_then(|v| v.as_vector()))
+            .map(|ps| {
+                let phonemes = ps
+                    .iter()
+                    .filter_map(|p| p.as_map())
+                    .filter_map(|pm| {
+                        let vowel = ident(mget(pm, "vowel")).and_then(|n| Vowel::from_name(&n))?;
+                        Some(Phoneme {
+                            at_beat: mget(pm, "at-beat").map(|v| num(Some(v))).unwrap_or(0.0),
+                            vowel,
+                            dur: mget(pm, "dur").map(|v| num(Some(v))).filter(|d| *d > 0.0).unwrap_or(0.5),
+                        })
+                    })
+                    .collect();
+                VoiceLine { phonemes }
+            }),
     }
 }
 

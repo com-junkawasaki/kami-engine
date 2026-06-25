@@ -37,13 +37,7 @@ fn vec2_edn(w: f32, h: f32) -> EdnValue {
 }
 
 /// One render-IR instance map: `{:pos :color :size :yaw :metallic :roughness :emissive}`.
-fn instance(
-    pos: [f32; 3],
-    color: [f32; 3],
-    size: (f32, f32),
-    yaw: f32,
-    emissive: f32,
-) -> EdnValue {
+fn instance(pos: [f32; 3], color: [f32; 3], size: (f32, f32), yaw: f32, emissive: f32) -> EdnValue {
     EdnValue::map([
         (kw("pos"), vec3_edn(pos)),
         (kw("color"), vec3_edn(color)),
@@ -62,7 +56,12 @@ fn instance(
 /// - **crowd** → one lit instance per fan; raised lightsticks glow (emissive).
 /// - **globals** → sky tinted by the current VJ palette, camera framed behind
 ///   and above the performer.
-pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &CameraRig, stage: &[StageProp]) -> EdnValue {
+pub fn show_to_render_ir(
+    snap: &ShowSnapshot,
+    avatar: &AvatarBinding,
+    cam: &CameraRig,
+    stage: &[StageProp],
+) -> EdnValue {
     let pose = &snap.performer_pose;
     let p = pose.root_translation;
     let s = avatar.scale.max(0.01);
@@ -94,7 +93,13 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &Came
         } else {
             ([0.28, 0.30, 0.38], 0.0)
         };
-        instances.push(instance(pos, color, (0.45, fan.body_height.max(0.2)), 0.0, emissive));
+        instances.push(instance(
+            pos,
+            color,
+            (0.45, fan.body_height.max(0.2)),
+            0.0,
+            emissive,
+        ));
     }
 
     // stage set pieces (`:dance/stage :props`): LED walls / risers / truss / etc.
@@ -112,11 +117,14 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &Came
     // globals: sky tinted by the VJ palette, camera behind+above the performer.
     let tint = snap.vj.palette.primary;
     let sky = EdnValue::map([
-        (kw("horizon"), vec3_edn([
-            0.15 + 0.4 * tint[0],
-            0.18 + 0.4 * tint[1],
-            0.22 + 0.4 * tint[2],
-        ])),
+        (
+            kw("horizon"),
+            vec3_edn([
+                0.15 + 0.4 * tint[0],
+                0.18 + 0.4 * tint[1],
+                0.22 + 0.4 * tint[2],
+            ]),
+        ),
         (kw("sun-dir"), vec3_edn([-0.4, -0.85, -0.35])),
         (kw("sun"), vec3_edn([1.0, 0.96, 0.85])),
     ]);
@@ -137,7 +145,10 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &Came
                 (kw("color"), vec3_edn(lf.color)),
                 (kw("intensity"), f(lf.intensity)),
                 (kw("dir"), vec3_edn([lf.aim.x, lf.aim.y, lf.aim.z])),
-                (kw("cast-shadow"), EdnValue::bool(matches!(lf.fixture, LightingFixture::Spot))),
+                (
+                    kw("cast-shadow"),
+                    EdnValue::bool(matches!(lf.fixture, LightingFixture::Spot)),
+                ),
             ])
         })
         .collect();
@@ -166,20 +177,44 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &Came
         // VRM expressions driven by the show, but authored in clj/edn: the
         // `:dance/avatar :expressions` drives (smile-on-cheer / lip-sync-on-beat /
         // blink) are resolved here so the render-IR carries EDN-configured weights.
-        let weights = avatar.expression_weights(snap.cheer_loudness, snap.phase.beat_frac, snap.phase.time);
-        // Emit every *declared* expression (stable keys) with its current weight
-        // (0 when inactive) — names come from the EDN `:expressions` drives.
-        let expr_entries: Vec<(EdnValue, EdnValue)> = avatar
-            .expressions
+        let mut weights =
+            avatar.expression_weights(snap.cheer_loudness, snap.phase.beat_frac, snap.phase.time);
+        // vocal lip-sync (`:dance/avatar :voice`): the authored vowel timeline drives
+        // the mouth (aa/ih/ou/ee/oh), overriding the beat-driven `:aa`.
+        if let Some(voice) = &avatar.voice {
+            let beat = snap.phase.beat as f32 + snap.phase.beat_frac;
+            match voice.vowel_weight(beat) {
+                Some((name, w)) => {
+                    weights.insert(name.to_string(), w);
+                }
+                None => {
+                    weights.insert("aa".to_string(), 0.0); // mouth closed between syllables
+                }
+            }
+        }
+        // Emit every declared expression + any vowel the voice introduced, each
+        // with its current weight (stable keys; 0 when inactive).
+        let mut names: std::collections::BTreeSet<String> =
+            avatar.expressions.iter().map(|d| d.name.clone()).collect();
+        names.extend(weights.keys().cloned());
+        let expr_entries: Vec<(EdnValue, EdnValue)> = names
             .iter()
-            .map(|d| (kw(&d.name), f(*weights.get(&d.name).unwrap_or(&0.0))))
+            .map(|n| (kw(n), f(*weights.get(n).unwrap_or(&0.0))))
             .collect();
         let expressions = EdnValue::map(expr_entries);
         meshes.push(EdnValue::map([
             (kw("id"), kw("performer")),
             (kw("url"), EdnValue::string(avatar.vrm.clone())),
             (kw("pos"), vec3_edn([p.x, perf_y, p.z])),
-            (kw("rot"), EdnValue::vector([f(0.0), f((pose.root_yaw * 0.5).sin()), f(0.0), f((pose.root_yaw * 0.5).cos())])),
+            (
+                kw("rot"),
+                EdnValue::vector([
+                    f(0.0),
+                    f((pose.root_yaw * 0.5).sin()),
+                    f(0.0),
+                    f((pose.root_yaw * 0.5).cos()),
+                ]),
+            ),
             (kw("scale"), f(s)),
             (kw("material"), kw("performer")),
             (kw("skin"), kw("rig")),
@@ -213,7 +248,6 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &Came
     ])
 }
 
-
 /// Map a lighting fixture to a render-IR light kind: moving heads (spot) project
 /// a cone; everything else washes as a directional.
 fn fixture_light_kind(fixture: LightingFixture) -> &'static str {
@@ -225,7 +259,12 @@ fn fixture_light_kind(fixture: LightingFixture) -> &'static str {
 
 /// Serialise [`show_to_render_ir`] to an EDN string — feed straight to
 /// `kami_webgpu_rs::parse_ir` (native) or the web reader.
-pub fn show_to_render_ir_edn(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &CameraRig, stage: &[StageProp]) -> String {
+pub fn show_to_render_ir_edn(
+    snap: &ShowSnapshot,
+    avatar: &AvatarBinding,
+    cam: &CameraRig,
+    stage: &[StageProp],
+) -> String {
     kotoba_edn::to_string(&show_to_render_ir(snap, avatar, cam, stage))
 }
 
@@ -275,7 +314,13 @@ mod tests {
     #[test]
     fn camera_tracks_performer() {
         let (snap, avatar) = snap_after(0.5);
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default(), &[])).unwrap();
+        let root = root_map(&show_to_render_ir_edn(
+            &snap,
+            &avatar,
+            &CameraRig::default(),
+            &[],
+        ))
+        .unwrap();
         let g = mget(&root, "globals").and_then(|v| v.as_map()).unwrap();
         let eye = vec3(mget(g, "eye"));
         let target = vec3(mget(g, "target"));
@@ -288,44 +333,91 @@ mod tests {
         // The dance render-IR carries the avatar as a skinned :meshes entry
         // (ADR-0044 phase 3) plus the lighting rig as :lights — not just cuboids.
         let (snap, avatar) = snap_after(0.2);
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default(), &[])).unwrap();
+        let root = root_map(&show_to_render_ir_edn(
+            &snap,
+            &avatar,
+            &CameraRig::default(),
+            &[],
+        ))
+        .unwrap();
         // avatar mesh present, bound to the VRM and the performer material.
-        let meshes = mget(&root, "meshes").and_then(|v| v.as_vector()).expect("meshes");
+        let meshes = mget(&root, "meshes")
+            .and_then(|v| v.as_vector())
+            .expect("meshes");
         assert_eq!(meshes.len(), 1, "the bound VRM avatar");
         let m = meshes[0].as_map().unwrap();
         assert_eq!(mget(m, "url").and_then(|v| v.as_string()), Some("m.vrm"));
-        assert_eq!(mget(m, "skin").and_then(|v| v.as_keyword()).map(|k| k.0.name.as_str()), Some("rig"));
+        assert_eq!(
+            mget(m, "skin")
+                .and_then(|v| v.as_keyword())
+                .map(|k| k.0.name.as_str()),
+            Some("rig")
+        );
         // VRM expressions driven by the show (happy/aa/blink present).
-        let ex = mget(m, "expressions").and_then(|v| v.as_map()).expect("expressions");
+        let ex = mget(m, "expressions")
+            .and_then(|v| v.as_map())
+            .expect("expressions");
         assert!(mget(ex, "aa").is_some(), "lipsync mouth expression");
         assert!(mget(ex, "blink").is_some());
         // lights emitted from the rig; camera present.
-        assert!(mget(&root, "lights").and_then(|v| v.as_vector()).map_or(false, |l| !l.is_empty()));
+        assert!(
+            mget(&root, "lights")
+                .and_then(|v| v.as_vector())
+                .map_or(false, |l| !l.is_empty())
+        );
         assert!(mget(&root, "camera").and_then(|v| v.as_map()).is_some());
         // performer material is mtoon with mask cutout.
-        let mats = mget(&root, "materials").and_then(|v| v.as_vector()).unwrap();
+        let mats = mget(&root, "materials")
+            .and_then(|v| v.as_vector())
+            .unwrap();
         let pm = mats[0].as_map().unwrap();
-        assert_eq!(mget(pm, "model").and_then(|v| v.as_keyword()).map(|k| k.0.name.as_str()), Some("mtoon"));
+        assert_eq!(
+            mget(pm, "model")
+                .and_then(|v| v.as_keyword())
+                .map(|k| k.0.name.as_str()),
+            Some("mtoon")
+        );
     }
 
     #[test]
     fn emits_animation_layer_for_avatar_clip() {
         let (snap, mut avatar) = snap_after(0.5);
         avatar.clip = Some("idle".into());
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default(), &[])).unwrap();
-        let anims = mget(&root, "animations").and_then(|v| v.as_vector()).expect("animations");
+        let root = root_map(&show_to_render_ir_edn(
+            &snap,
+            &avatar,
+            &CameraRig::default(),
+            &[],
+        ))
+        .unwrap();
+        let anims = mget(&root, "animations")
+            .and_then(|v| v.as_vector())
+            .expect("animations");
         assert_eq!(anims.len(), 1);
         let a = anims[0].as_map().unwrap();
         assert_eq!(mget(a, "clip").and_then(|v| v.as_string()), Some("idle"));
-        assert_eq!(mget(a, "target").and_then(|v| v.as_keyword()).map(|k| k.0.name.as_str()), Some("performer"));
+        assert_eq!(
+            mget(a, "target")
+                .and_then(|v| v.as_keyword())
+                .map(|k| k.0.name.as_str()),
+            Some("performer")
+        );
         assert!(mget(a, "time").is_some());
     }
 
     #[test]
     fn no_animation_layer_without_clip() {
         let (snap, avatar) = snap_after(0.2); // example SCENE avatar has no :clip
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default(), &[])).unwrap();
-        let anims = mget(&root, "animations").and_then(|v| v.as_vector()).unwrap();
+        let root = root_map(&show_to_render_ir_edn(
+            &snap,
+            &avatar,
+            &CameraRig::default(),
+            &[],
+        ))
+        .unwrap();
+        let anims = mget(&root, "animations")
+            .and_then(|v| v.as_vector())
+            .unwrap();
         assert!(anims.is_empty());
     }
 
@@ -333,7 +425,13 @@ mod tests {
     fn no_mesh_when_avatar_unbound() {
         let (snap, mut avatar) = snap_after(0.2);
         avatar.vrm = String::new();
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default(), &[])).unwrap();
+        let root = root_map(&show_to_render_ir_edn(
+            &snap,
+            &avatar,
+            &CameraRig::default(),
+            &[],
+        ))
+        .unwrap();
         let meshes = mget(&root, "meshes").and_then(|v| v.as_vector()).unwrap();
         assert!(meshes.is_empty(), "no VRM bound → no avatar mesh");
     }
