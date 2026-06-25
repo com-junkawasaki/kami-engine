@@ -51,7 +51,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
       - name: Build the workspace (catch breaks)
         working-directory: kami-engine
-        run: cargo build --workspace
+        # kami-bridge is macOS-CGEvent / Windows-Win32 only (no Linux `platform`
+        # module), so it can't build on the ubuntu runner — exclude it here.
+        run: cargo build --workspace --exclude kami-bridge
       - name: Data-tier parity oracles (EDN == Rust) + geometry golden — pure, no GPU
         working-directory: kami-engine
         run: |
