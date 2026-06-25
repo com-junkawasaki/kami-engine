@@ -44,7 +44,7 @@
 //! ```
 
 use glam::Vec3;
-use kami_scene::{mget, num, root_map, vec3, EdnValue};
+use kami_scene::{EdnValue, mget, num, root_map, vec3};
 use std::collections::BTreeMap;
 
 use crate::audio::{AudioPattern, BassLine, BassNote, DrumPattern, DrumSlot};
@@ -147,7 +147,12 @@ pub struct CameraRig {
 
 impl Default for CameraRig {
     fn default() -> Self {
-        Self { offset: Vec3::new(0.0, 3.0, 8.0), look: Vec3::new(0.0, 1.0, 0.0), fov: 0.9, shots: Vec::new() }
+        Self {
+            offset: Vec3::new(0.0, 3.0, 8.0),
+            look: Vec3::new(0.0, 1.0, 0.0),
+            fov: 0.9,
+            shots: Vec::new(),
+        }
     }
 }
 
@@ -205,28 +210,53 @@ impl AvatarBinding {
     /// lip-sync on the beat, periodic blink.
     pub fn default_expressions() -> Vec<ExpressionDrive> {
         vec![
-            ExpressionDrive { name: "happy".into(), source: ExprSource::Cheer, gain: 0.025 },
-            ExpressionDrive { name: "aa".into(), source: ExprSource::Beat, gain: 1.0 },
-            ExpressionDrive { name: "blink".into(), source: ExprSource::Blink, gain: 1.0 },
+            ExpressionDrive {
+                name: "happy".into(),
+                source: ExprSource::Cheer,
+                gain: 0.025,
+            },
+            ExpressionDrive {
+                name: "aa".into(),
+                source: ExprSource::Beat,
+                gain: 1.0,
+            },
+            ExpressionDrive {
+                name: "blink".into(),
+                source: ExprSource::Blink,
+                gain: 1.0,
+            },
         ]
     }
 
     /// Resolve every drive against this frame's show signals → `name → weight`
     /// in [0,1]. Deterministic given the inputs; the host feeds the result to
     /// `kami_vrm::ExpressionManager::resolve`. Zero-weight entries are omitted.
-    pub fn expression_weights(&self, cheer_loudness: f32, beat_frac: f32, time: f32) -> BTreeMap<String, f32> {
+    pub fn expression_weights(
+        &self,
+        cheer_loudness: f32,
+        beat_frac: f32,
+        time: f32,
+    ) -> BTreeMap<String, f32> {
         use std::f32::consts::TAU;
         let mut out = BTreeMap::new();
         for d in &self.expressions {
             let w = match d.source {
                 ExprSource::Cheer => (cheer_loudness * d.gain).clamp(0.0, 1.0),
-                ExprSource::Beat => (((1.0 - (beat_frac * TAU).cos()) * 0.5) * d.gain).clamp(0.0, 1.0),
+                ExprSource::Beat => {
+                    (((1.0 - (beat_frac * TAU).cos()) * 0.5) * d.gain).clamp(0.0, 1.0)
+                }
                 ExprSource::Blink => {
                     let m = time - 3.0 * (time / 3.0).floor();
-                    if m < 0.12 { (1.0 - (m / 0.06 - 1.0).abs().min(1.0)).clamp(0.0, 1.0) } else { 0.0 }
+                    if m < 0.12 {
+                        (1.0 - (m / 0.06 - 1.0).abs().min(1.0)).clamp(0.0, 1.0)
+                    } else {
+                        0.0
+                    }
                 }
             };
-            if w > 0.0 { out.insert(d.name.clone(), w); }
+            if w > 0.0 {
+                out.insert(d.name.clone(), w);
+            }
         }
         out
     }
@@ -289,7 +319,11 @@ impl DanceScene {
         self.clips
             .iter()
             .filter_map(|c| c.as_map())
-            .filter_map(|m| mget(m, "name").and_then(|v| v.as_string()).map(|s| s.to_string()))
+            .filter_map(|m| {
+                mget(m, "name")
+                    .and_then(|v| v.as_string())
+                    .map(|s| s.to_string())
+            })
             .collect()
     }
 }
@@ -326,6 +360,10 @@ pub struct DanceFrame {
     /// Live2D render-IR entry (`{:kind :live2d :model … :params {…}}`) when a
     /// `:dance/live2d` performer is bound; `None` otherwise.
     pub live2d: Option<EdnValue>,
+    /// Audio cues that fired this tick (drum hits / bass notes / pad swaps /
+    /// stop), synthesised from the active track's `:audio` program. A host's Web
+    /// Audio bridge plays them; empty when the track has no `:audio`.
+    pub audio: Vec<crate::audio::AudioCue>,
 }
 
 impl DanceFrame {
@@ -378,7 +416,11 @@ pub fn run_headless(scene: &mut DanceScene, frames: u32, fps: f32) -> RunReport 
         mesh_count = f
             .render_ir
             .as_map()
-            .and_then(|m| mget(m, "meshes").and_then(|v| v.as_vector()).map(|s| s.len()))
+            .and_then(|m| {
+                mget(m, "meshes")
+                    .and_then(|v| v.as_vector())
+                    .map(|s| s.len())
+            })
             .unwrap_or(0);
         live2d_params = f
             .live2d
@@ -459,11 +501,13 @@ pub fn cue_kind_by_name(name: &str) -> CueKind {
     }
 }
 
-/// Resolve a named full audio program. Only `opener` exists today; others →
-/// `None` (track plays with externally-mixed audio).
+/// Resolve a named full audio program (`:opener` / `:ballad` / `:encore`); an
+/// unknown name → `None` (track plays with externally-mixed audio).
 fn audio_pattern_by_name(name: &str) -> Option<AudioPattern> {
     match name {
         "opener" => Some(AudioPattern::opener()),
+        "ballad" => Some(AudioPattern::ballad()),
+        "encore" => Some(AudioPattern::encore()),
         _ => None,
     }
 }
@@ -540,11 +584,7 @@ fn bass_line_from_edn(v: Option<&EdnValue>) -> Option<BassLine> {
                 pitch_midi: int(mget(nm, "midi"), 60).clamp(0, 127) as u8,
                 length_beats: {
                     let l = num(mget(nm, "len"));
-                    if l > 0.0 {
-                        l
-                    } else {
-                        1.0
-                    }
+                    if l > 0.0 { l } else { 1.0 }
                 },
                 velocity: mget(nm, "vel")
                     .map(|x| num(Some(x)).clamp(0.0, 1.0))
@@ -683,11 +723,8 @@ fn flag(v: Option<&EdnValue>, default: bool) -> bool {
 
 /// Read an integer (coercing a float), defaulting when absent / non-numeric.
 fn int(v: Option<&EdnValue>, default: i64) -> i64 {
-    v.and_then(|x| {
-        x.as_integer()
-            .or_else(|| x.as_float().map(|f| f as i64))
-    })
-    .unwrap_or(default)
+    v.and_then(|x| x.as_integer().or_else(|| x.as_float().map(|f| f as i64)))
+        .unwrap_or(default)
 }
 
 /// Read a `[x y z]` vector only when present (vs. `vec3`'s zero default).
@@ -722,8 +759,14 @@ impl DanceScene {
     pub fn frame(&mut self, dt: f32) -> DanceFrame {
         let events = self.show.tick(dt);
         let mut actions = Vec::new();
+        let mut audio = Vec::new();
         let mut new_shot: Option<String> = None;
         for ev in &events {
+            // surface synthesised audio cues (drum/bass/pad/stop) for the host's
+            // Web Audio bridge — the active track's `:audio` program drives them.
+            if let crate::show::ShowEvent::Audio(cue) = ev {
+                audio.push(cue.clone());
+            }
             for t in self.director.resolve(ev) {
                 if let Some(shot) = t.action("camera") {
                     new_shot = Some(shot);
@@ -738,24 +781,34 @@ impl DanceScene {
             self.active_camera = Some(shot);
         }
         let snap = self.show.snapshot();
-        let render_ir = crate::render::show_to_render_ir(&snap, &self.avatar, &self.camera, &self.stage);
+        let render_ir =
+            crate::render::show_to_render_ir(&snap, &self.avatar, &self.camera, &self.stage);
         // inject scene-level keys (post-fx chain, active camera shot) into the
         // per-frame render-IR.
         let mut extra: Vec<(EdnValue, EdnValue)> = Vec::new();
         if !self.post.is_empty() {
-            extra.push((EdnValue::kw_bare("post"), EdnValue::vector(self.post.clone())));
+            extra.push((
+                EdnValue::kw_bare("post"),
+                EdnValue::vector(self.post.clone()),
+            ));
         }
         // (`:animations` is already projected by `show_to_render_ir` from the
         // avatar `:clip` — no duplicate injection here.)
         if let Some(shot) = &self.active_camera {
-            extra.push((EdnValue::kw_bare("camera-shot"), EdnValue::kw_bare(shot.clone())));
+            extra.push((
+                EdnValue::kw_bare("camera-shot"),
+                EdnValue::kw_bare(shot.clone()),
+            ));
         }
         // `:fx` reactions (confetti / pyro / sparkle) become particle bursts at
         // the performer, so a host's particle pipeline draws them (ADR-0044).
         let p = snap.performer_pose.root_translation;
         let bursts: Vec<EdnValue> = actions
             .iter()
-            .filter_map(|a| a.action("fx").and_then(|fx| fx_particle_burst(&fx, [p.x, p.y + 1.0, p.z])))
+            .filter_map(|a| {
+                a.action("fx")
+                    .and_then(|fx| fx_particle_burst(&fx, [p.x, p.y + 1.0, p.z]))
+            })
             .collect();
         if !bursts.is_empty() {
             extra.push((EdnValue::kw_bare("particles"), EdnValue::vector(bursts)));
@@ -781,6 +834,7 @@ impl DanceScene {
             render_ir,
             actions,
             live2d,
+            audio,
         }
     }
 
@@ -878,13 +932,23 @@ impl DanceScene {
         // ── :dance/clips → EDN-authored animation clip definitions ──────────
         let clips = mget(root, "dance/clips")
             .and_then(|v| v.as_vector())
-            .map(|cs| cs.iter().filter(|c| c.as_map().is_some()).cloned().collect())
+            .map(|cs| {
+                cs.iter()
+                    .filter(|c| c.as_map().is_some())
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default();
 
         // ── :dance/post → post-processing effect chain ──────────────────────
         let post = mget(root, "dance/post")
             .and_then(|v| v.as_vector())
-            .map(|ps| ps.iter().filter(|p| p.as_map().is_some()).cloned().collect())
+            .map(|ps| {
+                ps.iter()
+                    .filter(|p| p.as_map().is_some())
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default();
 
         // ── :dance/camera → camera rig (offset / look / fov), data-authored ──
@@ -911,7 +975,10 @@ impl DanceScene {
                 CameraRig {
                     offset: opt_vec3(mget(cm, "offset")).unwrap_or(d.offset),
                     look: opt_vec3(mget(cm, "look")).unwrap_or(d.look),
-                    fov: mget(cm, "fov").map(|v| num(Some(v))).filter(|f| *f > 0.0).unwrap_or(d.fov),
+                    fov: mget(cm, "fov")
+                        .map(|v| num(Some(v)))
+                        .filter(|f| *f > 0.0)
+                        .unwrap_or(d.fov),
                     shots,
                 }
             })
@@ -930,11 +997,18 @@ impl DanceScene {
                         pos: opt_vec3(mget(pm, "pos")).unwrap_or(Vec3::ZERO),
                         size: {
                             let s = vec3(mget(pm, "size"));
-                            [if s[0] > 0.0 { s[0] } else { 1.0 }, if s[1] > 0.0 { s[1] } else { 1.0 }]
+                            [
+                                if s[0] > 0.0 { s[0] } else { 1.0 },
+                                if s[1] > 0.0 { s[1] } else { 1.0 },
+                            ]
                         },
                         color: {
                             let c = vec3(mget(pm, "color"));
-                            if c == [0.0, 0.0, 0.0] && mget(pm, "color").is_none() { [0.15, 0.15, 0.18] } else { c }
+                            if c == [0.0, 0.0, 0.0] && mget(pm, "color").is_none() {
+                                [0.15, 0.15, 0.18]
+                            } else {
+                                c
+                            }
                         },
                         emissive: mget(pm, "emissive").map(|v| num(Some(v))).unwrap_or(0.0),
                     })
@@ -972,11 +1046,13 @@ fn parse_avatar(m: &BTreeMap<EdnValue, EdnValue>) -> AvatarBinding {
         look_at: flag(mget(m, "look-at"), true),
         spring_bones: flag(mget(m, "spring-bones"), true),
         clip: ident(mget(m, "clip")),
-        spring: mget(m, "spring").and_then(|v| v.as_map()).map(|sm| SpringTuning {
-            stiffness: mget(sm, "stiffness").map(|v| num(Some(v))).unwrap_or(0.05),
-            drag: mget(sm, "drag").map(|v| num(Some(v))).unwrap_or(0.4),
-            gravity: mget(sm, "gravity").map(|v| num(Some(v))).unwrap_or(0.3),
-        }),
+        spring: mget(m, "spring")
+            .and_then(|v| v.as_map())
+            .map(|sm| SpringTuning {
+                stiffness: mget(sm, "stiffness").map(|v| num(Some(v))).unwrap_or(0.05),
+                drag: mget(sm, "drag").map(|v| num(Some(v))).unwrap_or(0.4),
+                gravity: mget(sm, "gravity").map(|v| num(Some(v))).unwrap_or(0.3),
+            }),
         look_at_target: mget(m, "look-at").and_then(|v| v.as_map()).map(|lm| {
             match opt_vec3(mget(lm, "target")) {
                 Some(p) => LookTarget::Fixed([p.x, p.y, p.z]),
@@ -1052,7 +1128,10 @@ fn parse_lighting_cue(m: &BTreeMap<EdnValue, EdnValue>) -> (LightingCue, u32) {
     let intensity = mget(m, "intensity")
         .map(|v| num(Some(v)).clamp(0.0, 1.0))
         .unwrap_or(0.8);
-    let bars = mget(m, "bars").map(|v| int(Some(v), 16)).unwrap_or(16).max(1) as u32;
+    let bars = mget(m, "bars")
+        .map(|v| int(Some(v), 16))
+        .unwrap_or(16)
+        .max(1) as u32;
     let at_bar = int(mget(m, "at-bar"), 0).max(0) as u32;
     (
         LightingCue {
@@ -1080,7 +1159,10 @@ fn parse_track(
     let length_beats = match mget(m, "beats") {
         Some(b) => int(Some(b), (16 * beats_per_bar) as i64).max(0) as u32,
         None => {
-            let bars = mget(m, "bars").map(|v| int(Some(v), 16)).unwrap_or(16).max(0) as u32;
+            let bars = mget(m, "bars")
+                .map(|v| int(Some(v), 16))
+                .unwrap_or(16)
+                .max(0) as u32;
             bars * beats_per_bar
         }
     };
@@ -1156,7 +1238,10 @@ mod tests {
         )
         .unwrap();
         assert!(bool_form.avatar.look_at);
-        assert!(bool_form.avatar.look_at_target.is_none(), "bool → camera default");
+        assert!(
+            bool_form.avatar.look_at_target.is_none(),
+            "bool → camera default"
+        );
         // map with a fixed point.
         let fixed = DanceScene::from_edn(
             r#"{:dance/show {:bpm 120.0} :dance/avatar {:vrm "m" :look-at {:target [0.0 1.5 -8.0]}}
@@ -1164,7 +1249,10 @@ mod tests {
         )
         .unwrap();
         assert!(fixed.avatar.look_at, "map form enables look-at");
-        assert_eq!(fixed.avatar.look_at_target, Some(LookTarget::Fixed([0.0, 1.5, -8.0])));
+        assert_eq!(
+            fixed.avatar.look_at_target,
+            Some(LookTarget::Fixed([0.0, 1.5, -8.0]))
+        );
         // map with :target :camera (explicit).
         let cam = DanceScene::from_edn(
             r#"{:dance/show {:bpm 120.0} :dance/avatar {:vrm "m" :look-at {:target :camera}}
@@ -1263,8 +1351,7 @@ mod tests {
     /// clj/edn authoring surface and this loader from silently drifting apart.
     #[test]
     fn authored_example_scene_loads() {
-        const EXAMPLE: &str =
-            include_str!("../../kami-clj-play3d/games/dance/scene.edn");
+        const EXAMPLE: &str = include_str!("../../kami-clj-play3d/games/dance/scene.edn");
         let mut sc = DanceScene::from_edn(EXAMPLE).expect("example scene parses");
         assert_eq!(sc.title, "KAMI VRM Dance");
         assert_eq!(sc.avatar.vrm, "models/mitama.vrm");
@@ -1318,7 +1405,11 @@ mod tests {
         assert_eq!(a.final_render_ir, b.final_render_ir);
         // over 30s (Opening, 16 bars) the `:bar :every 8` trigger fires pyro.
         assert!(a.total_actions > 0, "authored reactions fired");
-        assert!(a.fx_counts.contains_key("pyro"), "bar:every-8 → pyro fired, got {:?}", a.fx_counts);
+        assert!(
+            a.fx_counts.contains_key("pyro"),
+            "bar:every-8 → pyro fired, got {:?}",
+            a.fx_counts
+        );
         assert!(a.final_beat > 0, "the clock advanced");
     }
 
@@ -1342,12 +1433,19 @@ mod tests {
             let f = sc.frame(1.0 / 60.0);
             // render-IR is always a well-formed, drawable map.
             if root_map(&f.render_ir_edn())
-                .and_then(|m| mget(&m, "instances").and_then(|v| v.as_vector()).map(|s| !s.is_empty()))
+                .and_then(|m| {
+                    mget(&m, "instances")
+                        .and_then(|v| v.as_vector())
+                        .map(|s| !s.is_empty())
+                })
                 .unwrap_or(false)
             {
                 drew = true;
             }
-            if f.actions.iter().any(|a| a.action("fx").as_deref() == Some("confetti")) {
+            if f.actions
+                .iter()
+                .any(|a| a.action("fx").as_deref() == Some("confetti"))
+            {
                 saw_confetti = true;
             }
             if saw_confetti {
@@ -1355,7 +1453,10 @@ mod tests {
             }
         }
         assert!(drew, "frame produced a drawable render-IR");
-        assert!(saw_confetti, "drop cue fired the confetti reaction via frame()");
+        assert!(
+            saw_confetti,
+            "drop cue fired the confetti reaction via frame()"
+        );
     }
 
     #[test]
@@ -1373,10 +1474,16 @@ mod tests {
         let f = sc.frame(1.0 / 60.0);
         let l = f.live2d.expect("live2d entry in frame");
         let m = l.as_map().unwrap();
-        assert_eq!(mget(m, "model").and_then(|v| v.as_string()), Some("haru.model3.json"));
+        assert_eq!(
+            mget(m, "model").and_then(|v| v.as_string()),
+            Some("haru.model3.json")
+        );
         // params present and beat-driven (ParamAngleX etc.).
         let params = mget(m, "params").and_then(|v| v.as_map()).expect("params");
-        assert!(mget(params, "ParamMouthOpenY").is_some(), "lipsync param driven");
+        assert!(
+            mget(params, "ParamMouthOpenY").is_some(),
+            "lipsync param driven"
+        );
         assert!(mget(params, "ParamBreath").is_some());
     }
 
@@ -1389,10 +1496,17 @@ mod tests {
         const EXAMPLE: &str = include_str!("../../kami-clj-play3d/games/dance/scene.edn");
         let mut sc = DanceScene::from_edn(EXAMPLE).expect("scene");
         // static authored vocabulary.
-        assert!(sc.clip_names().contains(&"idle".to_string()), "EDN clip authored");
+        assert!(
+            sc.clip_names().contains(&"idle".to_string()),
+            "EDN clip authored"
+        );
         assert_eq!(sc.post.len(), 3, "post chain authored");
         assert!(sc.live2d.is_some(), "Live2D performer authored");
-        assert_eq!(sc.avatar.clip.as_deref(), Some("idle"), "avatar references clip");
+        assert_eq!(
+            sc.avatar.clip.as_deref(),
+            Some("idle"),
+            "avatar references clip"
+        );
 
         sc.show.start();
         let mut f = sc.frame(1.0 / 30.0);
@@ -1400,7 +1514,12 @@ mod tests {
             f = sc.frame(1.0 / 30.0);
         }
         let root = f.render_ir.as_map().expect("render-ir map");
-        let vec_len = |k: &str| mget(root, k).and_then(|v| v.as_vector()).map(|s| s.len()).unwrap_or(0);
+        let vec_len = |k: &str| {
+            mget(root, k)
+                .and_then(|v| v.as_vector())
+                .map(|s| s.len())
+                .unwrap_or(0)
+        };
         assert!(vec_len("lights") >= 3, "lighting rig → lights");
         assert!(mget(root, "camera").and_then(|v| v.as_map()).is_some());
         assert!(vec_len("materials") >= 1, "performer material");
@@ -1409,8 +1528,14 @@ mod tests {
         assert_eq!(vec_len("post"), 3, "post chain injected");
         assert!(vec_len("instances") > 1, "performer + crowd instances");
         // the VRM mesh carries show-driven expressions.
-        let mesh0 = mget(root, "meshes").and_then(|v| v.as_vector()).unwrap()[0].as_map().unwrap();
-        assert!(mget(mesh0, "expressions").and_then(|v| v.as_map()).is_some());
+        let mesh0 = mget(root, "meshes").and_then(|v| v.as_vector()).unwrap()[0]
+            .as_map()
+            .unwrap();
+        assert!(
+            mget(mesh0, "expressions")
+                .and_then(|v| v.as_map())
+                .is_some()
+        );
         // Live2D params resolved this frame.
         assert!(f.live2d.is_some(), "Live2D driven");
     }
@@ -1429,13 +1554,19 @@ mod tests {
         for _ in 0..300 {
             let f = sc.frame(1.0 / 60.0);
             if let Some(s) = f.render_ir.as_map().and_then(|m| {
-                mget(m, "camera-shot").and_then(|v| v.as_keyword()).map(|k| k.0.name.clone())
+                mget(m, "camera-shot")
+                    .and_then(|v| v.as_keyword())
+                    .map(|k| k.0.name.clone())
             }) {
                 shot = Some(s);
                 break;
             }
         }
-        assert_eq!(shot.as_deref(), Some("closeup"), "callout cue set the camera shot");
+        assert_eq!(
+            shot.as_deref(),
+            Some("closeup"),
+            "callout cue set the camera shot"
+        );
         // and it persists on the scene.
         assert_eq!(sc.active_camera.as_deref(), Some("closeup"));
     }
@@ -1453,7 +1584,11 @@ mod tests {
         let mut saw_particles = false;
         for _ in 0..600 {
             let f = sc.frame(1.0 / 60.0);
-            if let Some(parts) = f.render_ir.as_map().and_then(|m| mget(m, "particles").and_then(|v| v.as_vector())) {
+            if let Some(parts) = f
+                .render_ir
+                .as_map()
+                .and_then(|m| mget(m, "particles").and_then(|v| v.as_vector()))
+            {
                 if !parts.is_empty() {
                     // the confetti burst carries a colour + count.
                     let b = parts[0].as_map().unwrap();
@@ -1463,7 +1598,32 @@ mod tests {
                 }
             }
         }
-        assert!(saw_particles, "drop → :confetti → a :particles burst in the render-IR");
+        assert!(
+            saw_particles,
+            "drop → :confetti → a :particles burst in the render-IR"
+        );
+    }
+
+    #[test]
+    fn frame_surfaces_audio_cues_from_track_program() {
+        // a track with an `:audio` program → DanceFrame.audio carries the
+        // synthesised drum/bass cues for a host's Web Audio bridge.
+        const SRC: &str = r#"
+        {:dance/show    {:bpm 128.0 :stage :club}
+         :dance/setlist [{:title "A" :bpm 128.0 :bars 8 :dance :wota :audio :opener
+                          :cues [{:beat 1 :kind :drop :tag "h"}]}]}
+        "#;
+        let mut sc = DanceScene::from_edn(SRC).expect("scene");
+        sc.show.start();
+        let mut saw_audio = false;
+        for _ in 0..600 {
+            let f = sc.frame(1.0 / 60.0);
+            if !f.audio.is_empty() {
+                saw_audio = true;
+                break;
+            }
+        }
+        assert!(saw_audio, "the :opener audio program → drum/bass cues on DanceFrame.audio");
     }
 
     #[test]
@@ -1481,7 +1641,11 @@ mod tests {
             let mut saw = false;
             for _ in 0..600 {
                 let f = sc.frame(1.0 / 60.0);
-                if let Some(parts) = f.render_ir.as_map().and_then(|m| mget(m, "particles").and_then(|v| v.as_vector())) {
+                if let Some(parts) = f
+                    .render_ir
+                    .as_map()
+                    .and_then(|m| mget(m, "particles").and_then(|v| v.as_vector()))
+                {
                     if !parts.is_empty() {
                         saw = true;
                         break;
@@ -1504,10 +1668,17 @@ mod tests {
         sc.show.start();
         let f = sc.frame(1.0 / 60.0);
         let root = f.render_ir.as_map().expect("render-ir map");
-        let post = mget(root, "post").and_then(|v| v.as_vector()).expect(":post in render-ir");
+        let post = mget(root, "post")
+            .and_then(|v| v.as_vector())
+            .expect(":post in render-ir");
         assert_eq!(post.len(), 2);
         let first = post[0].as_map().unwrap();
-        assert_eq!(mget(first, "fx").and_then(|v| v.as_keyword()).map(|k| k.0.name.as_str()), Some("bloom"));
+        assert_eq!(
+            mget(first, "fx")
+                .and_then(|v| v.as_keyword())
+                .map(|k| k.0.name.as_str()),
+            Some("bloom")
+        );
     }
 
     #[test]
@@ -1565,8 +1736,14 @@ mod tests {
 
     #[test]
     fn envelope_and_fixture_mapping() {
-        assert!(matches!(lighting_fixture_by_name("spot"), LightingFixture::Spot));
-        assert!(matches!(lighting_fixture_by_name("???"), LightingFixture::FrontPar));
+        assert!(matches!(
+            lighting_fixture_by_name("spot"),
+            LightingFixture::Spot
+        ));
+        assert!(matches!(
+            lighting_fixture_by_name("???"),
+            LightingFixture::FrontPar
+        ));
         // bare keyword + map forms.
         let kw = EdnValue::kw_bare("breathe");
         assert!(matches!(envelope_from_edn(Some(&kw)), Envelope::Breathe));
@@ -1575,7 +1752,10 @@ mod tests {
     #[test]
     fn stage_and_cue_name_mapping() {
         assert!(matches!(stage_preset_by_name("club"), StagePreset::Club));
-        assert!(matches!(stage_preset_by_name("festival"), StagePreset::Festival));
+        assert!(matches!(
+            stage_preset_by_name("festival"),
+            StagePreset::Festival
+        ));
         assert!(matches!(stage_preset_by_name("???"), StagePreset::Hall));
         assert!(matches!(cue_kind_by_name("drop"), CueKind::Drop));
         assert!(matches!(cue_kind_by_name("nope"), CueKind::Custom));
