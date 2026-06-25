@@ -29,3 +29,8 @@ kami-character = { path = "../kami-character" }
 # scene.edn accessors so preset config parses the same way games do.
 kami-scene = { path = "../kami-scene" }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+# Face-rig parity: RigNode/RigNodeType derive Serialize but not PartialEq, so the
+# rebuilt rig is compared node-for-node against metahuman_face_rig() via JSON.
+serde_json = { workspace = true }
