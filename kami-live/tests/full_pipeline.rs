@@ -56,15 +56,13 @@ fn dance_clip_realises_onto_skeleton() {
 fn dance_post_chain_realises_into_effects() {
     // `:dance/post` is authored as EDN and realised into kami-postfx structs via
     // the kami-postfx-scene authoring tier (the `:effect` ids match across crates).
-    let scene = DanceScene::from_edn(SCENE).expect("scene");
-    let effects: Vec<kami_postfx::PostEffect> = scene
-        .post
-        .iter()
-        .filter_map(|v| v.as_map())
-        .filter_map(|m| kami_postfx_scene::effect_from_map(m).ok())
-        .collect();
-    assert_eq!(effects.len(), 3, "bloom + color-grade + vignette realised from :dance/post");
-    assert!(matches!(effects[0], kami_postfx::PostEffect::Bloom { .. }), "first fx is bloom");
+    let mut scene = DanceScene::from_edn(SCENE).expect("scene");
+    scene.show.start();
+    let ir_edn = scene.frame(1.0 / 30.0).render_ir_edn();
+    // the render-IR `:post` chain realises into a kami-postfx pipeline in one call.
+    let pipeline = kami_postfx_scene::chain_from_render_ir(&ir_edn);
+    assert_eq!(pipeline.effects.len(), 3, "bloom + color-grade + vignette realised from :dance/post");
+    assert!(matches!(pipeline.effects[0], kami_postfx::PostEffect::Bloom { .. }), "first fx is bloom");
 }
 
 #[test]
