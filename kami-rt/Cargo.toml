@@ -8,3 +8,5 @@ license.workspace = true
 [dependencies]
 log = { workspace = true }
 thiserror = { workspace = true }
+glam = { workspace = true }
+bytemuck = { workspace = true }

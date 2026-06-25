@@ -109,15 +109,10 @@ pub struct Light {
 pub struct Camera {
     pub eye: [f32; 3],
     pub target: [f32; 3],
-    /// Vertical FOV in radians (perspective).
+    /// Vertical FOV in radians.
     pub fov_y: f32,
     pub near: f32,
     pub far: f32,
-    /// Orthographic projection (three.js `OrthographicCamera`) instead of
-    /// perspective — for isometric / 2D-style framing. `fov_y` is then ignored.
-    pub ortho: bool,
-    /// Orthographic half-height (world units) when `ortho` is set.
-    pub ortho_size: f32,
 }
 
 /// Environment / image-based lighting (closes "no IBL/env map"). `ibl_url` is a
@@ -128,15 +123,6 @@ pub struct Environment {
     pub ground: [f32; 3],
     pub ibl_intensity: f32,
     pub ibl_url: Option<String>,
-    /// Tonemap operator (`reinhard` / `aces` / `filmic` / `none`) — the
-    /// `renderer.toneMapping` analogue. Default `reinhard` (the historical pass).
-    pub tonemap: String,
-    /// Tone-mapping exposure multiplier (`toneMappingExposure`). Default 1.0.
-    pub exposure: f32,
-    /// Sky zenith (top) colour for the procedural-sky gradient (kami-atmosphere).
-    pub zenith: [f32; 3],
-    /// Distance-fog density (`scene.fog`); 0 = no fog.
-    pub fog: f32,
 }
 
 impl Default for Environment {
@@ -146,10 +132,6 @@ impl Default for Environment {
             ground: [0.34, 0.52, 0.30],
             ibl_intensity: 0.0,
             ibl_url: None,
-            tonemap: "reinhard".into(),
-            exposure: 1.0,
-            zenith: [0.20, 0.42, 0.78],
-            fog: 0.0,
         }
     }
 }
@@ -211,33 +193,6 @@ pub struct Material {
     pub rim: f32,
     /// MToon matcap texture reference (host-loaded).
     pub matcap: Option<String>,
-    /// Texture map references (host-loaded URLs) — closes "textures in IR".
-    /// Albedo / base-colour.
-    pub base_tex: Option<String>,
-    /// Tangent-space normal map.
-    pub normal_tex: Option<String>,
-    pub emissive_tex: Option<String>,
-    /// Metallic-roughness (glTF convention: G=roughness, B=metallic).
-    pub mr_tex: Option<String>,
-    /// Ambient occlusion.
-    pub ao_tex: Option<String>,
-    // ── physical extensions (three.js MeshPhysicalMaterial / glTF KHR_*) ──
-    /// Clearcoat layer strength [0,1] (car paint / lacquer).
-    pub clearcoat: f32,
-    pub clearcoat_roughness: f32,
-    /// Transmission [0,1] (glass / refraction).
-    pub transmission: f32,
-    /// Index of refraction (default 1.5 = common glass/plastic).
-    pub ior: f32,
-    /// Volume thickness for refraction (0 = thin-surface).
-    pub thickness: f32,
-    /// Sheen strength [0,1] (cloth / velvet).
-    pub sheen: f32,
-    // ── texture sampler (three.js `texture.wrapS`/`wrapT`/`anisotropy`) ──
-    /// UV wrap mode for this material's textures: `repeat` / `clamp` / `mirror`.
-    pub wrap: String,
-    /// Anisotropic-filtering level (1 = off, up to 16). Closes "no anisotropy".
-    pub anisotropy: u32,
 }
 
 /// One morph-target weight (VRM expression / glTF morph). `name` is the target
@@ -268,132 +223,7 @@ pub struct Mesh {
     /// the host supplies the palette from its skeleton evaluation.
     pub joints: Vec<[[f32; 4]; 4]>,
     pub morphs: Vec<MorphWeight>,
-    /// VRM expression weights (`name` → [0,1]) — higher-level than raw `:morphs`;
-    /// the host resolves them via `kami_vrm::ExpressionManager` into morph /
-    /// material / UV changes + blink/lookAt/mouth overrides (ADR-0044 phase 5).
-    pub expressions: Vec<MorphWeight>,
     pub cast_shadow: bool,
-}
-
-/// Lighting-model coefficients — the shared, cross-platform mirror of the web executor's
-/// `kami.webgpu.ir/default-lighting`. The forward-pass shader baked these in as literals on
-/// both web and native; the canonical values now live as data under `[:globals :lighting]`,
-/// and `Default` here reproduces the historical constants EXACTLY (so an IR that omits the
-/// key renders identically). Per the ADR-0044 additive-vocab contract, this is parsed now;
-/// the native GPU pass adopts it incrementally (web already does).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Lighting {
-    pub ambient: [f32; 3],
-    pub ambient_sky: f32,
-    pub spec_min: f32,
-    pub spec_max: f32,
-    pub rim: f32,
-    pub rim_power: f32,
-    pub shininess_min: f32,
-    pub shininess_max: f32,
-    pub sun_diffuse: f32,
-    pub metallic_diffuse_cut: f32,
-    pub gamma: f32,
-    pub shadow_bias_slope: f32,
-    pub shadow_bias_min: f32,
-    pub shadow_texel: f32,
-}
-
-impl Default for Lighting {
-    fn default() -> Self {
-        Lighting {
-            ambient: [0.20, 0.22, 0.26],
-            ambient_sky: 0.65,
-            spec_min: 0.25,
-            spec_max: 0.90,
-            rim: 0.25,
-            rim_power: 3.0,
-            shininess_min: 4.0,
-            shininess_max: 256.0,
-            sun_diffuse: 0.9,
-            metallic_diffuse_cut: 0.7,
-            gamma: 2.2,
-            shadow_bias_slope: 0.0025,
-            shadow_bias_min: 0.0006,
-            shadow_texel: 1.0 / 2048.0,
-        }
-    }
-}
-
-impl Lighting {
-    /// Pack into the 16 floats the generated shader reads as `g.light_a..d` (4×vec4) — the
-    /// SAME layout the web executor writes at uniform offset 44. The single source for the
-    /// native upload's tunables (so a magic-number copy can't silently drift from the struct).
-    pub fn pack(&self) -> [f32; 16] {
-        [
-            self.ambient[0], self.ambient[1], self.ambient[2], self.ambient_sky, // light_a
-            self.spec_min, self.spec_max, self.rim, self.rim_power,              // light_b
-            self.shininess_min, self.shininess_max, self.sun_diffuse, self.metallic_diffuse_cut, // light_c
-            self.gamma, self.shadow_bias_slope, self.shadow_bias_min, self.shadow_texel, // light_d
-        ]
-    }
-}
-
-/// The sun's orthographic shadow frustum — mirror of `kami.webgpu.ir/default-shadow`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Shadow {
-    pub extent: f32,
-    pub near: f32,
-    pub far: f32,
-    pub distance: f32,
-}
-
-impl Default for Shadow {
-    fn default() -> Self {
-        Shadow { extent: 130.0, near: 1.0, far: 420.0, distance: 200.0 }
-    }
-}
-
-/// Perspective camera projection — the web reads `[:globals :fov/:near/:far]`; native used to
-/// hardcode `perspective_rh(60°, 0.5, 4000)`. Defaults reproduce that exactly.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Projection {
-    pub fov_deg: f32,
-    pub near: f32,
-    pub far: f32,
-}
-
-impl Default for Projection {
-    fn default() -> Self {
-        Projection { fov_deg: 60.0, near: 0.5, far: 4000.0 }
-    }
-}
-
-/// Merge a `[:globals :lighting]` EDN map over the defaults (a partial override → complete).
-fn merge_lighting(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Lighting {
-    let d = Lighting::default();
-    Lighting {
-        ambient: if mget(m, "ambient").is_some() { vec3(mget(m, "ambient")) } else { d.ambient },
-        ambient_sky: num_or(mget(m, "ambient-sky"), d.ambient_sky),
-        spec_min: num_or(mget(m, "spec-min"), d.spec_min),
-        spec_max: num_or(mget(m, "spec-max"), d.spec_max),
-        rim: num_or(mget(m, "rim"), d.rim),
-        rim_power: num_or(mget(m, "rim-power"), d.rim_power),
-        shininess_min: num_or(mget(m, "shininess-min"), d.shininess_min),
-        shininess_max: num_or(mget(m, "shininess-max"), d.shininess_max),
-        sun_diffuse: num_or(mget(m, "sun-diffuse"), d.sun_diffuse),
-        metallic_diffuse_cut: num_or(mget(m, "metallic-diffuse-cut"), d.metallic_diffuse_cut),
-        gamma: num_or(mget(m, "gamma"), d.gamma),
-        shadow_bias_slope: num_or(mget(m, "shadow-bias-slope"), d.shadow_bias_slope),
-        shadow_bias_min: num_or(mget(m, "shadow-bias-min"), d.shadow_bias_min),
-        shadow_texel: num_or(mget(m, "shadow-texel"), d.shadow_texel),
-    }
-}
-
-/// Merge a `[:globals :shadow]` EDN map over the defaults.
-fn merge_shadow(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Shadow {
-    let d = Shadow::default();
-    Shadow {
-        extent: num_or(mget(m, "extent"), d.extent),
-        near: num_or(mget(m, "near"), d.near),
-        far: num_or(mget(m, "far"), d.far),
-        distance: num_or(mget(m, "distance"), d.distance),
-    }
 }
 
 /// The richer render-IR: v1 globals+instances plus the additive vocabulary.
@@ -406,137 +236,6 @@ pub struct RenderIr {
     pub env: Environment,
     pub materials: Vec<Material>,
     pub meshes: Vec<Mesh>,
-    pub animations: Vec<Animation>,
-    pub post: Vec<PostEffect>,
-    pub particles: Vec<ParticleBurst>,
-    pub lighting: Lighting,
-    pub shadow: Shadow,
-    pub projection: Projection,
-}
-
-/// A particle burst/emitter (closes "particles exist in kami-render but not in
-/// the IR"). The `:fx` dance triggers (confetti / pyro / sparkle) become these.
-#[derive(Clone, Debug)]
-pub struct ParticleBurst {
-    pub pos: [f32; 3],
-    pub color: [f32; 3],
-    pub count: u32,
-    /// Initial speed (units/s) of the radial spray.
-    pub speed: f32,
-    /// Particle lifetime (seconds).
-    pub life: f32,
-    pub size: f32,
-    /// Downward gravity pull (0 = floaty).
-    pub gravity: f32,
-}
-
-fn parse_particles(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> ParticleBurst {
-    ParticleBurst {
-        pos: opt_vec3(mget(m, "pos")).unwrap_or([0.0, 0.0, 0.0]),
-        color: opt_vec3(mget(m, "color")).unwrap_or([1.0, 1.0, 1.0]),
-        count: num_or(mget(m, "count"), 16.0) as u32,
-        speed: num_or(mget(m, "speed"), 2.0),
-        life: num_or(mget(m, "life"), 1.0),
-        size: num_or(mget(m, "size"), 0.05),
-        gravity: num_or(mget(m, "gravity"), 0.0),
-    }
-}
-
-/// One post-processing effect in the `:post` chain (closes "kami-postfx params
-/// exist but aren't EDN-driven"). `fx` names the effect (`bloom`, `vignette`,
-/// `outline`, `crt`, `color-grade`, `ssao`, `dof`, `ssr`, `aces`, …); `params`
-/// carries its keys as raw EDN so each effect reads what it needs (scalars via
-/// `num`, colours via `vec3`). The kami-postfx executor applies the chain in
-/// order.
-#[derive(Clone, Debug)]
-pub struct PostEffect {
-    pub fx: String,
-    pub params: std::collections::BTreeMap<String, EdnValue>,
-}
-
-impl PostEffect {
-    /// Read a scalar param (`None` when absent / non-numeric).
-    pub fn num(&self, key: &str) -> Option<f32> {
-        self.params.get(key).map(|v| num(Some(v)))
-    }
-    /// Read a `[r g b]` / `[x y z]` param.
-    pub fn vec3(&self, key: &str) -> Option<[f32; 3]> {
-        self.params.get(key).map(|v| vec3(Some(v)))
-    }
-}
-
-/// Canonical effect id (matches `kami_postfx_scene::effect_from_map`), so a
-/// render-IR `:post` entry realises directly. Accepts short aliases.
-fn canonical_fx(s: &str) -> String {
-    match s {
-        "dof" => "depth-of-field",
-        "aces" => "aces-tonemap",
-        "chromatic" => "chromatic-aberration",
-        other => other,
-    }
-    .to_string()
-}
-
-fn parse_post(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> PostEffect {
-    let mut params = std::collections::BTreeMap::new();
-    for (k, v) in m {
-        if let Some(kw) = k.as_keyword() {
-            let name = kw.0.name.clone();
-            // skip the tag keys (`:effect` is canonical, `:fx` a tolerated alias).
-            if name != "fx" && name != "effect" {
-                params.insert(name, v.clone());
-            }
-        }
-    }
-    // `:effect` (canonical, matching kami-postfx-scene) or `:fx` (alias).
-    let raw = ident(mget(m, "effect")).or_else(|| ident(mget(m, "fx"))).unwrap_or_default();
-    PostEffect { fx: canonical_fx(&raw), params }
-}
-
-/// Keyframe interpolation for an `:animations` layer (mirrors
-/// `kami_skeleton::Interpolation`; carried as data so the host drives the blend).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AnimInterp {
-    Linear,
-    Step,
-    Cubic,
-}
-
-impl AnimInterp {
-    pub fn by_name(name: &str) -> AnimInterp {
-        match name {
-            "step" => AnimInterp::Step,
-            "cubic" | "cubicspline" | "cubic-spline" => AnimInterp::Cubic,
-            _ => AnimInterp::Linear,
-        }
-    }
-}
-
-/// One animation layer targeting a mesh/skin. The host loads `clip` (from
-/// `.vrma`/glTF), samples it at `time` with `interp`, and blends layers sharing
-/// a `target` by `weight` via `kami_skeleton::evaluate_blend`. `fade` is an
-/// optional cross-fade-in duration (seconds).
-#[derive(Clone, Debug)]
-pub struct Animation {
-    pub target: String,
-    pub clip: String,
-    pub time: f32,
-    pub interp: AnimInterp,
-    pub weight: f32,
-    pub fade: f32,
-}
-
-fn parse_animation(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Animation {
-    Animation {
-        target: ident(mget(m, "target")).unwrap_or_default(),
-        clip: mget(m, "clip").and_then(|v| v.as_string()).unwrap_or("").to_string(),
-        time: num_or(mget(m, "time"), 0.0),
-        interp: ident(mget(m, "interp"))
-            .map(|n| AnimInterp::by_name(&n))
-            .unwrap_or(AnimInterp::Linear),
-        weight: num_or(mget(m, "weight"), 1.0),
-        fade: num_or(mget(m, "fade"), 0.0),
-    }
 }
 
 /// 16 flat floats → a column-major mat4; identity for missing components.
@@ -569,20 +268,19 @@ fn parse_mesh(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Mesh {
                 .collect()
         })
         .unwrap_or_default();
-    let weight_map = |key: &str| {
-        mget(m, key)
-            .and_then(|x| x.as_map())
-            .map(|mm| {
-                mm.iter()
-                    .filter_map(|(k, v)| {
-                        ident(Some(k)).map(|name| MorphWeight { name, weight: num(Some(v)) })
+    let morphs = mget(m, "morphs")
+        .and_then(|x| x.as_map())
+        .map(|mm| {
+            mm.iter()
+                .filter_map(|(k, v)| {
+                    ident(Some(k)).map(|name| MorphWeight {
+                        name,
+                        weight: num(Some(v)),
                     })
-                    .collect()
-            })
-            .unwrap_or_default()
-    };
-    let morphs = weight_map("morphs");
-    let expressions = weight_map("expressions");
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     Mesh {
         id: ident(mget(m, "id")).unwrap_or_default(),
         url: mget(m, "url").and_then(|v| v.as_string()).unwrap_or("").to_string(),
@@ -593,7 +291,6 @@ fn parse_mesh(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Mesh {
         skin: ident(mget(m, "skin")),
         joints,
         morphs,
-        expressions,
         cast_shadow: mget(m, "cast-shadow").and_then(|v| v.as_bool()).unwrap_or(true),
     }
 }
@@ -615,29 +312,8 @@ fn parse_material(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Materia
         alpha_cutoff: num_or(mget(m, "alpha-cutoff"), 0.5),
         outline: num_or(mget(m, "outline"), 0.0),
         rim: num_or(mget(m, "rim"), 0.0),
-        matcap: tex(m, "matcap"),
-        base_tex: tex(m, "base-tex"),
-        normal_tex: tex(m, "normal-tex"),
-        emissive_tex: tex(m, "emissive-tex"),
-        mr_tex: tex(m, "mr-tex"),
-        ao_tex: tex(m, "ao-tex"),
-        wrap: ident(mget(m, "wrap")).unwrap_or_else(|| "repeat".into()),
-        anisotropy: { let a = num_or(mget(m, "anisotropy"), 1.0); a.clamp(1.0, 16.0) as u32 },
-        clearcoat: num_or(mget(m, "clearcoat"), 0.0),
-        clearcoat_roughness: num_or(mget(m, "clearcoat-roughness"), 0.0),
-        transmission: num_or(mget(m, "transmission"), 0.0),
-        ior: num_or(mget(m, "ior"), 1.5),
-        thickness: num_or(mget(m, "thickness"), 0.0),
-        sheen: num_or(mget(m, "sheen"), 0.0),
+        matcap: mget(m, "matcap").and_then(|v| v.as_string()).map(|s| s.to_string()),
     }
-}
-
-/// Read a non-empty texture-reference string for `key`.
-fn tex(m: &std::collections::BTreeMap<EdnValue, EdnValue>, key: &str) -> Option<String> {
-    mget(m, key)
-        .and_then(|v| v.as_string())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
 }
 
 fn parse_light(m: &std::collections::BTreeMap<EdnValue, EdnValue>) -> Light {
@@ -667,12 +343,6 @@ pub fn parse_render_ir(edn: &str) -> RenderIr {
     let mut env = Environment::default();
     let mut materials = Vec::new();
     let mut meshes = Vec::new();
-    let mut animations = Vec::new();
-    let mut post = Vec::new();
-    let mut particles = Vec::new();
-    let mut lighting = Lighting::default();
-    let mut shadow = Shadow::default();
-    let mut projection = Projection::default();
     env.ambient = globals.horizon;
 
     if let Some(root) = root_map(edn) {
@@ -685,15 +355,6 @@ pub fn parse_render_ir(edn: &str) -> RenderIr {
         if let Some(ms) = mget(&root, "meshes").and_then(|x| x.as_vector()) {
             meshes = ms.iter().filter_map(|m| m.as_map()).map(parse_mesh).collect();
         }
-        if let Some(an) = mget(&root, "animations").and_then(|x| x.as_vector()) {
-            animations = an.iter().filter_map(|a| a.as_map()).map(parse_animation).collect();
-        }
-        if let Some(ps) = mget(&root, "post").and_then(|x| x.as_vector()) {
-            post = ps.iter().filter_map(|p| p.as_map()).map(parse_post).collect();
-        }
-        if let Some(ps) = mget(&root, "particles").and_then(|x| x.as_vector()) {
-            particles = ps.iter().filter_map(|p| p.as_map()).map(parse_particles).collect();
-        }
         if let Some(cam) = mget(&root, "camera").and_then(|x| x.as_map().cloned()) {
             camera = Some(Camera {
                 eye: opt_vec3(mget(&cam, "eye")).or(globals.eye).unwrap_or([5.0, 3.0, 8.0]),
@@ -701,8 +362,6 @@ pub fn parse_render_ir(edn: &str) -> RenderIr {
                 fov_y: num_or(mget(&cam, "fov"), 0.9),
                 near: num_or(mget(&cam, "near"), 0.1),
                 far: num_or(mget(&cam, "far"), 1000.0),
-                ortho: mget(&cam, "ortho").and_then(|v| v.as_bool()).unwrap_or(false),
-                ortho_size: num_or(mget(&cam, "ortho-size"), 10.0),
             });
         }
         if let Some(e) = mget(&root, "env").and_then(|x| x.as_map().cloned()) {
@@ -716,37 +375,9 @@ pub fn parse_render_ir(edn: &str) -> RenderIr {
                 env.ibl_intensity = num_or(mget(&ibl, "intensity"), 1.0);
                 env.ibl_url = mget(&ibl, "url").and_then(|v| v.as_string()).map(|s| s.to_string());
             }
-            if let Some(tm) = ident(mget(&e, "tonemap")) {
-                env.tonemap = tm;
-            }
-            if mget(&e, "exposure").is_some() {
-                env.exposure = num_or(mget(&e, "exposure"), 1.0);
-            }
-            if mget(&e, "zenith").is_some() {
-                env.zenith = vec3(mget(&e, "zenith"));
-            }
-            if mget(&e, "fog").is_some() {
-                env.fog = num_or(mget(&e, "fog"), 0.0);
-            }
-        }
-        // Lighting model + sun shadow frustum live under [:globals …] (the same canonical
-        // location the web executor reads); merge any partial override over the defaults.
-        if let Some(gm) = mget(&root, "globals").and_then(|x| x.as_map().cloned()) {
-            if let Some(lm) = mget(&gm, "lighting").and_then(|x| x.as_map().cloned()) {
-                lighting = merge_lighting(&lm);
-            }
-            if let Some(sm) = mget(&gm, "shadow").and_then(|x| x.as_map().cloned()) {
-                shadow = merge_shadow(&sm);
-            }
-            let d = Projection::default();
-            projection = Projection {
-                fov_deg: num_or(mget(&gm, "fov"), d.fov_deg),
-                near: num_or(mget(&gm, "near"), d.near),
-                far: num_or(mget(&gm, "far"), d.far),
-            };
         }
     }
-    RenderIr { globals, instances, lights, camera, env, materials, meshes, animations, post, particles, lighting, shadow, projection }
+    RenderIr { globals, instances, lights, camera, env, materials, meshes }
 }
 
 impl RenderIr {
@@ -758,21 +389,12 @@ impl RenderIr {
     pub fn mesh(&self, id: &str) -> Option<&Mesh> {
         self.meshes.iter().find(|m| m.id == id)
     }
-    /// Animation layers targeting `target` — the blend set for one mesh/skin
-    /// (feed to `kami_skeleton::evaluate_blend`).
-    pub fn animations_for(&self, target: &str) -> Vec<&Animation> {
-        self.animations.iter().filter(|a| a.target == target).collect()
-    }
 }
 
 impl Mesh {
     /// Resolve a morph weight by target name (0.0 when absent).
     pub fn morph(&self, name: &str) -> f32 {
         self.morphs.iter().find(|w| w.name == name).map(|w| w.weight).unwrap_or(0.0)
-    }
-    /// Resolve a VRM expression weight by name (0.0 when absent).
-    pub fn expression(&self, name: &str) -> f32 {
-        self.expressions.iter().find(|w| w.name == name).map(|w| w.weight).unwrap_or(0.0)
     }
 }
 
@@ -817,70 +439,15 @@ mod render_ir_ext_tests {
             r#"{:instances []
                 :camera {:eye [0 2 6] :target [0 1 0] :fov 1.05 :near 0.1 :far 500.0}
                 :env {:ambient [0.2 0.2 0.25] :ground [0.1 0.1 0.1]
-                      :ibl {:intensity 0.8 :url "studio.hdr"}
-                      :tonemap :aces :exposure 1.3}}"#,
+                      :ibl {:intensity 0.8 :url "studio.hdr"}}}"#,
         );
         let cam = ir.camera.expect("camera");
         assert_eq!(cam.eye, [0.0, 2.0, 6.0]);
         assert!((cam.fov_y - 1.05).abs() < 1e-6);
         assert!((cam.far - 500.0).abs() < 1e-6);
-        assert!(!cam.ortho, "perspective by default");
         assert_eq!(ir.env.ambient, [0.2, 0.2, 0.25]);
         assert!((ir.env.ibl_intensity - 0.8).abs() < 1e-6);
         assert_eq!(ir.env.ibl_url.as_deref(), Some("studio.hdr"));
-        assert_eq!(ir.env.tonemap, "aces");
-        assert!((ir.env.exposure - 1.3).abs() < 1e-6);
-    }
-
-    #[test]
-    fn parses_procedural_sky_zenith_fog() {
-        let ir = parse_render_ir(
-            "{:instances [] :env {:zenith [0.1 0.3 0.7] :fog 0.018}}",
-        );
-        assert_eq!(ir.env.zenith, [0.1, 0.3, 0.7]);
-        assert!((ir.env.fog - 0.018).abs() < 1e-6);
-        // defaults when omitted.
-        let d = parse_render_ir("{:instances []}");
-        assert_eq!(d.env.fog, 0.0, "no fog by default");
-        assert_eq!(d.env.zenith, [0.20, 0.42, 0.78]);
-    }
-
-    #[test]
-    fn env_tonemap_defaults_to_reinhard() {
-        let ir = parse_render_ir("{:instances []}");
-        assert_eq!(ir.env.tonemap, "reinhard", "historical default pass");
-        assert!((ir.env.exposure - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn parses_particle_bursts() {
-        // the dance `:fx` triggers (confetti / pyro / sparkle) become these.
-        let ir = parse_render_ir(
-            r#"{:instances []
-                :particles [{:pos [0 2 0] :color [1 0.8 0.2] :count 50 :speed 3.0 :life 2.0 :size 0.05 :gravity 1.0}
-                            {:pos [1 0 0] :color [1 0.3 0.1]}]}"#,
-        );
-        assert_eq!(ir.particles.len(), 2);
-        let b = &ir.particles[0];
-        assert_eq!(b.pos, [0.0, 2.0, 0.0]);
-        assert_eq!(b.count, 50);
-        assert!((b.speed - 3.0).abs() < 1e-6);
-        assert!((b.gravity - 1.0).abs() < 1e-6);
-        // defaults for the sparse second burst.
-        assert_eq!(ir.particles[1].count, 16);
-        assert_eq!(ir.particles[1].gravity, 0.0);
-        // v1 scene → no particles.
-        assert!(parse_render_ir("{:instances []}").particles.is_empty());
-    }
-
-    #[test]
-    fn parses_orthographic_camera() {
-        let ir = parse_render_ir(
-            "{:instances [] :camera {:eye [0 5 0] :target [0 0 0] :ortho true :ortho-size 12.0}}",
-        );
-        let cam = ir.camera.expect("camera");
-        assert!(cam.ortho, "orthographic projection requested");
-        assert!((cam.ortho_size - 12.0).abs() < 1e-6);
     }
 
     #[test]
@@ -909,56 +476,6 @@ mod render_ir_ext_tests {
         assert_eq!(glass.model, MaterialModel::Pbr);
         assert_eq!(glass.alpha_mode, AlphaMode::Blend);
         assert_eq!(glass.alpha_cutoff, 0.5, "default cutoff when unspecified");
-    }
-
-    #[test]
-    fn parses_physical_material_extensions() {
-        let ir = parse_render_ir(
-            r#"{:instances []
-                :materials [{:id :glass :model :pbr :transmission 0.95 :ior 1.52 :thickness 0.5}
-                            {:id :paint :model :pbr :clearcoat 1.0 :clearcoat-roughness 0.1}
-                            {:id :velvet :model :pbr :sheen 0.8}
-                            {:id :plain :model :pbr}]}"#,
-        );
-        let glass = ir.material("glass").unwrap();
-        assert!((glass.transmission - 0.95).abs() < 1e-6);
-        assert!((glass.ior - 1.52).abs() < 1e-6);
-        assert!((glass.thickness - 0.5).abs() < 1e-6);
-        let paint = ir.material("paint").unwrap();
-        assert!((paint.clearcoat - 1.0).abs() < 1e-6);
-        assert!((paint.clearcoat_roughness - 0.1).abs() < 1e-6);
-        assert!((ir.material("velvet").unwrap().sheen - 0.8).abs() < 1e-6);
-        // defaults: no transmission/clearcoat/sheen, ior 1.5.
-        let p = ir.material("plain").unwrap();
-        assert_eq!(p.transmission, 0.0);
-        assert_eq!(p.clearcoat, 0.0);
-        assert!((p.ior - 1.5).abs() < 1e-6, "default IOR");
-    }
-
-    #[test]
-    fn parses_material_texture_maps() {
-        let ir = parse_render_ir(
-            r#"{:instances []
-                :materials [{:id :skin :model :pbr
-                             :base-tex "albedo.ktx2" :normal-tex "n.ktx2"
-                             :emissive-tex "e.png" :mr-tex "mr.png" :ao-tex "ao.png"
-                             :wrap :clamp :anisotropy 8}
-                            {:id :plain :model :unlit}]}"#,
-        );
-        let s = ir.material("skin").unwrap();
-        assert_eq!(s.base_tex.as_deref(), Some("albedo.ktx2"));
-        assert_eq!(s.wrap, "clamp");
-        assert_eq!(s.anisotropy, 8);
-        // defaults: repeat wrap, anisotropy off (1).
-        assert_eq!(ir.material("plain").unwrap().wrap, "repeat");
-        assert_eq!(ir.material("plain").unwrap().anisotropy, 1);
-        assert_eq!(s.normal_tex.as_deref(), Some("n.ktx2"));
-        assert_eq!(s.emissive_tex.as_deref(), Some("e.png"));
-        assert_eq!(s.mr_tex.as_deref(), Some("mr.png"));
-        assert_eq!(s.ao_tex.as_deref(), Some("ao.png"));
-        // a material without textures → all None (backward compatible).
-        let p = ir.material("plain").unwrap();
-        assert!(p.base_tex.is_none() && p.normal_tex.is_none() && p.ao_tex.is_none());
     }
 
     #[test]
@@ -1006,25 +523,6 @@ mod render_ir_ext_tests {
     }
 
     #[test]
-    fn parses_vrm_expressions_on_mesh() {
-        // VRM expression weights ride on the mesh (resolved host-side via
-        // kami_vrm::ExpressionManager) — distinct from raw :morphs.
-        let ir = parse_render_ir(
-            r#"{:instances []
-                :meshes [{:id :avatar :url "m.vrm"
-                          :expressions {:happy 0.8 :aa 0.5 :blink 1.0}
-                          :morphs {:custom 0.3}}]}"#,
-        );
-        let a = ir.mesh("avatar").unwrap();
-        assert!((a.expression("happy") - 0.8).abs() < 1e-6);
-        assert!((a.expression("aa") - 0.5).abs() < 1e-6);
-        assert_eq!(a.expression("angry"), 0.0, "absent expression → 0");
-        // raw morphs remain independent.
-        assert!((a.morph("custom") - 0.3).abs() < 1e-6);
-        assert!(a.expressions.len() == 3 && a.morphs.len() == 1);
-    }
-
-    #[test]
     fn parses_inline_joint_palette() {
         // a host can ship the evaluated skeleton palette inline (column-major mat4s).
         let ir = parse_render_ir(
@@ -1037,65 +535,6 @@ mod render_ir_ext_tests {
         assert_eq!(m.joints.len(), 2);
         assert_eq!(m.joints[0], [[1.0,0.0,0.0,0.0],[0.0,1.0,0.0,0.0],[0.0,0.0,1.0,0.0],[0.0,0.0,0.0,1.0]]);
         assert_eq!(m.joints[1][3], [2.0, 3.0, 4.0, 1.0], "translation row");
-    }
-
-    #[test]
-    fn parses_animation_blend_layers() {
-        // Two clips cross-fading on one avatar — the data the host feeds
-        // kami_skeleton::evaluate_blend (ADR-0044 phase 4).
-        let ir = parse_render_ir(
-            r#"{:instances []
-                :meshes [{:id :avatar :url "m.vrm"}]
-                :animations [{:target :avatar :clip "idle" :time 2.0 :interp :linear :weight 0.3}
-                             {:target :avatar :clip "wave" :time 0.5 :interp :cubic :weight 0.7 :fade 0.4}
-                             {:target :other :clip "spin" :time 0.0 :weight 1.0}]}"#,
-        );
-        assert_eq!(ir.animations.len(), 3);
-        let layers = ir.animations_for("avatar");
-        assert_eq!(layers.len(), 2, "two layers blend on the avatar");
-        assert_eq!(layers[0].clip, "idle");
-        assert_eq!(layers[1].interp, AnimInterp::Cubic);
-        assert!((layers[1].weight - 0.7).abs() < 1e-6);
-        assert!((layers[1].fade - 0.4).abs() < 1e-6);
-        // default weight is 1.0, default interp linear.
-        let other = ir.animations_for("other");
-        assert_eq!(other[0].interp, AnimInterp::Linear);
-        assert!((other[0].weight - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn parses_post_effect_chain() {
-        // kami-postfx effects, now EDN-driven and ordered.
-        // `:effect` (canonical, matching kami-postfx-scene) and `:fx` (alias) both work;
-        // short ids normalise to the canonical id so kami-postfx-scene realises them.
-        let ir = parse_render_ir(
-            r#"{:instances []
-                :post [{:effect :bloom :threshold 1.0 :intensity 0.6}
-                       {:fx :color-grade :lift [0.0 0.0 0.05] :gamma [1 1 1] :gain [1.1 1.0 0.9]}
-                       {:effect :dof :focal-distance 8.0}
-                       {:fx :vignette :intensity 0.4}]}"#,
-        );
-        assert_eq!(ir.post.len(), 4);
-        assert_eq!(ir.post[0].fx, "bloom");
-        assert!((ir.post[0].num("threshold").unwrap() - 1.0).abs() < 1e-6);
-        assert!((ir.post[0].num("intensity").unwrap() - 0.6).abs() < 1e-6);
-        assert_eq!(ir.post[1].fx, "color-grade");
-        assert_eq!(ir.post[1].vec3("gain"), Some([1.1, 1.0, 0.9]));
-        assert_eq!(ir.post[2].fx, "depth-of-field", "short :dof normalised to canonical id");
-        assert_eq!(ir.post[3].fx, "vignette");
-        assert!(ir.post[0].num("missing").is_none());
-    }
-
-    #[test]
-    fn v1_scene_has_no_post() {
-        let ir = parse_render_ir("{:instances [{:pos [0 0 0] :color [1 0 0]}]}");
-        assert!(ir.post.is_empty(), "no :post → empty chain, backward compatible");
-    }
-
-    #[test]
-    fn v1_scene_has_no_animations() {
-        let ir = parse_render_ir("{:instances [{:pos [0 0 0] :color [1 0 0]}]}");
-        assert!(ir.animations.is_empty(), "no :animations → empty, backward compatible");
     }
 
     #[test]
@@ -1273,17 +712,14 @@ fn align256(n: u32) -> u32 {
 /// Render the EDN render-IR headless and return RGBA8 pixels (w*h*4), top row first.
 /// This is the native execution of the same data the web renders.
 pub fn render_to_pixels(ir_edn: &str, w: u32, h: u32) -> Vec<u8> {
-    // parse the RICHER IR so a scene's [:globals :lighting] / [:globals :shadow] override is
-    // honoured; omitting them yields the canonical defaults, so existing golden scenes render
-    // byte-identically.
-    let ir = parse_render_ir(ir_edn);
-    pollster::block_on(render_async(&ir.globals, &ir.instances, &ir.lighting, &ir.shadow, &ir.projection, w, h))
+    let (g, insts) = parse_ir(ir_edn);
+    pollster::block_on(render_async(&g, &insts, w, h))
 }
 
 /// Render from already-parsed globals + instances (for callers that build the scene in
-/// Rust rather than from EDN text). Returns RGBA8 pixels (w*h*4). Uses the default look.
+/// Rust rather than from EDN text). Returns RGBA8 pixels (w*h*4).
 pub fn render(g: &Globals, insts: &[Instance], w: u32, h: u32) -> Vec<u8> {
-    pollster::block_on(render_async(g, insts, &Lighting::default(), &Shadow::default(), &Projection::default(), w, h))
+    pollster::block_on(render_async(g, insts, w, h))
 }
 
 /// A reusable executor: owns the GPU device + all render resources, draws the EDN scene
@@ -1399,33 +835,19 @@ impl Renderer {
 
     /// Upload the frame's uniforms + instances and record the shadow + main passes into
     /// `color_view`, then submit. The same two :passes the web runs.
-    /// Draw with the default look (delegates to `draw_lit`). Existing callers stay source-compatible.
     pub fn draw(&self, color_view: &wgpu::TextureView, g: &Globals, insts: &[Instance]) {
-        self.draw_lit(color_view, g, insts, &Lighting::default(), &Shadow::default(), &Projection::default());
-    }
-
-    /// Draw honouring a per-frame lighting model + sun shadow frustum — the parsed
-    /// `[:globals :lighting]` / `[:globals :shadow]` (`RenderIr.lighting` / `.shadow`). The
-    /// defaults reproduce the historical look exactly, so `draw` is unchanged; an override
-    /// reaches `g.light_a..d` in the generated shader and actually changes the render.
-    pub fn draw_lit(&self, color_view: &wgpu::TextureView, g: &Globals, insts: &[Instance],
-                    lighting: &Lighting, shadow: &Shadow, projection: &Projection) {
         let (w, h) = (self.w, self.h);
         let centroid = insts.iter().fold([0.0f32, 0.0], |a, i| [a[0] + i.pos[0], a[1] + i.pos[2]]);
         let n = insts.len().max(1) as f32;
         let (cx, cz) = (centroid[0] / n, centroid[1] / n);
         let eye = g.eye.unwrap_or([cx + 60.0, 80.0, cz + 60.0]);
         let target = g.target.unwrap_or([cx, 0.0, cz]);
-        // perspective from the (possibly overridden) Projection — defaults mirror the web 60°/0.5/4000
-        let vp = Mat4::perspective_rh(projection.fov_deg.to_radians(), w as f32 / h.max(1) as f32, projection.near, projection.far)
+        let vp = Mat4::perspective_rh(60f32.to_radians(), w as f32 / h.max(1) as f32, 0.5, 4000.0)
             * Mat4::look_at_rh(Vec3::from(eye), Vec3::from(target), Vec3::Y);
-        // sun shadow frustum from the (possibly overridden) Shadow — defaults mirror the web frustum
-        let shd = shadow;
         let sd = Vec3::from(g.sun_dir).normalize_or_zero();
         let ltgt = Vec3::new(cx, 0.0, cz);
-        let leye = ltgt - sd * shd.distance;
-        let light_vp = Mat4::orthographic_rh(-shd.extent, shd.extent, -shd.extent, shd.extent, shd.near, shd.far)
-            * Mat4::look_at_rh(leye, ltgt, Vec3::Y);
+        let leye = ltgt - sd * 200.0;
+        let light_vp = Mat4::orthographic_rh(-130.0, 130.0, -130.0, 130.0, 1.0, 420.0) * Mat4::look_at_rh(leye, ltgt, Vec3::Y);
 
         let mut gf = [0f32; 60];
         gf[0..16].copy_from_slice(&vp.to_cols_array());
@@ -1433,9 +855,12 @@ impl Renderer {
         gf[20..24].copy_from_slice(&[g.sun[0], g.sun[1], g.sun[2], eye[1]]);
         gf[24..28].copy_from_slice(&[g.horizon[0], g.horizon[1], g.horizon[2], eye[2]]);
         gf[28..44].copy_from_slice(&light_vp.to_cols_array());
-        // tunable lighting → g.light_a..d (the web↔native single-source layout). The passed
-        // Lighting is the parsed `[:globals :lighting]`; its defaults reproduce the old look.
-        gf[44..60].copy_from_slice(&lighting.pack());
+        // tunable lighting — recovered from the previously-hardcoded fragment, now fed as data so the
+        // generated shader (g.light_a..d) renders identically. Matches the web kami.webgpu defaults.
+        gf[44..48].copy_from_slice(&[0.20, 0.22, 0.26, 0.65]);          // light_a: ambient rgb, sky-mix weight
+        gf[48..52].copy_from_slice(&[0.25, 0.9, 0.25, 3.0]);           // light_b: specStr lo/hi, rim scale/pow
+        gf[52..56].copy_from_slice(&[4.0, 256.0, 0.9, 0.7]);          // light_c: shininess lo/hi, sun scale, metal factor
+        gf[56..60].copy_from_slice(&[2.2, 0.0025, 0.0006, 1.0 / 2048.0]); // light_d: gamma, shadow bias factor/min, texel
         self.queue.write_buffer(&self.gbuf, 0, bytemuck::cast_slice(&gf));
 
         let n_inst = insts.len().min(MAX_INST as usize);
@@ -1495,7 +920,7 @@ impl Renderer {
     }
 }
 
-async fn render_async(g: &Globals, insts: &[Instance], lighting: &Lighting, shadow: &Shadow, projection: &Projection, w: u32, h: u32) -> Vec<u8> {
+async fn render_async(g: &Globals, insts: &[Instance], w: u32, h: u32) -> Vec<u8> {
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions::default()).await.expect("no GPU adapter");
     let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor::default(), None).await.expect("no device");
@@ -1507,7 +932,7 @@ async fn render_async(g: &Globals, insts: &[Instance], lighting: &Lighting, shad
         format: fmt, usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC, view_formats: &[],
     });
     let color_view = color.create_view(&Default::default());
-    r.draw_lit(&color_view, g, insts, lighting, shadow, projection);
+    r.draw(&color_view, g, insts);
 
     // copy color → readback buffer (bytes_per_row 256-aligned)
     let bpr = align256(w * 4);
@@ -1856,121 +1281,5 @@ mod tests {
         let la = darkest(&render_to_pixels(&lit_only, 96, 96));
         let lb = darkest(&render_to_pixels(&shadowed, 96, 96));
         assert!(lb + 12 < la, "the caster should darken the ground via shadow: lit min={la}, shadowed min={lb}");
-    }
-
-    // ── cross-platform data parity (no GPU): the native lighting/shadow defaults must equal
-    //    the web executor's kami.webgpu.ir/default-lighting + default-shadow, and parsing
-    //    [:globals :lighting]/[:globals :shadow] must merge a partial override over them.
-    #[test]
-    fn xplat_lighting_default_matches_web_canonical_constants() {
-        let d = Lighting::default();
-        assert_eq!(d.ambient, [0.20, 0.22, 0.26]);
-        assert_eq!(d.ambient_sky, 0.65);
-        assert_eq!(d.spec_min, 0.25);
-        assert_eq!(d.spec_max, 0.90);
-        assert_eq!(d.rim, 0.25);
-        assert_eq!(d.rim_power, 3.0);
-        assert_eq!(d.shininess_min, 4.0);
-        assert_eq!(d.shininess_max, 256.0);
-        assert_eq!(d.sun_diffuse, 0.9);
-        assert_eq!(d.metallic_diffuse_cut, 0.7);
-        assert_eq!(d.gamma, 2.2);
-        assert_eq!(d.shadow_bias_slope, 0.0025);
-        assert_eq!(d.shadow_bias_min, 0.0006);
-        assert_eq!(d.shadow_texel, 1.0 / 2048.0);
-    }
-
-    #[test]
-    fn xplat_native_render_honours_a_lighting_override() {
-        // identical scene + camera; only [:globals :lighting] differs. Killing ambient + sun +
-        // spec + rim MUST darken the lit surface vs the default look — proving the parsed
-        // [:globals :lighting] actually reaches g.light_a..d in the native (Metal) shader.
-        let base = render_to_pixels(
-            "{:globals {:sky {:horizon [0.74 0.84 0.95] :sun-dir [-0.4 -0.85 -0.35] :sun [1.0 0.96 0.85]}
-                        :eye [6 5 6] :target [0 1 0]}
-              :instances [{:pos [0 0 0] :color [0.85 0.85 0.85] :size [3 4] :roughness 0.6}]}", 48, 48);
-        let over = render_to_pixels(
-            "{:globals {:sky {:horizon [0.74 0.84 0.95] :sun-dir [-0.4 -0.85 -0.35] :sun [1.0 0.96 0.85]}
-                        :eye [6 5 6] :target [0 1 0]
-                        :lighting {:ambient [0.0 0.0 0.0] :ambient-sky 0.0 :sun-diffuse 0.0 :spec-min 0.0 :spec-max 0.0 :rim 0.0}}
-              :instances [{:pos [0 0 0] :color [0.85 0.85 0.85] :size [3 4] :roughness 0.6}]}", 48, 48);
-        assert_eq!(base.len(), over.len());
-        let c = ((24 * 48 + 24) * 4) as usize; // centre pixel — the lit surface
-        assert!(base[c] > 60, "default render lights the surface: got {}", base[c]);
-        assert!(over[c] < 40, "the kill-everything override darkens it: got {}", over[c]);
-        assert!((base[c] as i32) > (over[c] as i32) + 40,
-            "lighting override must change the render: base={} over={}", base[c], over[c]);
-    }
-
-    #[test]
-    fn xplat_projection_default_and_globals_override() {
-        assert_eq!(Projection::default(), Projection { fov_deg: 60.0, near: 0.5, far: 4000.0 });
-        let ir = parse_render_ir("{:globals {:fov 120 :near 0.2}}");
-        assert_eq!(ir.projection.fov_deg, 120.0);
-        assert_eq!(ir.projection.near, 0.2);
-        assert_eq!(ir.projection.far, 4000.0, "untouched key keeps the default");
-        let bare = parse_render_ir("{:globals {:sky {:horizon [0.1 0.2 0.3]}}}");
-        assert_eq!(bare.projection, Projection::default(), "no fov/near/far → default 60°/0.5/4000");
-    }
-
-    #[test]
-    fn xplat_native_render_honours_a_fov_override() {
-        // identical scene; only [:globals :fov] differs. A 120° FOV reframes the building vs the
-        // default 60°, so the rendered pixels MUST differ — proving native honours the projection.
-        let base = render_to_pixels(
-            "{:globals {:sky {:horizon [0.74 0.84 0.95] :sun-dir [-0.4 -0.85 -0.35] :sun [1.0 0.96 0.85]}
-                        :eye [6 5 6] :target [0 1 0]}
-              :instances [{:pos [0 0 0] :color [0.85 0.3 0.3] :size [3 4] :roughness 0.6}]}", 48, 48);
-        let wide = render_to_pixels(
-            "{:globals {:sky {:horizon [0.74 0.84 0.95] :sun-dir [-0.4 -0.85 -0.35] :sun [1.0 0.96 0.85]}
-                        :eye [6 5 6] :target [0 1 0] :fov 120}
-              :instances [{:pos [0 0 0] :color [0.85 0.3 0.3] :size [3 4] :roughness 0.6}]}", 48, 48);
-        assert_eq!(base.len(), wide.len());
-        assert!(base != wide, "a 120° FOV override must change the framing vs the default 60°");
-    }
-
-    #[test]
-    fn xplat_lighting_pack_matches_the_uniform_light_abcd_layout() {
-        // the 16 floats the native upload writes to g.light_a..d == the values the web executor
-        // packs at uniform offset 44 (and == the previously-hardcoded literals — a drift guard).
-        assert_eq!(
-            Lighting::default().pack(),
-            [
-                0.20, 0.22, 0.26, 0.65, // light_a
-                0.25, 0.9, 0.25, 3.0,   // light_b
-                4.0, 256.0, 0.9, 0.7,   // light_c
-                2.2, 0.0025, 0.0006, 1.0 / 2048.0, // light_d
-            ]
-        );
-    }
-
-    #[test]
-    fn xplat_shadow_default_matches_web_canonical_frustum() {
-        let d = Shadow::default();
-        assert_eq!(d.extent, 130.0);
-        assert_eq!(d.near, 1.0);
-        assert_eq!(d.far, 420.0);
-        assert_eq!(d.distance, 200.0);
-    }
-
-    #[test]
-    fn xplat_omitted_lighting_and_shadow_fall_back_to_defaults() {
-        let ir = parse_render_ir("{:globals {:sky {:horizon [0.1 0.2 0.3]}}}");
-        assert_eq!(ir.lighting, Lighting::default());
-        assert_eq!(ir.shadow, Shadow::default());
-    }
-
-    #[test]
-    fn xplat_partial_lighting_and_shadow_merge_over_defaults() {
-        let ir = parse_render_ir(
-            "{:globals {:lighting {:rim 0.6 :ambient [0.1 0.05 0.2] :gamma 2.4} :shadow {:extent 300.0}}}",
-        );
-        assert_eq!(ir.lighting.rim, 0.6);
-        assert_eq!(ir.lighting.ambient, [0.1, 0.05, 0.2]);
-        assert_eq!(ir.lighting.gamma, 2.4);
-        assert_eq!(ir.lighting.spec_max, 0.90, "untouched keys keep defaults");
-        assert_eq!(ir.lighting.shadow_texel, 1.0 / 2048.0);
-        assert_eq!(ir.shadow.extent, 300.0);
-        assert_eq!(ir.shadow.far, 420.0, "untouched keys keep defaults");
     }
 }

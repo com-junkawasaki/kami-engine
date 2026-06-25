@@ -33,3 +33,12 @@ backend-wasmi    = ["dep:wasmi"]
 hecs = { workspace = true }
 # Parse the EDN that `kami spec` emits, to round-trip-test the bb-pipeline contract.
 kami-scene = { path = "../kami-scene" }
+# Headless frame-pipeline example (examples/frame_pipeline.rs): the host drives the
+# demo game and feeds the RT compute (kami-render/kami-rt) + binaural WAV (kami-audio)
+# executors. GPU example only — needs an adapter (skips otherwise).
+kami-render = { path = "../kami-render" }
+kami-rt = { path = "../kami-rt" }
+glam = { workspace = true }
+pollster = "0.4"
+wgpu = "24"
+bytemuck = { workspace = true }

@@ -82,6 +82,9 @@ interface render {
     spawn-particle: func(preset-ptr: s32, preset-len: s32, x: s32, y: s32, z: s32);
     // Debug line (start / end as f32 bits, colour as 0xRRGGBBAA).
     draw-line: func(x0: s32, y0: s32, z0: s32, x1: s32, y1: s32, z1: s32, color: s32);
+    // Switch the frame to a named ray-tracing recipe (kami.rt IR); empty name
+    // disables RT and falls back to the raster path.
+    rt-enable: func(recipe-ptr: s32, recipe-len: s32);
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +95,8 @@ interface audio {
     stop:  func(name-ptr: s32, name-len: s32);
     // Spatial: play sound at world position.
     play-at: func(name-ptr: s32, name-len: s32, x: s32, y: s32, z: s32);
+    // Binaural: set listener position (x,y,z) + forward (fx,fy,fz) as f32 bits.
+    set-listener: func(x: s32, y: s32, z: s32, fx: s32, fy: s32, fz: s32);
 }
 
 // ---------------------------------------------------------------------------

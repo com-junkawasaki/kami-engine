@@ -43,9 +43,6 @@
 //! joint-name is a string that round-trips exactly (`"leftUpperArm"`); the limits
 //! are `:min-deg` / `:max-deg`, each a `[x y z]` 3-vector of degrees.
 
-pub mod clip;
-pub use clip::clip_from_edn;
-
 use kami_scene::{mget, root_map, vec3, EdnValue};
 use kami_skeleton::{default_humanoid_constraints, JointConstraint};
 
