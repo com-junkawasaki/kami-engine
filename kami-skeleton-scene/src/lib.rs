@@ -56,7 +56,7 @@ pub use vmd::{mmd_bone_to_humanoid, vmd_to_clip};
 
 /// MMD `.pmx` model import (mesh → [`pmx::PmxModel`]).
 pub mod pmx;
-pub use pmx::{pmx_to_model, PmxBone, PmxModel, PmxMorph, PmxVertex};
+pub use pmx::{pmx_to_model, pmx_to_skeleton, PmxBone, PmxModel, PmxMorph, PmxVertex};
 
 /// The canonical default humanoid joint-constraint table shipped with this crate.
 /// This is the source of truth; the compiled-in `default_humanoid_constraints()`

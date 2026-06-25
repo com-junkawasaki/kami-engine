@@ -289,6 +289,33 @@ fn parse_rest(c: &mut Cur, model: &mut PmxModel) -> Option<()> {
     Some(())
 }
 
+/// Realise a PMX model's bones into a [`kami_skeleton::Skeleton`] — the rig a
+/// `.vmd` motion (via [`crate::vmd_to_clip`]) plays on. PMX bone positions are
+/// world-space at rest (identity rotation); local position = world − parent
+/// world, and the inverse-bind is the inverse of the rest world translation.
+pub fn pmx_to_skeleton(model: &PmxModel) -> kami_skeleton::Skeleton {
+    let bones = model
+        .bones
+        .iter()
+        .map(|b| {
+            let parent = (b.parent >= 0).then_some(b.parent as usize);
+            let local = match parent.and_then(|pi| model.bones.get(pi)) {
+                Some(p) => b.pos - p.pos,
+                None => b.pos,
+            };
+            kami_skeleton::Bone {
+                name: b.name.clone(),
+                parent,
+                local_position: local.into(),
+                local_rotation: [0.0, 0.0, 0.0, 1.0],
+                local_scale: [1.0, 1.0, 1.0],
+                inverse_bind: glam::Mat4::from_translation(-b.pos).to_cols_array_2d(),
+            }
+        })
+        .collect();
+    kami_skeleton::Skeleton { bones }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,8 +370,9 @@ mod tests {
         assert!(pmx_to_model(b"NOPE....").is_none());
     }
 
-    /// The v1 mesh bytes + v2 sections: 0 textures, 0 materials, 1 bone, 1 vertex morph.
-    fn synthetic_pmx_full() -> Vec<u8> {
+    /// The v1 mesh bytes + v2 sections: 0 textures, 0 materials, 1 bone (named
+    /// `bone`), 1 vertex morph.
+    fn synthetic_pmx_full(bone: &[u8]) -> Vec<u8> {
         let mut v = synthetic_pmx();
         let text = |v: &mut Vec<u8>, s: &[u8]| {
             v.extend_from_slice(&(s.len() as i32).to_le_bytes());
@@ -354,7 +382,7 @@ mod tests {
         v.extend_from_slice(&0i32.to_le_bytes()); // 0 materials
         // 1 bone
         v.extend_from_slice(&1i32.to_le_bytes());
-        text(&mut v, b"root");
+        text(&mut v, bone);
         text(&mut v, b"");
         for f in [0.0f32, 1.0, 0.0] {
             v.extend_from_slice(&f.to_le_bytes()); // position
@@ -381,7 +409,7 @@ mod tests {
 
     #[test]
     fn parses_pmx_rig_and_morph() {
-        let m = pmx_to_model(&synthetic_pmx_full()).expect("pmx");
+        let m = pmx_to_model(&synthetic_pmx_full(b"root")).expect("pmx");
         assert_eq!(m.vertices.len(), 3, "mesh still parsed");
         assert_eq!(m.bones.len(), 1, "one bone");
         assert_eq!(m.bones[0].name, "root");
@@ -389,5 +417,37 @@ mod tests {
         assert_eq!(m.morphs.len(), 1, "one vertex morph");
         assert_eq!(m.morphs[0].name, "smile");
         assert_eq!(m.morphs[0].offsets, vec![(2u32, Vec3::new(0.0, 0.1, 0.0))]);
+    }
+
+    /// Minimal 1-keyframe `.vmd` for a (Shift-JIS) bone name.
+    fn vmd_for(bone: &str) -> Vec<u8> {
+        let mut v = vec![0u8; 50];
+        v.extend_from_slice(&1u32.to_le_bytes()); // 1 keyframe
+        let sjis = encoding_rs::SHIFT_JIS.encode(bone).0.into_owned();
+        let mut name = [0u8; 15];
+        let n = sjis.len().min(15);
+        name[..n].copy_from_slice(&sjis[..n]);
+        v.extend_from_slice(&name);
+        v.extend_from_slice(&0u32.to_le_bytes()); // frame 0
+        for f in [0.0f32, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0] {
+            v.extend_from_slice(&f.to_le_bytes()); // pos(3) + quat(4)
+        }
+        v.extend_from_slice(&[0u8; 64]); // interpolation
+        v
+    }
+
+    #[test]
+    fn pmx_skeleton_plays_a_vmd_motion() {
+        // the full MMD path: a .pmx model's skeleton + a .vmd motion on the same
+        // bone — the motion retargets onto the model rig by name.
+        let model = pmx_to_model(&synthetic_pmx_full("センター".as_bytes())).expect("pmx");
+        let skel = pmx_to_skeleton(&model);
+        assert_eq!(skel.bones.len(), 1);
+        assert_eq!(skel.bones[0].name, "センター");
+        // index the model's bones by name for the motion retarget.
+        let idx = |n: &str| skel.bones.iter().position(|b| b.name == n);
+        let clip = crate::vmd_to_clip(&vmd_for("センター"), 30.0, idx).expect("clip");
+        assert_eq!(clip.tracks.len(), 1, "the センター track retargets onto the .pmx bone");
+        assert_eq!(clip.tracks[0].bone_index, 0);
     }
 }
