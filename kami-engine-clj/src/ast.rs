@@ -741,6 +741,11 @@ fn lower_call(items: &[EdnValue]) -> Result<Expr, CljError> {
         "as->"     => lower_as_thread(args),
         "cond->"   => lower_cond_thread(args, true),
         "cond->>"  => lower_cond_thread(args, false),
+        "even?"    => lower_parity(args, true),
+        "odd?"     => lower_parity(args, false),
+        "min"      => lower_min_max(args, true),
+        "max"      => lower_min_max(args, false),
+        "clamp"    => lower_clamp(args),
         "doseq-entities" => lower_doseq_entities(args),
         // `(atom-val name)` / `(set-atom! name value)` — read/write a defatom cell. The atom
         // name is a bare symbol (resolved to a global at codegen), not an evaluated argument.
@@ -982,6 +987,58 @@ fn lower_cond_thread(args: &[EdnValue], first: bool) -> Result<Expr, CljError> {
         }));
     }
     Ok(nest_lets(bindings, Expr::Var(name)))
+}
+
+fn lower_parity(args: &[EdnValue], even: bool) -> Result<Expr, CljError> {
+    // (even? x) ≡ (= (mod x 2) 0) ; (odd? x) ≡ (not= (mod x 2) 0)
+    if args.len() != 1 {
+        return Err(CljError::Lower("even?/odd? takes one argument".into()));
+    }
+    let m = Expr::Builtin { op: Builtin::Mod, args: vec![lower_expr(&args[0])?, Expr::Int(2)] };
+    Ok(Expr::Builtin {
+        op: if even { Builtin::Eq } else { Builtin::NotEq },
+        args: vec![m, Expr::Int(0)],
+    })
+}
+
+fn lower_min_max(args: &[EdnValue], is_min: bool) -> Result<Expr, CljError> {
+    // (min a b) ≡ (let [ta a tb b] (if (< ta tb) ta tb)) ; max uses >. Args bound once (no re-eval).
+    if args.len() != 2 {
+        return Err(CljError::Lower("min/max takes two arguments".into()));
+    }
+    let op = if is_min { Builtin::Lt } else { Builtin::Gt };
+    let ta = gensym("m");
+    let tb = gensym("m");
+    Ok(Expr::Let {
+        bindings: vec![(ta.clone(), lower_expr(&args[0])?), (tb.clone(), lower_expr(&args[1])?)],
+        body: vec![Expr::If {
+            cond: Box::new(Expr::Builtin { op, args: vec![Expr::Var(ta.clone()), Expr::Var(tb.clone())] }),
+            then: Box::new(Expr::Var(ta)),
+            els:  Box::new(Expr::Var(tb)),
+        }],
+    })
+}
+
+fn lower_clamp(args: &[EdnValue]) -> Result<Expr, CljError> {
+    // (clamp x lo hi) ≡ (min (max x lo) hi) — all three bound once.
+    if args.len() != 3 {
+        return Err(CljError::Lower("clamp takes: (clamp x lo hi)".into()));
+    }
+    let (tx, tlo, thi, tlow) = (gensym("c"), gensym("c"), gensym("c"), gensym("c"));
+    let maxv = Expr::If { // (max x lo)
+        cond: Box::new(Expr::Builtin { op: Builtin::Gt, args: vec![Expr::Var(tx.clone()), Expr::Var(tlo.clone())] }),
+        then: Box::new(Expr::Var(tx.clone())),
+        els:  Box::new(Expr::Var(tlo.clone())),
+    };
+    let minv = Expr::If { // (min tlow hi)
+        cond: Box::new(Expr::Builtin { op: Builtin::Lt, args: vec![Expr::Var(tlow.clone()), Expr::Var(thi.clone())] }),
+        then: Box::new(Expr::Var(tlow.clone())),
+        els:  Box::new(Expr::Var(thi.clone())),
+    };
+    Ok(Expr::Let {
+        bindings: vec![(tx, lower_expr(&args[0])?), (tlo, lower_expr(&args[1])?), (thi, lower_expr(&args[2])?)],
+        body: vec![Expr::Let { bindings: vec![(tlow, maxv)], body: vec![minv] }],
+    })
 }
 
 fn lower_if(args: &[EdnValue]) -> Result<Expr, CljError> {

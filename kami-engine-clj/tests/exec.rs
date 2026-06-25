@@ -194,3 +194,20 @@ fn threading_macro_family_computes() {
     // cond-> with all tests false returns the seed unchanged
     assert_eq!(eval("(cond-> 7 (< 2 1) (+ 100))"), 7);
 }
+
+#[test]
+fn numeric_gameplay_forms_compute() {
+    // parity predicates
+    assert_eq!(eval("(even? 4)"), 1);
+    assert_eq!(eval("(even? 5)"), 0);
+    assert_eq!(eval("(odd? 5)"), 1);
+    // min / max (bound once, no re-eval)
+    assert_eq!(eval("(min 3 7)"), 3);
+    assert_eq!(eval("(min 7 3)"), 3);
+    assert_eq!(eval("(max 3 7)"), 7);
+    assert_eq!(eval("(max (- 0 2) (- 0 9))"), -2);
+    // clamp = (min (max x lo) hi) — the gameplay staple (health/position bounds)
+    assert_eq!(eval("(clamp 5 0 10)"), 5);   // in range
+    assert_eq!(eval("(clamp 15 0 10)"), 10); // above
+    assert_eq!(eval("(clamp (- 0 3) 0 10)"), 0); // below
+}
