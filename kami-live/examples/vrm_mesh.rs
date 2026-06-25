@@ -209,7 +209,7 @@ async fn run() {
             view_proj: vp.to_cols_array_2d(),
             base: [base[0], base[1], base[2], 1.0],
             shade: [shade[0], shade[1], shade[2], 1.0],
-            ambient: [amb[0] * 0.5, amb[1] * 0.5, amb[2] * 0.5, ir.env.exposure.max(0.5)],
+            ambient: [amb[0] * 0.5, amb[1] * 0.5, amb[2] * 0.5, ir.env.ibl_intensity.max(0.5)],
             n_lights: n_lights as u32,
             _pad: [0; 3],
             lights,
