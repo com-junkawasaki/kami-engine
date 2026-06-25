@@ -39,9 +39,9 @@ jobs:
           workspaces: kami-engine
       - name: Build the workspace (catch breaks)
         working-directory: kami-engine
-        run: cargo build --workspace --locked
+        run: cargo build --workspace
       - name: Data-tier parity oracles (EDN == Rust) + geometry golden — pure, no GPU
         working-directory: kami-engine
         run: |
-          cargo test -p kami-vehicle-scene -p kami-atmosphere-scene -p kami-terrain-scene --locked
-          cargo test -p kami-webgpu-rs --lib --locked cube_matches sphere_matches cylinder_matches lit_shader_matches shadow_shader_matches 2>/dev/null || true
+          cargo test -p kami-vehicle-scene -p kami-atmosphere-scene -p kami-terrain-scene
+          cargo test -p kami-webgpu-rs --lib cube_matches sphere_matches cylinder_matches lit_shader_matches shadow_shader_matches 2>/dev/null || true
