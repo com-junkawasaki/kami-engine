@@ -53,8 +53,6 @@ fn vec2(v: Option<&EdnValue>) -> [f32; 2] {
 fn opt_vec3(v: Option<&EdnValue>) -> Option<[f32; 3]> {
     v.and_then(|x| x.as_vector()).map(|_| vec3(v))
 }
-<<<<<<< Updated upstream
-=======
 /// Local keyword/string name (namespace dropped), if `v` is one.
 fn ident(v: Option<&EdnValue>) -> Option<String> {
     v.and_then(|x| {
@@ -1109,7 +1107,6 @@ mod render_ir_ext_tests {
         assert!(m.cast_shadow, "meshes cast shadow by default");
     }
 }
->>>>>>> Stashed changes
 
 /// Parse the EDN render-IR — the same data the CLJS executor consumes.
 pub fn parse_ir(edn: &str) -> (Globals, Vec<Instance>) {
@@ -1233,75 +1230,13 @@ fn model_mat(i: &Instance) -> Mat4 {
         * Mat4::from_scale(Vec3::new(w, h, w))
 }
 
-// Main shader — identical WGSL to the web kami.webgpu (shadow-map PCF included).
-const SHADER: &str = r#"
-struct G { vp: mat4x4<f32>, sun_dir: vec4<f32>, sun_col: vec4<f32>, sky: vec4<f32>, light_vp: mat4x4<f32> };
-@group(0) @binding(0) var<uniform> g: G;
-@group(0) @binding(1) var shadowMap: texture_depth_2d;
-@group(0) @binding(2) var shadowSamp: sampler_comparison;
-fn shadow(wpos: vec3<f32>, ndl: f32) -> f32 {
-  let lc = g.light_vp * vec4<f32>(wpos, 1.0);
-  let ndc = lc.xyz / lc.w;
-  let uv = vec2<f32>(ndc.x*0.5+0.5, 0.5-ndc.y*0.5);
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || ndc.z > 1.0) { return 1.0; }
-  let bias = max(0.0025*(1.0-ndl), 0.0006);
-  let texel = 1.0/2048.0;
-  var lit = 0.0;
-  for (var dx = -1; dx <= 1; dx++) {
-    for (var dy = -1; dy <= 1; dy++) {
-      lit += textureSampleCompareLevel(shadowMap, shadowSamp, uv + vec2<f32>(f32(dx),f32(dy))*texel, ndc.z - bias);
-    }
-  }
-  return lit/9.0;
-}
-struct VO { @builtin(position) clip: vec4<f32>, @location(0) n: vec3<f32>, @location(1) col: vec3<f32>, @location(2) wpos: vec3<f32>, @location(3) mat: vec3<f32> };
-@vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>,
-      @location(2) m0: vec4<f32>, @location(3) m1: vec4<f32>, @location(4) m2: vec4<f32>, @location(5) m3: vec4<f32>,
-      @location(6) color: vec4<f32>, @location(7) material: vec4<f32>) -> VO {
-  let model = mat4x4<f32>(m0, m1, m2, m3);
-  let world = model * vec4<f32>(pos, 1.0);
-  var o: VO; o.clip = g.vp * world;
-  o.n = normalize((model * vec4<f32>(normal, 0.0)).xyz); o.col = color.rgb; o.wpos = world.xyz;
-  o.mat = material.xyz; return o;
-}
-@fragment
-fn fs(i: VO) -> @location(0) vec4<f32> {
-  let N = normalize(i.n);
-  let L = normalize(-g.sun_dir.xyz);
-  let eye = vec3<f32>(g.sun_dir.w, g.sun_col.w, g.sky.w);
-  let V = normalize(eye - i.wpos);
-  let H = normalize(L + V);
-  let ndl = max(dot(N, L), 0.0);
-  let metallic = clamp(i.mat.x, 0.0, 1.0);
-  let rough = clamp(i.mat.y, 0.04, 1.0);
-  let emissive = i.mat.z;
-  let amb = mix(vec3<f32>(0.20,0.22,0.26), g.sky.rgb*0.65, N.y*0.5+0.5);
-  let shininess = mix(4.0, 256.0, 1.0 - rough);
-  let spec = pow(max(dot(N, H), 0.0), shininess) * mix(0.25, 0.9, metallic);
-  let specTint = mix(vec3<f32>(1.0), i.col, metallic);
-  let rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * 0.25;
-  let sh = shadow(i.wpos, ndl);
-  var c = i.col * (amb + ndl * g.sun_col.rgb * 0.9 * (1.0 - metallic*0.7) * sh)
-        + specTint * g.sun_col.rgb * spec * sh + g.sky.rgb * rim + i.col * emissive;
-  c = c / (c + vec3<f32>(1.0));
-  c = pow(c, vec3<f32>(1.0/2.2));
-  return vec4<f32>(c, 1.0);
-}
-"#;
+// Main + shadow shaders are GENERATED from kami.shaders/lit-shader (the EDN AST via kami.wgsl) and
+// committed here by `bb gen-wgsl`; the web (kami.webgpu) renders the same source. `bb wgsl-parity`
+// gates that these files stay token-equivalent to kami.shaders, so web↔native can't silently drift.
+const SHADER: &str = include_str!("lit_shader.wgsl");
 
 // Depth-only shadow pass — renders instances from the sun's POV into the shadow map.
-const SHADOW_WGSL: &str = r#"
-struct G { vp: mat4x4<f32>, sun_dir: vec4<f32>, sun_col: vec4<f32>, sky: vec4<f32>, light_vp: mat4x4<f32> };
-@group(0) @binding(0) var<uniform> g: G;
-@vertex
-fn vs(@location(0) pos: vec3<f32>, @location(1) normal: vec3<f32>,
-      @location(2) m0: vec4<f32>, @location(3) m1: vec4<f32>, @location(4) m2: vec4<f32>, @location(5) m3: vec4<f32>,
-      @location(6) color: vec4<f32>, @location(7) material: vec4<f32>) -> @builtin(position) vec4<f32> {
-  let model = mat4x4<f32>(m0, m1, m2, m3);
-  return g.light_vp * model * vec4<f32>(pos, 1.0);
-}
-"#;
+const SHADOW_WGSL: &str = include_str!("shadow_shader.wgsl");
 
 const MAX_INST: u32 = 16384;
 
@@ -1404,7 +1339,7 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
         });
         let gbuf = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None, size: 176, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+            label: None, size: 240, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
         });
 
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: None, source: wgpu::ShaderSource::Wgsl(SHADER.into()) });
@@ -1492,18 +1427,15 @@ impl Renderer {
         let light_vp = Mat4::orthographic_rh(-shd.extent, shd.extent, -shd.extent, shd.extent, shd.near, shd.far)
             * Mat4::look_at_rh(leye, ltgt, Vec3::Y);
 
-        let mut gf = [0f32; 44];
+        let mut gf = [0f32; 60];
         gf[0..16].copy_from_slice(&vp.to_cols_array());
         gf[16..20].copy_from_slice(&[g.sun_dir[0], g.sun_dir[1], g.sun_dir[2], eye[0]]);
         gf[20..24].copy_from_slice(&[g.sun[0], g.sun[1], g.sun[2], eye[1]]);
         gf[24..28].copy_from_slice(&[g.horizon[0], g.horizon[1], g.horizon[2], eye[2]]);
         gf[28..44].copy_from_slice(&light_vp.to_cols_array());
-<<<<<<< Updated upstream
-=======
         // tunable lighting → g.light_a..d (the web↔native single-source layout). The passed
         // Lighting is the parsed `[:globals :lighting]`; its defaults reproduce the old look.
         gf[44..60].copy_from_slice(&lighting.pack());
->>>>>>> Stashed changes
         self.queue.write_buffer(&self.gbuf, 0, bytemuck::cast_slice(&gf));
 
         let n_inst = insts.len().min(MAX_INST as usize);
@@ -1678,6 +1610,25 @@ mod tests {
         cap(&mut v, &mut idx, -hy, [0.0, -1.0, 0.0], -1, nv + (1 + top.len()) as u16);
         (v, idx)
     }
+    // The shaders are generated from kami.shaders/lit-shader (bb gen-wgsl). Assert the include_str'd
+    // WGSL matches the cljc canonical fixture token-for-token, so native can't drift from the web
+    // shader. Skips if kami-webgpu isn't co-located (same policy as the geometry goldens).
+    fn shader_canon(s: &str) -> String {
+        s.chars().filter(|c| !c.is_whitespace() && *c != '(' && *c != ')').collect()
+    }
+    fn assert_shader_parity(fixture: &str, native: &str) {
+        let path = format!("{}/../../kami-webgpu/fixtures/{}", env!("CARGO_MANIFEST_DIR"), fixture);
+        let Ok(golden) = std::fs::read_to_string(&path) else {
+            eprintln!("skip: {fixture} not found (kami-webgpu not co-located)"); return;
+        };
+        assert_eq!(shader_canon(native), shader_canon(&golden),
+                   "native shader must be token-equivalent to the kami.shaders canonical (run bb gen-wgsl)");
+    }
+    #[test]
+    fn lit_shader_matches_cljc_canonical() { assert_shader_parity("lit-shader.wgsl", SHADER); }
+    #[test]
+    fn shadow_shader_matches_cljc_canonical() { assert_shader_parity("shadow-shader.wgsl", SHADOW_WGSL); }
+
     fn load_golden(name: &str) -> Option<(Vec<f32>, Vec<u16>)> {
         let path = format!("{}/../../kami-webgpu/fixtures/{}-golden.json", env!("CARGO_MANIFEST_DIR"), name);
         let json = std::fs::read_to_string(&path).ok()?;
