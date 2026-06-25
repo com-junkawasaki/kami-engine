@@ -559,6 +559,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "color_quant"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1295,6 +1301,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gif"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee8cfcc411d9adbbaba82fb72661cc1bcca13e8bba98b364e62b2dba8f960159"
+dependencies = [
+ "color_quant",
+ "weezl",
+]
+
+[[package]]
 name = "gilrs"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1598,6 +1614,8 @@ checksum = "85ab80394333c02fe689eaf900ab500fbd0c2213da414687ebf995a65d5a6104"
 dependencies = [
  "bytemuck",
  "byteorder-lite",
+ "color_quant",
+ "gif",
  "moxcms",
  "num-traits",
  "png 0.18.1",
@@ -1821,6 +1839,7 @@ dependencies = [
  "kami-atmosphere",
  "kami-render",
  "kami-vehicle",
+ "kami-vehicle-scene",
  "log",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1889,6 +1908,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kami-atmosphere-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-atmosphere",
+ "kami-scene",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kami-audio"
 version = "0.1.0"
 dependencies = [
@@ -1904,6 +1932,15 @@ dependencies = [
  "kami-pathfind",
  "kami-sensor-sim",
  "kami-vehicle",
+]
+
+[[package]]
+name = "kami-autodrive-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-autodrive",
+ "kami-scene",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2012,6 +2049,15 @@ dependencies = [
  "kami-skeleton",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "kami-character-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-character",
+ "kami-scene",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2268,6 +2314,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kami-game-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-game",
+ "kami-scene",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kami-genesis"
 version = "0.1.0"
 dependencies = [
@@ -2330,6 +2385,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kami-input-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-input",
+ "kami-scene",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kami-ip"
 version = "0.1.0"
 dependencies = [
@@ -2360,10 +2424,21 @@ dependencies = [
 name = "kami-live"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "glam",
+ "image",
+ "kami-postfx",
+ "kami-postfx-scene",
+ "kami-scene",
+ "kami-skeleton-scene",
+ "kami-vrm",
+ "kami-webgpu-rs",
+ "kotoba-edn",
  "log",
+ "pollster",
  "serde",
  "serde_json",
+ "wgpu",
 ]
 
 [[package]]
@@ -2572,6 +2647,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kami-postfx-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-postfx",
+ "kami-scene",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kami-power"
 version = "0.1.0"
 dependencies = [
@@ -2761,6 +2845,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kami-skeleton-scene"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "kami-scene",
+ "kami-skeleton",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kami-spice"
 version = "0.1.0"
 dependencies = [
@@ -2778,6 +2872,15 @@ dependencies = [
  "bytemuck",
  "glam",
  "serde",
+]
+
+[[package]]
+name = "kami-terrain-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-scene",
+ "kami-terrain",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2843,12 +2946,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "kami-vegetation-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-scene",
+ "kami-vegetation",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kami-vehicle"
 version = "0.1.0"
 dependencies = [
  "glam",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "kami-vehicle-scene"
+version = "0.1.0"
+dependencies = [
+ "kami-scene",
+ "kami-vehicle",
  "thiserror 2.0.18",
 ]
 
@@ -5642,6 +5763,12 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "weezl"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
 name = "wgpu"
