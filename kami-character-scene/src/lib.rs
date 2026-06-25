@@ -46,6 +46,9 @@
 /// MetaHuman FACS face-rig AU→bone table as EDN (rebuilds the real `ControlRig`).
 pub mod face_rig;
 
+/// MetaHuman default animation blueprint as EDN (rebuilds the real `AnimBlueprint`).
+pub mod anim_blueprint;
+
 use std::collections::BTreeMap;
 
 use kami_character::{HairStyle, HairType};
