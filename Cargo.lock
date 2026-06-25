@@ -2678,7 +2678,9 @@ dependencies = [
  "gpu-allocator",
  "image",
  "kami-core",
+ "kami-rt",
  "log",
+ "pollster",
  "serde_json",
  "thiserror 2.0.18",
  "wgpu",
@@ -2698,6 +2700,8 @@ dependencies = [
 name = "kami-rt"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "glam",
  "log",
  "thiserror 2.0.18",
 ]
@@ -2774,16 +2778,22 @@ dependencies = [
 name = "kami-script-runtime"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "glam",
  "hecs",
  "kami-audio",
  "kami-core",
  "kami-input",
+ "kami-render",
+ "kami-rt",
  "kami-scene",
  "kototama",
  "log",
+ "pollster",
  "thiserror 2.0.18",
  "wasmi",
  "wasmtime",
+ "wgpu",
 ]
 
 [[package]]

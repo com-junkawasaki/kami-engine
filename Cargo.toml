@@ -60,6 +60,7 @@ members = [
     "kami-cad",
     "kami-cad-import",
     "kami-cam",
+    "kami-cam-scene",
     "kami-rtl",
     "kami-cae",
     "kami-eng-io",

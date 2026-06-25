@@ -43,6 +43,7 @@ pub struct Lint {
 }
 
 const STAGES: &[&str] = &["club", "hall", "festival"];
+const EXPR_SOURCES: &[&str] = &["cheer", "beat", "blink"];
 const DANCES: &[&str] = &["idle", "four-on-floor", "wota", "kpop-point", "shuffle", "hold"];
 const CUE_KINDS: &[&str] = &["drop", "breakdown", "callout", "custom"];
 const TRIGGER_ON: &[&str] = &[
@@ -273,6 +274,32 @@ pub fn lint_scene(src: &str) -> Vec<Lint> {
                 );
             }
         }
+        // expression drives: each `:from` must be a known show signal.
+        if let Some(exprs) = mget(av, "expressions").and_then(|v| v.as_map()) {
+            for (k, v) in exprs {
+                let nm = k
+                    .as_keyword()
+                    .map(|kw| kw.0.name.clone())
+                    .or_else(|| k.as_string().map(|s| s.to_string()))
+                    .unwrap_or_default();
+                if let Some(src) = v.as_map().and_then(|dm| name(mget(dm, "from"))) {
+                    if !EXPR_SOURCES.contains(&src.as_str()) {
+                        warn(
+                            &mut out,
+                            &format!("dance/avatar.expressions.{nm}"),
+                            format!("unknown expression source `:from {src}` — defaults to :beat; expected one of {EXPR_SOURCES:?}"),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // ── :dance/camera ───────────────────────────────────────────────────────
+    if let Some(cam) = mget(&root, "dance/camera").and_then(|v| v.as_map()) {
+        if num(mget(cam, "fov")).map_or(false, |fv| fv <= 0.0 || fv > std::f32::consts::PI) {
+            warn(&mut out, "dance/camera.fov", "fov must be in (0, π] radians — defaults to 0.9".into());
+        }
     }
 
     // ── :dance/live2d ───────────────────────────────────────────────────────
@@ -320,6 +347,20 @@ pub fn lint_scene(src: &str) -> Vec<Lint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flags_unknown_expression_source_and_bad_fov() {
+        let src = r#"
+        {:dance/avatar {:vrm "a.vrm" :expressions {:happy {:from :loudness}}}
+         :dance/camera {:fov 9.0}
+         :dance/setlist [{:title "A" :bars 8 :dance :wota :cues [{:beat 1 :kind :drop}]}]}
+        "#;
+        let lints = lint_scene(src);
+        assert!(lints.iter().any(|l| l.path == "dance/avatar.expressions.happy"),
+            "unknown :from flagged: {lints:?}");
+        assert!(lints.iter().any(|l| l.path == "dance/camera.fov"),
+            "out-of-range fov flagged: {lints:?}");
+    }
 
     #[test]
     fn clean_scene_has_no_lints() {

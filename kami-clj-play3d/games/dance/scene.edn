@@ -26,7 +26,13 @@
   :scale        1.0
   :look-at      true      ;; eyes/head track the camera
   :spring-bones true      ;; VRMC_springBone hair/skirt secondary motion
-  :clip         "idle"}   ;; base animation clip (defined in :dance/clips)
+  :clip         "idle"    ;; base animation clip (defined in :dance/clips)
+  ;; show→VRM-expression drives: the face animates from the live show with no
+  ;; per-frame authoring (smile on cheers, lip-sync on the beat, periodic blink).
+  ;; Resolved per frame by AvatarBinding::expression_weights → ExpressionManager.
+  :expressions  {:happy {:from :cheer :gain 0.03}
+                 :aa    {:from :beat}
+                 :blink {:from :blink}}}
 
  ;; EDN-authored animation clips (no binary .vrma needed). The host loads each
  ;; via kami_skeleton::clip_from_edn and blends per the render-IR :animations.
@@ -54,6 +60,14 @@
  [{:effect :bloom :threshold 1.0 :intensity 0.6}
   {:effect :color-grade :lift [0.0 0.0 0.03] :gamma [1.0 1.0 1.0] :gain [1.05 1.0 0.95]}
   {:effect :vignette :intensity 0.35}]
+
+ ;; camera rig framing the performer — authored as data (not hardcoded). The eye
+ ;; sits at the live performer position + :offset; the look target at + :look.
+ :dance/camera {:fov 0.9
+                :shots [{:at-bar 0  :offset [0.0 3.0 8.0]  :look [0.0 1.0 0.0]}   ;; wide establishing
+                        {:at-bar 16 :offset [0.0 1.6 3.2]  :look [0.0 1.3 0.0]}   ;; dolly in (verse)
+                        {:at-bar 32 :offset [4.5 2.0 5.0]  :look [0.0 1.1 0.0]}   ;; side (chorus)
+                        {:at-bar 48 :offset [0.0 3.5 9.0]  :look [0.0 1.0 0.0]}]}
 
  ;; audience density (deterministic placement from :seed)
  :dance/crowd

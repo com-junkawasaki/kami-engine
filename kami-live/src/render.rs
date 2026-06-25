@@ -15,7 +15,7 @@
 use kotoba_edn::EdnValue;
 
 use crate::lighting::LightingFixture;
-use crate::scene::AvatarBinding;
+use crate::scene::{AvatarBinding, CameraRig};
 use crate::show::ShowSnapshot;
 
 #[inline]
@@ -62,10 +62,17 @@ fn instance(
 /// - **crowd** → one lit instance per fan; raised lightsticks glow (emissive).
 /// - **globals** → sky tinted by the current VJ palette, camera framed behind
 ///   and above the performer.
-pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding) -> EdnValue {
+pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &CameraRig) -> EdnValue {
     let pose = &snap.performer_pose;
     let p = pose.root_translation;
     let s = avatar.scale.max(0.01);
+    // camera rig (`:dance/camera`): eye/target follow the performer by the
+    // data-authored offset/look (or the active `:shots` choreography, dollied by
+    // the current bar); fov from the rig.
+    let barf = snap.phase.bar as f32 + snap.phase.bar_frac;
+    let (cam_off, cam_lk) = cam.framing_at(barf);
+    let cam_eye = [p.x + cam_off.x, p.y + cam_off.y, p.z + cam_off.z];
+    let cam_target = [p.x + cam_lk.x, p.y + cam_lk.y, p.z + cam_lk.z];
 
     let mut instances: Vec<EdnValue> = Vec::with_capacity(snap.crowd.len() + 1);
 
@@ -103,8 +110,8 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding) -> EdnValu
     ]);
     let globals = EdnValue::map([
         (kw("sky"), sky),
-        (kw("eye"), vec3_edn([p.x, p.y + 3.0, p.z + 8.0])),
-        (kw("target"), vec3_edn([p.x, p.y + 1.0, p.z])),
+        (kw("eye"), vec3_edn(cam_eye)),
+        (kw("target"), vec3_edn(cam_target)),
     ]);
 
     // ── ADR-0044 vocabulary: lights / camera / materials / meshes ───────────
@@ -125,9 +132,9 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding) -> EdnValu
 
     // Explicit camera (fov/near/far) framing the performer.
     let camera = EdnValue::map([
-        (kw("eye"), vec3_edn([p.x, p.y + 3.0, p.z + 8.0])),
-        (kw("target"), vec3_edn([p.x, p.y + 1.0, p.z])),
-        (kw("fov"), f(0.9)),
+        (kw("eye"), vec3_edn(cam_eye)),
+        (kw("target"), vec3_edn(cam_target)),
+        (kw("fov"), f(cam.fov)),
         (kw("near"), f(0.1)),
         (kw("far"), f(500.0)),
     ]);
@@ -144,16 +151,18 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding) -> EdnValu
     ])];
     let mut meshes: Vec<EdnValue> = Vec::new();
     if !avatar.vrm.is_empty() {
-        // VRM expressions driven by the same show (mirrors the Live2D param
-        // driver): cheer → happy, beat front → mouth (aa), periodic blink.
-        let happy = (snap.cheer_loudness / 40.0).clamp(0.0, 1.0);
-        let aa = ((1.0 - (snap.phase.beat_frac * std::f32::consts::TAU).cos()) * 0.5).clamp(0.0, 1.0);
-        let blink = blink_expr(snap.phase.time);
-        let expressions = EdnValue::map([
-            (kw("happy"), f(happy)),
-            (kw("aa"), f(aa)),
-            (kw("blink"), f(blink)),
-        ]);
+        // VRM expressions driven by the show, but authored in clj/edn: the
+        // `:dance/avatar :expressions` drives (smile-on-cheer / lip-sync-on-beat /
+        // blink) are resolved here so the render-IR carries EDN-configured weights.
+        let weights = avatar.expression_weights(snap.cheer_loudness, snap.phase.beat_frac, snap.phase.time);
+        // Emit every *declared* expression (stable keys) with its current weight
+        // (0 when inactive) — names come from the EDN `:expressions` drives.
+        let expr_entries: Vec<(EdnValue, EdnValue)> = avatar
+            .expressions
+            .iter()
+            .map(|d| (kw(&d.name), f(*weights.get(&d.name).unwrap_or(&0.0))))
+            .collect();
+        let expressions = EdnValue::map(expr_entries);
         meshes.push(EdnValue::map([
             (kw("id"), kw("performer")),
             (kw("url"), EdnValue::string(avatar.vrm.clone())),
@@ -192,16 +201,6 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding) -> EdnValu
     ])
 }
 
-/// VRM `blink` expression weight: ~0 (eyes open) most of the time, spiking to 1
-/// (closed) for a quick blink every ~3 s. Deterministic on show time.
-fn blink_expr(t: f32) -> f32 {
-    let m = t - 3.0 * (t / 3.0).floor(); // t mod 3
-    if m < 0.12 {
-        1.0 - (m / 0.06 - 1.0).abs().min(1.0)
-    } else {
-        0.0
-    }
-}
 
 /// Map a lighting fixture to a render-IR light kind: moving heads (spot) project
 /// a cone; everything else washes as a directional.
@@ -214,8 +213,8 @@ fn fixture_light_kind(fixture: LightingFixture) -> &'static str {
 
 /// Serialise [`show_to_render_ir`] to an EDN string — feed straight to
 /// `kami_webgpu_rs::parse_ir` (native) or the web reader.
-pub fn show_to_render_ir_edn(snap: &ShowSnapshot, avatar: &AvatarBinding) -> String {
-    kotoba_edn::to_string(&show_to_render_ir(snap, avatar))
+pub fn show_to_render_ir_edn(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &CameraRig) -> String {
+    kotoba_edn::to_string(&show_to_render_ir(snap, avatar, cam))
 }
 
 #[cfg(test)]
@@ -246,7 +245,7 @@ mod tests {
     #[test]
     fn render_ir_is_well_formed_edn() {
         let (snap, avatar) = snap_after(1.0);
-        let edn = show_to_render_ir_edn(&snap, &avatar);
+        let edn = show_to_render_ir_edn(&snap, &avatar, &CameraRig::default());
         // re-parse with the same accessors the renderers use.
         let root = root_map(&edn).expect("render-ir parses as a map");
         assert!(mget(&root, "globals").and_then(|v| v.as_map()).is_some());
@@ -264,7 +263,7 @@ mod tests {
     #[test]
     fn camera_tracks_performer() {
         let (snap, avatar) = snap_after(0.5);
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar)).unwrap();
+        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default())).unwrap();
         let g = mget(&root, "globals").and_then(|v| v.as_map()).unwrap();
         let eye = vec3(mget(g, "eye"));
         let target = vec3(mget(g, "target"));
@@ -277,7 +276,7 @@ mod tests {
         // The dance render-IR carries the avatar as a skinned :meshes entry
         // (ADR-0044 phase 3) plus the lighting rig as :lights — not just cuboids.
         let (snap, avatar) = snap_after(0.2);
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar)).unwrap();
+        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default())).unwrap();
         // avatar mesh present, bound to the VRM and the performer material.
         let meshes = mget(&root, "meshes").and_then(|v| v.as_vector()).expect("meshes");
         assert_eq!(meshes.len(), 1, "the bound VRM avatar");
@@ -301,7 +300,7 @@ mod tests {
     fn emits_animation_layer_for_avatar_clip() {
         let (snap, mut avatar) = snap_after(0.5);
         avatar.clip = Some("idle".into());
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar)).unwrap();
+        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default())).unwrap();
         let anims = mget(&root, "animations").and_then(|v| v.as_vector()).expect("animations");
         assert_eq!(anims.len(), 1);
         let a = anims[0].as_map().unwrap();
@@ -313,7 +312,7 @@ mod tests {
     #[test]
     fn no_animation_layer_without_clip() {
         let (snap, avatar) = snap_after(0.2); // example SCENE avatar has no :clip
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar)).unwrap();
+        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default())).unwrap();
         let anims = mget(&root, "animations").and_then(|v| v.as_vector()).unwrap();
         assert!(anims.is_empty());
     }
@@ -322,7 +321,7 @@ mod tests {
     fn no_mesh_when_avatar_unbound() {
         let (snap, mut avatar) = snap_after(0.2);
         avatar.vrm = String::new();
-        let root = root_map(&show_to_render_ir_edn(&snap, &avatar)).unwrap();
+        let root = root_map(&show_to_render_ir_edn(&snap, &avatar, &CameraRig::default())).unwrap();
         let meshes = mget(&root, "meshes").and_then(|v| v.as_vector()).unwrap();
         assert!(meshes.is_empty(), "no VRM bound → no avatar mesh");
     }
@@ -331,11 +330,11 @@ mod tests {
     fn deterministic_render_ir() {
         let a = {
             let (s, av) = snap_after(0.75);
-            show_to_render_ir_edn(&s, &av)
+            show_to_render_ir_edn(&s, &av, &CameraRig::default())
         };
         let b = {
             let (s, av) = snap_after(0.75);
-            show_to_render_ir_edn(&s, &av)
+            show_to_render_ir_edn(&s, &av, &CameraRig::default())
         };
         assert_eq!(a, b, "same EDN scene + time → identical render-IR");
     }

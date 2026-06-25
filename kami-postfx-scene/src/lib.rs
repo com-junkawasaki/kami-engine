@@ -337,6 +337,22 @@ pub fn builtin_preset(name: &str) -> Option<PostFxPipeline> {
 
 /// Build one preset's pipeline from its EDN effect-vector: `PostFxPipeline::new()` +
 /// `add(effect)` in order, exactly the way the hardcoded builders assemble it.
+/// Realise a render-IR `:post` chain into a [`PostFxPipeline`] — the dance show's
+/// `:dance/post` (projected into the render-IR `:post` key by kami-live) becomes
+/// the host's post-processing pipeline. Like [`preset_from_edn`], but reads the
+/// per-frame render-IR `:post` vector instead of a named preset. Returns an empty
+/// pipeline when there is no `:post` key (or it is malformed) — tolerant like the
+/// rest of the data tier.
+pub fn chain_from_render_ir(render_ir_edn: &str) -> PostFxPipeline {
+    let Some(root) = root_map(render_ir_edn) else {
+        return PostFxPipeline::new();
+    };
+    match mget(&root, "post").and_then(|v| v.as_vector()) {
+        Some(vec) => pipeline_from_vec(vec).unwrap_or_else(|_| PostFxPipeline::new()),
+        None => PostFxPipeline::new(),
+    }
+}
+
 fn pipeline_from_vec(effects: &[EdnValue]) -> Result<PostFxPipeline, Error> {
     let mut p = PostFxPipeline::new();
     for v in effects {
