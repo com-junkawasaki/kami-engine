@@ -2424,6 +2424,7 @@ dependencies = [
 name = "kami-live"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "glam",
  "image",
  "kami-postfx",
@@ -2434,8 +2435,10 @@ dependencies = [
  "kami-webgpu-rs",
  "kotoba-edn",
  "log",
+ "pollster",
  "serde",
  "serde_json",
+ "wgpu",
 ]
 
 [[package]]
