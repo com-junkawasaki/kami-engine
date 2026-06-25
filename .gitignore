@@ -8,3 +8,4 @@ Cargo.lock.bak
 **/pkg
 node_modules
 /dist/
+/dance_*.png
