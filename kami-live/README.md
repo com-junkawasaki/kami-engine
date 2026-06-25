@@ -17,7 +17,8 @@ DanceScene::frame(dt) ─▶ DanceFrame { render_ir, actions, live2d }
 | Key | Meaning |
 |---|---|
 | `:dance/show` | `{:bpm :stage :club\|:hall\|:festival :swing :meter [bpb bpp] :performer}` — tempo grid + venue |
-| `:dance/avatar` | VRM: `{:vrm :home :scale :look-at :spring-bones :clip "name" :spring {:stiffness :drag :gravity}}`. `:spring` tunes VRMC_springBone host-side; `:look-at` is `true`/`false` or `{:target :camera \| [x y z]}` (gaze tracks the camera or a fixed point). |
+| `:dance/avatar` | VRM: `{:vrm :home :scale :look-at :spring-bones :clip "name" :spring {:stiffness :drag :gravity} :expressions {<name> {:from :cheer\|:beat\|:blink :gain}}}`. `:spring` tunes VRMC_springBone host-side; `:look-at` is `true`/`false` or `{:target :camera \| [x y z]}`; `:expressions` drives VRM face from the show (smile-on-cheer / lip-sync-on-beat / blink) → resolved by `ExpressionManager`, default `{happy←cheer, aa←beat, blink←blink}`. |
+| `:dance/camera` | camera rig framing the performer: `{:offset [dx dy dz] :look [lx ly lz] :fov}` — eye = performer + `:offset`, target = performer + `:look`. Authored as data (default `{:offset [0 3 8] :look [0 1 0] :fov 0.9}`). |
 | `:dance/clips` | EDN animation clips: `[{:name :duration :loop :tracks [{:bone :interp :linear\|:step\|:cubic :keys [{:t :pos :rot :scale}]}]}]` |
 | `:dance/live2d` | Live2D (2D): `{:model :home :scale :physics :lipsync :params {…} :motion "name" :motions [{:name :file \| :keys [{:t :params {…}}]}]}` |
 | `:dance/setlist` | `[{:title :bpm :bars\|:beats :dance :idle\|:four-on-floor\|:wota\|:kpop-point\|:shuffle\|:hold :audio :opener\|{…} :cues [{:beat≥1 :kind :drop\|:breakdown\|:callout :tag}]}]` |
