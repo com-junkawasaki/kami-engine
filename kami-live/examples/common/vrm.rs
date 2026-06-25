@@ -20,7 +20,22 @@ pub struct V { pub pos: [f32; 3], pub normal: [f32; 3], pub uv: [f32; 2], pub jo
 pub struct GpuLight { pub dir: [f32; 4], pub color: [f32; 4] }
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
-pub struct Globals { pub vp: [[f32; 4]; 4], pub ambient: [f32; 4], pub n_lights: [u32; 4], pub lights: [GpuLight; MAX_LIGHTS] }
+pub struct Globals {
+    pub vp: [[f32; 4]; 4],
+    pub ambient: [f32; 4],
+    pub n_lights: [u32; 4],
+    pub lights: [GpuLight; MAX_LIGHTS],
+    /// camera right/up (world space) for screen-facing particle billboards.
+    pub cam_right: [f32; 4],
+    pub cam_up: [f32; 4],
+}
+
+/// One additive billboard particle (effect spark): world position, size, colour.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct GpuParticle { pub pos: [f32; 3], pub size: f32, pub color: [f32; 3], pub _pad: f32 }
+
+pub const MAX_PARTICLES: usize = 8192;
 
 pub struct Item { pub img: Option<usize>, pub first: u32, pub count: u32 }
 
@@ -191,6 +206,7 @@ pub struct GpuRenderer {
     sampler: wgpu::Sampler, gbuf: wgpu::Buffer, pbuf: wgpu::Buffer, vbuf: wgpu::Buffer, ibuf: wgpu::Buffer,
     white: wgpu::BindGroup, tex_bg: HashMap<usize, wgpu::BindGroup>,
     color: wgpu::Texture, cview: wgpu::TextureView, dview: wgpu::TextureView, rbuf: wgpu::Buffer,
+    part_pipeline: wgpu::RenderPipeline, part_buf: wgpu::Buffer,
     pub w: u32, pub h: u32, index_count: u32, items: Vec<Item>,
 }
 
@@ -235,7 +251,7 @@ impl GpuRenderer {
         let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor{label:None,bind_group_layouts:&[&bgl0,&bgl1],push_constant_ranges:&[]});
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor{label:None,source:wgpu::ShaderSource::Wgsl(r#"
             struct L { dir: vec4<f32>, color: vec4<f32> };
-            struct G { vp: mat4x4<f32>, ambient: vec4<f32>, n: vec4<u32>, lights: array<L, 8u> };
+            struct G { vp: mat4x4<f32>, ambient: vec4<f32>, n: vec4<u32>, lights: array<L, 8u>, cam_right: vec4<f32>, cam_up: vec4<f32> };
             @group(0) @binding(0) var<uniform> g: G;
             @group(0) @binding(1) var<storage, read> palette: array<mat4x4<f32>>;
             @group(1) @binding(0) var tex: texture_2d<f32>;
@@ -278,14 +294,45 @@ impl GpuRenderer {
         let rbuf = device.create_buffer(&wgpu::BufferDescriptor{label:None,size:(bpr*h) as u64,usage:wgpu::BufferUsages::COPY_DST|wgpu::BufferUsages::MAP_READ,mapped_at_creation:false});
         let items = model.items.iter().map(|i| Item{img:i.img,first:i.first,count:i.count}).collect();
         let _ = dtex; // depth texture kept alive by dview's internal Arc
-        Self{device,queue,pipeline,bg0,bgl1,sampler,gbuf,pbuf,vbuf,ibuf,white,tex_bg,color,cview,dview,rbuf,w,h,index_count:model.indices.len() as u32,items}
+
+        // additive billboard particle pipeline (effect sparks) — reuses group0
+        // (globals: vp + cam_right/up); depth-tested but no depth write.
+        let part_buf = device.create_buffer(&wgpu::BufferDescriptor{label:None,size:(MAX_PARTICLES*32) as u64,usage:wgpu::BufferUsages::VERTEX|wgpu::BufferUsages::COPY_DST,mapped_at_creation:false});
+        let part_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor{label:None,source:wgpu::ShaderSource::Wgsl(r#"
+            struct L { dir: vec4<f32>, color: vec4<f32> };
+            struct G { vp: mat4x4<f32>, ambient: vec4<f32>, n: vec4<u32>, lights: array<L, 8u>, cam_right: vec4<f32>, cam_up: vec4<f32> };
+            @group(0) @binding(0) var<uniform> g: G;
+            struct VO { @builtin(position) clip: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) col: vec3<f32> };
+            @vertex fn vs(@builtin(vertex_index) vid: u32, @location(0) pos: vec3<f32>, @location(1) size: f32, @location(2) col: vec3<f32>) -> VO {
+              var c = array<vec2<f32>,6>(vec2(-1.0,-1.0),vec2(1.0,-1.0),vec2(-1.0,1.0),vec2(-1.0,1.0),vec2(1.0,-1.0),vec2(1.0,1.0));
+              let o = c[vid];
+              let wp = pos + g.cam_right.xyz*(o.x*size) + g.cam_up.xyz*(o.y*size);
+              var out: VO; out.clip = g.vp * vec4<f32>(wp,1.0); out.uv = o; out.col = col; return out;
+            }
+            @fragment fn fs(i: VO) -> @location(0) vec4<f32> {
+              let a = pow(1.0 - clamp(length(i.uv), 0.0, 1.0), 1.5);
+              return vec4<f32>(i.col * a, a);
+            }
+        "#.into())});
+        let part_vbl = wgpu::VertexBufferLayout{array_stride:32,step_mode:wgpu::VertexStepMode::Instance,attributes:&wgpu::vertex_attr_array![0=>Float32x3,1=>Float32,2=>Float32x3]};
+        let part_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor{label:None,bind_group_layouts:&[&bgl0],push_constant_ranges:&[]});
+        let part_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor{label:None,layout:Some(&part_pl),
+            vertex:wgpu::VertexState{module:&part_shader,entry_point:Some("vs"),buffers:&[part_vbl],compilation_options:Default::default()},
+            fragment:Some(wgpu::FragmentState{module:&part_shader,entry_point:Some("fs"),targets:&[Some(wgpu::ColorTargetState{format:fmt,blend:Some(wgpu::BlendState{color:wgpu::BlendComponent{src_factor:wgpu::BlendFactor::One,dst_factor:wgpu::BlendFactor::One,operation:wgpu::BlendOperation::Add},alpha:wgpu::BlendComponent::OVER}),write_mask:wgpu::ColorWrites::ALL})],compilation_options:Default::default()}),
+            primitive:wgpu::PrimitiveState::default(),
+            depth_stencil:Some(wgpu::DepthStencilState{format:wgpu::TextureFormat::Depth32Float,depth_write_enabled:false,depth_compare:wgpu::CompareFunction::LessEqual,stencil:Default::default(),bias:Default::default()}),
+            multisample:Default::default(),multiview:None,cache:None});
+
+        Self{device,queue,pipeline,bg0,bgl1,sampler,gbuf,pbuf,vbuf,ibuf,white,tex_bg,color,cview,dview,rbuf,part_pipeline,part_buf,w,h,index_count:model.indices.len() as u32,items}
     }
 
-    pub fn render(&self, morphed: &[V], palette: &[[[f32;4];4]], g: Globals) -> Vec<u8> {
+    pub fn render(&self, morphed: &[V], palette: &[[[f32;4];4]], g: Globals, particles: &[GpuParticle]) -> Vec<u8> {
         let _ = (&self.bgl1, &self.sampler);
         self.queue.write_buffer(&self.vbuf, 0, bytemuck::cast_slice(morphed));
         self.queue.write_buffer(&self.pbuf, 0, bytemuck::cast_slice(palette));
         self.queue.write_buffer(&self.gbuf, 0, bytemuck::bytes_of(&g));
+        let np = particles.len().min(MAX_PARTICLES);
+        if np > 0 { self.queue.write_buffer(&self.part_buf, 0, bytemuck::cast_slice(&particles[..np])); }
         let (w,h)=(self.w,self.h);
         let bpr=(w*4).div_ceil(256)*256;
         let mut enc = self.device.create_command_encoder(&Default::default());
@@ -301,6 +348,13 @@ impl GpuRenderer {
                 let bg = it.img.and_then(|im| self.tex_bg.get(&im)).unwrap_or(&self.white);
                 rp.set_bind_group(1, bg, &[]);
                 rp.draw_indexed(it.first..it.first+it.count, 0, 0..1);
+            }
+            // additive particle billboards (effect sparks) over the lit mesh.
+            if np > 0 {
+                rp.set_pipeline(&self.part_pipeline);
+                rp.set_bind_group(0, &self.bg0, &[]);
+                rp.set_vertex_buffer(0, self.part_buf.slice(..));
+                rp.draw(0..6, 0..np as u32);
             }
         }
         enc.copy_texture_to_buffer(wgpu::ImageCopyTexture{texture:&self.color, mip_level:0, origin:wgpu::Origin3d::ZERO, aspect:wgpu::TextureAspect::All}, wgpu::ImageCopyBuffer{buffer:&self.rbuf,layout:wgpu::ImageDataLayout{offset:0,bytes_per_row:Some(bpr),rows_per_image:Some(h)}}, wgpu::Extent3d{width:w,height:h,depth_or_array_layers:1});

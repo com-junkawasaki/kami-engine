@@ -9,9 +9,41 @@ mod vrm;
 
 use glam::{Mat4, Vec3};
 use kami_live::scene::DanceScene;
-use vrm::{Globals, GpuLight, GpuRenderer, VrmDance, MAX_LIGHTS};
+use vrm::{Globals, GpuLight, GpuParticle, GpuRenderer, VrmDance, MAX_LIGHTS};
 
 const SCENE: &str = include_str!("../../kami-clj-play3d/games/dance/scene.edn");
+
+/// A live effect particle (CPU sim): spawned by a `:fx` trigger, drawn additively.
+struct P { pos: Vec3, vel: Vec3, color: [f32; 3], size: f32, age: f32, life: f32, grav: f32 }
+
+/// Per-fx burst signature tuned to the VRM's scale: (colour, count, speed, life,
+/// gravity[+down], size). Mirrors the kami-live `:fx` vocabulary for the demo.
+fn fx_params(fx: &str) -> Option<([f32; 3], usize, f32, f32, f32, f32)> {
+    Some(match fx {
+        "confetti" => ([1.0, 0.6, 0.2], 44, 2.2, 2.5, 1.2, 0.05),
+        "fireworks" | "firework" => ([0.7, 0.85, 1.0], 80, 3.4, 2.2, 1.0, 0.06),
+        "pyro" | "fire" | "flame" => ([1.0, 0.45, 0.12], 40, 2.6, 1.6, -0.8, 0.08),
+        "sparkle" | "sparkles" | "sparkle-blast" | "glitter" => ([1.0, 1.0, 0.7], 56, 2.0, 1.4, 0.2, 0.04),
+        "laser" | "laser-burst" => ([0.4, 1.0, 0.6], 30, 6.0, 0.9, 0.0, 0.03),
+        "smoke" | "haze" => ([0.65, 0.65, 0.72], 22, 0.7, 3.0, -0.5, 0.16),
+        "bubbles" => ([0.6, 0.85, 1.0], 28, 1.0, 2.6, -0.6, 0.07),
+        "hearts" => ([1.0, 0.4, 0.6], 20, 1.0, 2.4, -0.4, 0.08),
+        "stars" | "star-shower" => ([1.0, 0.95, 0.7], 32, 1.6, 2.2, 0.8, 0.05),
+        "snow" => ([0.95, 0.97, 1.0], 44, 0.5, 4.0, 0.3, 0.05),
+        "petals" | "sakura" => ([1.0, 0.7, 0.8], 32, 0.6, 3.5, 0.35, 0.06),
+        "embers" => ([1.0, 0.5, 0.2], 28, 1.4, 2.8, -0.5, 0.04),
+        _ => return None,
+    })
+}
+
+/// Deterministic upward-biased unit direction (no RNG — varies by index).
+fn hash_dir(i: usize) -> Vec3 {
+    let h = |k: f32| { let x = (i as f32 * k).sin() * 43758.5453; x - x.floor() };
+    let theta = h(12.9898) * std::f32::consts::TAU;
+    let zz = h(78.233);
+    let r = (1.0 - zz * zz).sqrt();
+    Vec3::new(r * theta.cos(), zz * 0.9 + 0.2, r * theta.sin()).normalize_or_zero()
+}
 
 fn main() { pollster::block_on(run()); }
 
@@ -41,11 +73,29 @@ async fn run() {
 
     // Render across the whole show so the :dance/camera :shots choreography
     // (wide → dolly-in → side → pull-back) plays out over the set.
+    let spawn_base = Vec3::new(model.center.x, model.height * 0.62, model.center.z);
+    let mut parts: Vec<P> = Vec::new();
     let mut gif = Vec::new();
     let (mut saved, mut tick) = (0usize, 0usize);
     while saved < 72 {
         let fr = scene.frame(1.0 / 60.0);
         tick += 1;
+        let dt = 1.0 / 60.0;
+        // spawn particles for every :fx that fired this tick (effect bursts).
+        for a in &fr.actions {
+            if let Some(fx) = a.action("fx") {
+                if let Some((col, count, speed, life, grav, size)) = fx_params(&fx) {
+                    for k in 0..count {
+                        let dir = hash_dir(parts.len() + k);
+                        parts.push(P { pos: spawn_base, vel: dir * (speed * ms), color: col, size: size * ms * 3.0, age: 0.0, life, grav: grav * ms });
+                    }
+                }
+            }
+        }
+        // advance + cull every tick so bursts animate smoothly between samples.
+        for p in &mut parts { p.vel.y -= p.grav * dt; p.pos += p.vel * dt; p.age += dt; }
+        parts.retain(|p| p.age < p.life);
+        if parts.len() > 8000 { let cut = parts.len() - 8000; parts.drain(0..cut); }
         if tick % 75 != 0 { continue; } // sample ~0.67 bar of show time per frame
         let ir = kami_webgpu_rs::parse_render_ir(&fr.render_ir_edn());
         let mut lights = [GpuLight { dir: [0.0; 4], color: [0.0; 4] }; MAX_LIGHTS];
@@ -63,11 +113,27 @@ async fn run() {
         let eye = Vec3::new(model.center.x + off.x * ms, off.y * ms, model.center.z + off.z * ms);
         let target = Vec3::new(model.center.x + lk.x * ms, lk.y * ms, model.center.z + lk.z * ms);
         let vp = (proj * Mat4::look_at_rh(eye, target, Vec3::Y)).to_cols_array_2d();
+        // camera right/up for screen-facing particle billboards.
+        let fwd = (target - eye).normalize_or_zero();
+        let cr = fwd.cross(Vec3::Y).normalize_or_zero();
+        let cu = cr.cross(fwd);
         // expression weights are authored in clj/edn (:dance/avatar :expressions).
         let expr = cfg.avatar.expression_weights(snap.cheer_loudness, snap.phase.beat_frac, snap.phase.time);
         let (mv, palette) = model.frame(&pose, &expr, spring_enabled);
-        let g = Globals { vp, ambient: [amb[0]*0.45, amb[1]*0.45, amb[2]*0.5, 1.0], n_lights: [n_used as u32,0,0,0], lights };
-        let px = r.render(&mv, &palette, g);
+        let g = Globals {
+            vp,
+            ambient: [amb[0]*0.45, amb[1]*0.45, amb[2]*0.5, 1.0],
+            n_lights: [n_used as u32, 0, 0, 0],
+            lights,
+            cam_right: [cr.x, cr.y, cr.z, 0.0],
+            cam_up: [cu.x, cu.y, cu.z, 0.0],
+        };
+        // build the GPU billboard list from live particles (fade by remaining life).
+        let gparts: Vec<GpuParticle> = parts.iter().map(|p| {
+            let fade = (1.0 - p.age / p.life).clamp(0.0, 1.0);
+            GpuParticle { pos: [p.pos.x, p.pos.y, p.pos.z], size: p.size, color: [p.color[0]*fade, p.color[1]*fade, p.color[2]*fade], _pad: 0.0 }
+        }).collect();
+        let px = r.render(&mv, &palette, g, &gparts);
         if saved % 18 == 0 { image::save_buffer(format!("seededn_{saved:02}.png"), &px, w, h, image::ExtendedColorType::Rgba8).unwrap(); }
         gif.push(image::Frame::from_parts(image::RgbaImage::from_raw(w, h, px).unwrap(), 0, 0, image::Delay::from_numer_denom_ms(60, 1)));
         saved += 1;

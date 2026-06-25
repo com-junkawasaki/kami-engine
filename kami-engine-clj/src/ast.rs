@@ -838,30 +838,19 @@ fn lower_case(args: &[EdnValue]) -> Result<Expr, CljError> {
     Ok(acc)
 }
 
-fn thread_into(step: &EdnValue, acc: Expr, first: bool) -> Result<Expr, CljError> {
+/// Thread an accumulator EDN value into a step at the EDN level, returning the rewritten form. Done
+/// pre-lowering (not on lowered Exprs) so special-form steps — (clamp …), (case …), (min …), (cond-> …)
+/// — go back through lower_call and desugar correctly, instead of being mis-lowered to a bare Call.
+fn thread_edn(step: &EdnValue, acc: EdnValue, first: bool) -> Result<EdnValue, CljError> {
     match step {
         // a call step (f a b): thread acc in as the first (->) or last (->>) argument.
         EdnValue::List(items) => {
-            let head = list_head_symbol(items)?;
-            let mut largs: Vec<Expr> =
-                items[1..].iter().map(lower_expr).collect::<Result<_, _>>()?;
-            if first { largs.insert(0, acc); } else { largs.push(acc); }
-            if let Some(op) = Builtin::from_name(head.name.as_str()) {
-                check_builtin_arity(op, largs.len())?;
-                Ok(Expr::Builtin { op, args: largs })
-            } else {
-                Ok(Expr::Call { name: head.to_qualified(), args: largs })
-            }
+            let mut v: Vec<EdnValue> = items.clone();
+            if first { v.insert(1, acc); } else { v.push(acc); }
+            Ok(EdnValue::List(v))
         }
         // a bare symbol step f: (-> x f) ≡ (f x)
-        EdnValue::Symbol(s) => {
-            if let Some(op) = Builtin::from_name(s.name.as_str()) {
-                check_builtin_arity(op, 1)?;
-                Ok(Expr::Builtin { op, args: vec![acc] })
-            } else {
-                Ok(Expr::Call { name: s.to_qualified(), args: vec![acc] })
-            }
-        }
+        EdnValue::Symbol(_) => Ok(EdnValue::List(vec![step.clone(), acc])),
         other => Err(CljError::Lower(format!(
             "-> / ->> step must be a call or symbol, found {other:?}"
         ))),
@@ -872,11 +861,11 @@ fn lower_thread(args: &[EdnValue], first: bool) -> Result<Expr, CljError> {
     if args.is_empty() {
         return Err(CljError::Lower("-> / ->> takes: (-> x step…)".into()));
     }
-    let mut acc = lower_expr(&args[0])?;
+    let mut acc = args[0].clone();
     for step in &args[1..] {
-        acc = thread_into(step, acc, first)?;
+        acc = thread_edn(step, acc, first)?;
     }
-    Ok(acc)
+    lower_expr(&acc)
 }
 
 fn binding_pair<'a>(args: &'a [EdnValue], form: &str) -> Result<(&'a EdnValue, &'a EdnValue), CljError> {
@@ -976,10 +965,12 @@ fn lower_cond_thread(args: &[EdnValue], first: bool) -> Result<Expr, CljError> {
         return Err(CljError::Lower("cond-> requires test/form pairs".into()));
     }
     let name = gensym("ct");
+    let sym = EdnValue::Symbol(Symbol::bare(name.clone()));
     let mut bindings = vec![(name.clone(), lower_expr(&args[0])?)];
     for pair in rest.chunks_exact(2) {
         let test = lower_expr(&pair[0])?;
-        let threaded = thread_into(&pair[1], Expr::Var(name.clone()), first)?;
+        // thread the binding symbol into the form at the EDN level, then lower (special forms work).
+        let threaded = lower_expr(&thread_edn(&pair[1], sym.clone(), first)?)?;
         bindings.push((name.clone(), Expr::If {
             cond: Box::new(test),
             then: Box::new(threaded),
