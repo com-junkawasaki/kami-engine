@@ -58,6 +58,9 @@ pub mod character;
 /// Sabiotoshi item catalog (`sabiotoshi::default_item_catalog()`) as EDN.
 pub mod item_catalog;
 
+/// Battle-royale storm phases + consumable pool as EDN.
+pub mod battle_royale;
+
 use std::collections::BTreeMap;
 
 use kami_game::animation::{AnimationClip, AnimationState, HeadBobPhase};
