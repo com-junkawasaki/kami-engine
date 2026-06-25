@@ -49,6 +49,9 @@
 /// Godot game catalog (`island_gen::godot_game_catalog()`) as EDN → real `GameDef`s.
 pub mod catalog;
 
+/// Brainrot evolution chains (`island_gen::brainrot_evolution_chains()`) as EDN.
+pub mod brainrot;
+
 use std::collections::BTreeMap;
 
 use kami_game::animation::{AnimationClip, AnimationState, HeadBobPhase};
