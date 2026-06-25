@@ -92,11 +92,13 @@
  ;; EDN-declared reactions to show events; the host applies the action maps.
  ;; Action keys (:fx :sound :camera …) are free-form data, no engine code.
  :dance/triggers
- [{:on :drop      :fx :confetti :sound :coin   :camera :punch}
-  {:on :breakdown :fx :dim      :sound :whoosh :camera :wide}
-  {:on :callout   :tag "intro"  :camera :closeup}
-  {:on :phrase    :vj-cut true}
-  {:on :bar :every 8 :fx :pyro}]
+ [{:on :drop      :fx :fireworks    :sound :coin   :camera :punch}
+  {:on :breakdown :fx :smoke        :sound :whoosh :camera :wide}
+  {:on :callout   :tag "intro"      :fx :sparkle-blast :camera :closeup}
+  {:on :callout   :tag "verse"      :fx :petals}
+  {:on :phrase    :vj-cut true :fx :glitter}
+  {:on :bar :every 8 :fx :pyro}
+  {:on :bar :every 16 :fx :laser}]
 
  ;; choreography: an ordered setlist; each track is a dance section.
  ;; :dance picks a kami-live DanceMove preset (auto-selected on track change).

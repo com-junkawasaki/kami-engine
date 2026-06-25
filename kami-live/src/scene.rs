@@ -400,10 +400,23 @@ fn fx_particle_burst(fx: &str, pos: [f32; 3]) -> Option<EdnValue> {
             (EdnValue::kw_bare("size"), f(size)),
         ])
     };
+    // each fx is a distinct burst signature — colour, count, speed, life, gravity
+    // (negative = rises), size. The executor draws them as additive billboards.
     Some(match fx {
         "confetti" => burst([1.0, 0.6, 0.2], 40.0, 4.0, 2.0, 2.0, 0.04),
-        "pyro" => burst([1.0, 0.4, 0.1], 30.0, 7.0, 1.5, -1.0, 0.06),
+        "pyro" | "fire" | "flame" => burst([1.0, 0.4, 0.1], 36.0, 7.0, 1.4, -1.2, 0.07),
         "sparkle" | "sparkles" => burst([1.0, 1.0, 0.6], 20.0, 2.0, 1.0, 0.0, 0.03),
+        "sparkle-blast" => burst([1.0, 1.0, 0.8], 60.0, 6.0, 1.2, 0.2, 0.04),
+        "fireworks" | "firework" => burst([0.6, 0.8, 1.0], 80.0, 9.0, 2.2, 1.5, 0.05),
+        "laser" | "laser-burst" => burst([0.4, 1.0, 0.6], 24.0, 14.0, 0.7, 0.0, 0.02),
+        "smoke" | "haze" => burst([0.6, 0.6, 0.66], 18.0, 1.2, 3.0, -0.6, 0.18),
+        "bubbles" => burst([0.6, 0.85, 1.0], 28.0, 1.6, 2.6, -0.8, 0.06),
+        "hearts" => burst([1.0, 0.4, 0.6], 16.0, 1.8, 2.4, -0.5, 0.07),
+        "stars" | "star-shower" => burst([1.0, 0.95, 0.7], 30.0, 3.0, 2.0, 1.2, 0.04),
+        "snow" => burst([0.95, 0.97, 1.0], 40.0, 0.8, 4.0, 0.4, 0.05),
+        "petals" | "sakura" => burst([1.0, 0.7, 0.8], 30.0, 1.0, 3.5, 0.5, 0.05),
+        "glitter" => burst([1.0, 0.9, 0.5], 50.0, 3.0, 1.6, 0.6, 0.025),
+        "embers" => burst([1.0, 0.5, 0.2], 26.0, 2.4, 2.8, -0.7, 0.035),
         _ => return None,
     })
 }
@@ -1408,6 +1421,32 @@ mod tests {
             }
         }
         assert!(saw_particles, "drop → :confetti → a :particles burst in the render-IR");
+    }
+
+    #[test]
+    fn varied_fx_emit_distinct_bursts() {
+        // each new fx type resolves to its own particle-burst signature.
+        for fx in ["fireworks", "laser", "smoke", "hearts", "petals", "embers"] {
+            let src = format!(
+                "{{:dance/show {{:bpm 140.0 :stage :festival}}\n \
+                  :dance/triggers [{{:on :drop :fx :{fx}}}]\n \
+                  :dance/setlist [{{:title \"A\" :bpm 140.0 :bars 8 :dance :wota \
+                  :cues [{{:beat 4 :kind :drop :tag \"h\"}}]}}]}}"
+            );
+            let mut sc = DanceScene::from_edn(&src).expect("scene");
+            sc.show.start();
+            let mut saw = false;
+            for _ in 0..600 {
+                let f = sc.frame(1.0 / 60.0);
+                if let Some(parts) = f.render_ir.as_map().and_then(|m| mget(m, "particles").and_then(|v| v.as_vector())) {
+                    if !parts.is_empty() {
+                        saw = true;
+                        break;
+                    }
+                }
+            }
+            assert!(saw, "fx :{fx} emits a particle burst");
+        }
     }
 
     #[test]
