@@ -13,3 +13,5 @@ node_modules
 /vrm_mesh_test.png
 /vrm.gif
 /vrm_*.png
+/assets/
+/vrm_real.png
