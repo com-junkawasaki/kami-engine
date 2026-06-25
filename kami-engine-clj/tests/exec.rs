@@ -182,3 +182,15 @@ fn binding_and_loop_forms_compute() {
     assert_eq!(eval("(dotimes [i 5] (+ i 1))"), 0);
     assert_eq!(eval("(dotimes [i 0] 1)"), 0);
 }
+
+#[test]
+fn threading_macro_family_computes() {
+    // as-> rebinds the name through each form: (5+3)*2 = 16
+    assert_eq!(eval("(as-> 5 x (+ x 3) (* x 2))"), 16);
+    // cond-> threads first-arg only on truthy tests: 5 +3 (true), skip *100 (false) = 8
+    assert_eq!(eval("(cond-> 5 (< 1 2) (+ 3) (< 2 1) (* 100))"), 8);
+    // cond->> threads last-arg: (- 20 5) = 15 on the truthy test
+    assert_eq!(eval("(cond->> 5 (< 1 2) (- 20))"), 15);
+    // cond-> with all tests false returns the seed unchanged
+    assert_eq!(eval("(cond-> 7 (< 2 1) (+ 100))"), 7);
+}
