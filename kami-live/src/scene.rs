@@ -109,20 +109,57 @@ pub struct SpringTuning {
     pub gravity: f32,
 }
 
+/// One camera shot in a `:dance/camera :shots` choreography — an eye/look offset
+/// that becomes active at `at_bar` and is dollied toward the next shot.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CameraShot {
+    pub at_bar: u32,
+    pub offset: Vec3,
+    pub look: Vec3,
+}
+
 /// Camera rig framing the performer (`:dance/camera`). The eye sits at the live
 /// performer position + `offset`; the look target at performer + `look`. So the
-/// camera follows the dancer, but the rig (over-the-shoulder distance, height,
-/// fov) is authored as data instead of hardcoded.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// camera follows the dancer, but the rig (distance, height, fov) is authored as
+/// data. An optional `:shots` list keys offsets to bars for a camera-work
+/// choreography (wide → close → side …), dollied with a smoothstep ease.
+#[derive(Debug, Clone, PartialEq)]
 pub struct CameraRig {
     pub offset: Vec3,
     pub look: Vec3,
     pub fov: f32,
+    pub shots: Vec<CameraShot>,
 }
 
 impl Default for CameraRig {
     fn default() -> Self {
-        Self { offset: Vec3::new(0.0, 3.0, 8.0), look: Vec3::new(0.0, 1.0, 0.0), fov: 0.9 }
+        Self { offset: Vec3::new(0.0, 3.0, 8.0), look: Vec3::new(0.0, 1.0, 0.0), fov: 0.9, shots: Vec::new() }
+    }
+}
+
+impl CameraRig {
+    /// Eye/look offset at a continuous bar position. With no `:shots` this is the
+    /// static rig; otherwise the active shot dollies toward the next one.
+    pub fn framing_at(&self, bar: f32) -> (Vec3, Vec3) {
+        if self.shots.is_empty() {
+            return (self.offset, self.look);
+        }
+        let mut i = 0;
+        for (k, s) in self.shots.iter().enumerate() {
+            if (s.at_bar as f32) <= bar {
+                i = k;
+            }
+        }
+        let a = self.shots[i];
+        if i + 1 < self.shots.len() {
+            let b = self.shots[i + 1];
+            let span = (b.at_bar as f32 - a.at_bar as f32).max(1e-3);
+            let t = ((bar - a.at_bar as f32) / span).clamp(0.0, 1.0);
+            let t = t * t * (3.0 - 2.0 * t); // smoothstep ease
+            (a.offset.lerp(b.offset, t), a.look.lerp(b.look, t))
+        } else {
+            (a.offset, a.look)
+        }
     }
 }
 
@@ -825,10 +862,27 @@ impl DanceScene {
             .and_then(|v| v.as_map())
             .map(|cm| {
                 let d = CameraRig::default();
+                let shots = mget(cm, "shots")
+                    .and_then(|v| v.as_vector())
+                    .map(|ss| {
+                        let mut v: Vec<CameraShot> = ss
+                            .iter()
+                            .filter_map(|s| s.as_map())
+                            .map(|sm| CameraShot {
+                                at_bar: int(mget(sm, "at-bar"), 0).max(0) as u32,
+                                offset: opt_vec3(mget(sm, "offset")).unwrap_or(d.offset),
+                                look: opt_vec3(mget(sm, "look")).unwrap_or(d.look),
+                            })
+                            .collect();
+                        v.sort_by_key(|s| s.at_bar);
+                        v
+                    })
+                    .unwrap_or_default();
                 CameraRig {
                     offset: opt_vec3(mget(cm, "offset")).unwrap_or(d.offset),
                     look: opt_vec3(mget(cm, "look")).unwrap_or(d.look),
                     fov: mget(cm, "fov").map(|v| num(Some(v))).filter(|f| *f > 0.0).unwrap_or(d.fov),
+                    shots,
                 }
             })
             .unwrap_or_default();

@@ -67,9 +67,12 @@ pub fn show_to_render_ir(snap: &ShowSnapshot, avatar: &AvatarBinding, cam: &Came
     let p = pose.root_translation;
     let s = avatar.scale.max(0.01);
     // camera rig (`:dance/camera`): eye/target follow the performer by the
-    // data-authored offset/look; fov from the rig.
-    let cam_eye = [p.x + cam.offset.x, p.y + cam.offset.y, p.z + cam.offset.z];
-    let cam_target = [p.x + cam.look.x, p.y + cam.look.y, p.z + cam.look.z];
+    // data-authored offset/look (or the active `:shots` choreography, dollied by
+    // the current bar); fov from the rig.
+    let barf = snap.phase.bar as f32 + snap.phase.bar_frac;
+    let (cam_off, cam_lk) = cam.framing_at(barf);
+    let cam_eye = [p.x + cam_off.x, p.y + cam_off.y, p.z + cam_off.z];
+    let cam_target = [p.x + cam_lk.x, p.y + cam_lk.y, p.z + cam_lk.z];
 
     let mut instances: Vec<EdnValue> = Vec::with_capacity(snap.crowd.len() + 1);
 
