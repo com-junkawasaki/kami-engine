@@ -31,8 +31,14 @@ fn avatar_clip_emits_animations_layer() {
     scene.show.start();
     let _ = scene.frame(1.0 / 30.0);
     let edn = scene.frame(1.0 / 30.0).render_ir_edn();
-    assert!(edn.contains(":animations"), "avatar :clip → render-IR :animations layer");
-    assert!(edn.contains("idle"), "the named clip ('idle') is referenced");
+    assert!(
+        edn.contains(":animations"),
+        "avatar :clip → render-IR :animations layer"
+    );
+    assert!(
+        edn.contains("idle"),
+        "the named clip ('idle') is referenced"
+    );
 }
 
 #[test]
@@ -49,7 +55,30 @@ fn dance_clip_realises_onto_skeleton() {
     };
     let clip = kami_skeleton_scene::clip_from_edn(&clip_edn, bone_index).expect("clip realises");
     assert_eq!(clip.name, "idle");
-    assert_eq!(clip.tracks.len(), 2, "spine + hips tracks resolve to bone indices");
+    assert_eq!(
+        clip.tracks.len(),
+        2,
+        "spine + hips tracks resolve to bone indices"
+    );
+}
+
+#[test]
+fn dance_stage_props_dressed_into_instances() {
+    // :dance/stage props (LED wall / risers / truss / speakers) become render-IR
+    // :instances alongside the performer + crowd — the venue is dressed from data.
+    let scene = DanceScene::from_edn(SCENE).expect("scene");
+    assert!(
+        scene.stage.len() >= 6,
+        "stage props parsed: {}",
+        scene.stage.len()
+    );
+    assert!(
+        scene
+            .stage
+            .iter()
+            .any(|p| p.kind == "led-wall" && p.emissive > 0.0),
+        "the LED wall is a self-lit prop"
+    );
 }
 
 #[test]
@@ -61,8 +90,27 @@ fn dance_post_chain_realises_into_effects() {
     let ir_edn = scene.frame(1.0 / 30.0).render_ir_edn();
     // the render-IR `:post` chain realises into a kami-postfx pipeline in one call.
     let pipeline = kami_postfx_scene::chain_from_render_ir(&ir_edn);
-    assert_eq!(pipeline.effects.len(), 3, "bloom + color-grade + vignette realised from :dance/post");
-    assert!(matches!(pipeline.effects[0], kami_postfx::PostEffect::Bloom { .. }), "first fx is bloom");
+    assert_eq!(
+        pipeline.effects.len(),
+        3,
+        "bloom + color-grade + vignette realised from :dance/post"
+    );
+    assert!(
+        matches!(pipeline.effects[0], kami_postfx::PostEffect::Bloom { .. }),
+        "first fx is bloom"
+    );
+}
+
+#[test]
+fn voice_phonemes_drive_vrm_mouth() {
+    // :dance/avatar :voice authors a vowel timeline; the active vowel maps to the
+    // VRM mouth expression and is emitted in the render-IR mesh :expressions.
+    let scene = DanceScene::from_edn(SCENE).expect("scene");
+    let voice = scene.avatar.voice.as_ref().expect(":voice authored");
+    assert!(voice.phonemes.len() >= 5, "vowel phrase parsed: {}", voice.phonemes.len());
+    // at beat 0 the mouth forms /a/ (→ VRM "aa"); at beat 1.0, /u/ (→ "ou").
+    assert_eq!(voice.vowel_weight(0.05).map(|(n, _)| n), Some("aa"));
+    assert_eq!(voice.vowel_weight(1.05).map(|(n, _)| n), Some("ou"));
 }
 
 #[test]
@@ -70,8 +118,14 @@ fn camera_rig_authored_in_edn() {
     // `:dance/camera` authors the eye/look offset + fov framing the performer,
     // and the rig flows into the render-IR `:camera` (eye follows the dancer).
     let mut scene = DanceScene::from_edn(SCENE).expect("scene");
-    assert!((scene.camera.offset.z - 8.0).abs() < 1e-6, ":dance/camera :offset parsed");
-    assert!((scene.camera.fov - 0.9).abs() < 1e-6, ":dance/camera :fov parsed");
+    assert!(
+        (scene.camera.offset.z - 8.0).abs() < 1e-6,
+        ":dance/camera :offset parsed"
+    );
+    assert!(
+        (scene.camera.fov - 0.9).abs() < 1e-6,
+        ":dance/camera :fov parsed"
+    );
     scene.show.start();
     let edn = scene.frame(1.0 / 30.0).render_ir_edn();
     assert!(edn.contains(":camera"), "render-IR carries the :camera rig");
@@ -81,9 +135,16 @@ fn camera_rig_authored_in_edn() {
 fn avatar_expressions_authored_in_edn() {
     let scene = DanceScene::from_edn(SCENE).expect("scene");
     // `:dance/avatar :expressions` declares show→VRM-expression drives.
-    let names: Vec<&str> = scene.avatar.expressions.iter().map(|d| d.name.as_str()).collect();
-    assert!(names.contains(&"happy") && names.contains(&"aa") && names.contains(&"blink"),
-        "happy/aa/blink drives present (authored or defaulted): {names:?}");
+    let names: Vec<&str> = scene
+        .avatar
+        .expressions
+        .iter()
+        .map(|d| d.name.as_str())
+        .collect();
+    assert!(
+        names.contains(&"happy") && names.contains(&"aa") && names.contains(&"blink"),
+        "happy/aa/blink drives present (authored or defaulted): {names:?}"
+    );
 }
 
 #[test]
@@ -92,12 +153,21 @@ fn expression_weights_resolve_into_morphs() {
 
     // Loud cheer at the start of a beat → happy (cheer) + aa (beat) lit.
     let w = scene.avatar.expression_weights(30.0, 0.5, 1.0);
-    assert!(*w.get("happy").unwrap_or(&0.0) > 0.0, "cheer drives :happy from EDN");
-    assert!(*w.get("aa").unwrap_or(&0.0) > 0.0, "mid-beat drives lip-sync :aa from EDN");
+    assert!(
+        *w.get("happy").unwrap_or(&0.0) > 0.0,
+        "cheer drives :happy from EDN"
+    );
+    assert!(
+        *w.get("aa").unwrap_or(&0.0) > 0.0,
+        "mid-beat drives lip-sync :aa from EDN"
+    );
 
     // mid-pulse of the periodic blink (peaks ~0.06 s into each 3 s cycle).
     let wb = scene.avatar.expression_weights(0.0, 0.0, 0.06);
-    assert!(*wb.get("blink").unwrap_or(&0.0) > 0.0, "periodic blink pulse fires");
+    assert!(
+        *wb.get("blink").unwrap_or(&0.0) > 0.0,
+        "periodic blink pulse fires"
+    );
 
     // The weights feed kami-vrm's ExpressionManager → morph targets.
     use kami_vrm::expression::ExpressionManager;
@@ -105,7 +175,10 @@ fn expression_weights_resolve_into_morphs() {
     let mgr = ExpressionManager::new(&exprs);
     let resolved = mgr.resolve(&w);
     let total: f32 = resolved.morphs.values().sum();
-    assert!(total > 0.0, "EDN-driven weights resolve into VRM morph targets");
+    assert!(
+        total > 0.0,
+        "EDN-driven weights resolve into VRM morph targets"
+    );
 }
 
 /// Minimal VRM expressions (happy/aa/blink → morph 0/1/2 on mesh 0) for the
@@ -119,7 +192,11 @@ fn scene_test_expressions() -> Vec<kami_vrm::vrm_types::VrmExpression> {
             name: (*name).into(),
             preset: ExpressionPreset::from_str(name),
             is_binary: false,
-            morph_target_binds: vec![MorphTargetBind { mesh_index: 0, morph_index: i, weight: 1.0 }],
+            morph_target_binds: vec![MorphTargetBind {
+                mesh_index: 0,
+                morph_index: i,
+                weight: 1.0,
+            }],
             material_color_binds: vec![],
             texture_transform_binds: vec![],
             override_blink: None,

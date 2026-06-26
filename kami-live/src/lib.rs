@@ -42,22 +42,22 @@ pub mod show;
 pub mod stage;
 pub mod vj;
 
-pub use audio::{midi_to_hz, AudioCue, AudioPattern, BassLine, BassNote, DrumPattern, DrumSlot};
+pub use audio::{AudioCue, AudioPattern, BassLine, BassNote, DrumPattern, DrumSlot, midi_to_hz};
 pub use beat::{BeatEvent, BeatGrid, BeatPhase};
 pub use cheer::{CheerAggregate, CheerKind, CheerSample};
-pub use director::{Director, Trigger, TriggerOn};
 pub use crowd::{Crowd, CrowdConfig, Fan, FanMood, FanSnapshot};
+pub use director::{Director, Trigger, TriggerOn};
 pub use lighting::{Envelope, LightingCue, LightingDesigner, LightingFixture, LightingFrame};
-pub use lint::{lint_scene, Lint, Severity};
+pub use lint::{Lint, Severity, lint_scene};
 pub use live2d::Live2DBinding;
 pub use performer::{DanceMove, DancePose, Performer};
 pub use render::{show_to_render_ir, show_to_render_ir_edn};
 pub use scene::{
-    cue_kind_by_name, lighting_fixture_by_name, stage_preset_by_name, vj_pattern_by_name,
-    run_headless, AvatarBinding, CameraRig, CameraShot, DanceFrame, DanceScene, ExprSource, ExpressionDrive, FiredAction,
-    LookTarget, RunReport, SpringTuning,
+    AvatarBinding, CameraRig, CameraShot, DanceFrame, DanceScene, ExprSource, ExpressionDrive,
+    FiredAction, LookTarget, Phoneme, RunReport, SpringTuning, StageProp, VoiceLine, Vowel, cue_kind_by_name,
+    lighting_fixture_by_name, run_headless, stage_preset_by_name, vj_pattern_by_name,
 };
-pub use setlist::{CuePoint, CueKind, Setlist, Track, TrackId};
+pub use setlist::{CueKind, CuePoint, Setlist, Track, TrackId};
 pub use show::{LiveShow, ShowEvent, ShowSnapshot};
 pub use stage::{Stage, StagePreset, StageZone};
 pub use vj::{Palette, VJDeck, VJPattern};

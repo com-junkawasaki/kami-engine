@@ -37,6 +37,17 @@
 //! `:curly` / `:afro` / `:braided`); colours are `[r g b]` via `kami_scene::vec3`.
 //! Because the preset fns use `..Self::default()`, the shipped EDN reproduces the
 //! **resolved** values (the omitted fields are the resolved defaults).
+//!
+//! ## Also in this crate
+//!
+//! [`face_rig`] — the MetaHuman FACS face-rig (`ControlRig::metahuman_face_rig()`)
+//! AU→bone mapping table as parity-tested EDN (ADR-0046).
+
+/// MetaHuman FACS face-rig AU→bone table as EDN (rebuilds the real `ControlRig`).
+pub mod face_rig;
+
+/// MetaHuman default animation blueprint as EDN (rebuilds the real `AnimBlueprint`).
+pub mod anim_blueprint;
 
 use std::collections::BTreeMap;
 

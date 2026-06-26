@@ -33,3 +33,10 @@ kami-game = { path = "../kami-game" }
 # accessors so preset config parses the same way games do.
 kami-scene = { path = "../kami-scene" }
 thiserror = { workspace = true }
+# Vec3 reconstruction for the Sabiotoshi item catalog (RustZone3D / DisassemblyStep).
+glam = { workspace = true }
+
+[dev-dependencies]
+# CharacterDef / CharacterAppearance derive Serialize but not PartialEq, so the
+# rebuilt character list is parity-compared against brainrot_characters() via JSON.
+serde_json = { workspace = true }

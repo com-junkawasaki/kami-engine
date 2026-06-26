@@ -205,9 +205,44 @@ pub fn shipped_weather(name: &str) -> Result<Weather, Error> {
     preset_weather_from_edn(WEATHER_EDN, name)
 }
 
+/// Executor-edge resolver (ADR-0044/0046): resolve a named preset to a real [`Weather`],
+/// loading from the shipped [`WEATHER_EDN`] and falling back to the compiled-in
+/// `Weather::overcast()` / `Weather::clear()` only if the EDN fails to parse/resolve.
+/// Returns `None` for an unknown name (the caller leaves its weather unchanged).
+///
+/// This is what a native/GPU consumer (e.g. `kami-map::set_weather_preset`) calls instead
+/// of matching on `Weather::overcast()`/`clear()` directly — so the runtime sky is *data*
+/// (parity-tested here), retunable without recompiling.
+pub fn resolve_weather(name: &str) -> Option<Weather> {
+    match shipped_weather(name) {
+        Ok(w) => Some(w),
+        Err(_) => match name {
+            "overcast" => Some(Weather::overcast()),
+            "clear" => Some(Weather::clear()),
+            _ => None,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Executor-edge proof: `resolve_weather` is driven by the shipped EDN (it equals
+    /// `shipped_weather`), with the builtin only as fallback, and `None` for unknowns.
+    #[test]
+    fn resolve_weather_is_driven_by_edn() {
+        for name in ALL_PRESET_NAMES {
+            let edn = shipped_weather(name).expect("weather.edn resolves");
+            let got = resolve_weather(name).expect("preset resolves");
+            assert_eq!(
+                WeatherPreset::from_weather(&got),
+                WeatherPreset::from_weather(&edn),
+                "{name}: resolve_weather driven by weather.edn"
+            );
+        }
+        assert!(resolve_weather("monsoon").is_none(), "unknown → None");
+    }
 
     #[test]
     fn shipped_has_both_presets() {
@@ -239,7 +274,10 @@ mod tests {
 
     #[test]
     fn missing_presets_table_is_an_error() {
-        assert!(matches!(presets_from_edn("{:other 1}"), Err(Error::NoPresets)));
+        assert!(matches!(
+            presets_from_edn("{:other 1}"),
+            Err(Error::NoPresets)
+        ));
     }
 
     #[test]
@@ -249,8 +287,14 @@ mod tests {
         let spec = &p["p"];
         let d = WeatherPreset::defaults();
         assert_eq!(spec.cloud_coverage, 0.5);
-        assert_eq!(spec.cloud_density, d.cloud_density, "absent → default density");
-        assert_eq!(spec.cloud_altitude, d.cloud_altitude, "absent → default altitude");
+        assert_eq!(
+            spec.cloud_density, d.cloud_density,
+            "absent → default density"
+        );
+        assert_eq!(
+            spec.cloud_altitude, d.cloud_altitude,
+            "absent → default altitude"
+        );
         assert_eq!(spec.wind_speed, d.wind_speed, "absent → default wind speed");
         assert_eq!(spec.time, d.time, "absent → default time");
     }
