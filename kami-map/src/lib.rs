@@ -171,7 +171,9 @@ enum ProjectionMode {
 }
 
 enum TileGeometry {
-    Flat { transform: Mat4 },
+    Flat {
+        transform: Mat4,
+    },
     Globe {
         vertex_buffer: wgpu::Buffer,
         index_buffer: wgpu::Buffer,
@@ -201,9 +203,7 @@ enum LayerSource {
         width: f32,
     },
     /// GeoJSON-style Polygon / MultiPolygon (outer rings only; no holes yet).
-    Fill {
-        rings: Vec<Vec<[f64; 2]>>,
-    },
+    Fill { rings: Vec<Vec<[f64; 2]>> },
     /// Point set rendered as world-space discs.
     Circles {
         points: Vec<[f64; 2]>,
@@ -785,7 +785,10 @@ impl KamiMap {
                 height,
             },
         );
-        if matches!(self.projection_mode, ProjectionMode::Globe | ProjectionMode::Cosmic) {
+        if matches!(
+            self.projection_mode,
+            ProjectionMode::Globe | ProjectionMode::Cosmic
+        ) {
             let segs = if coord.z <= 1 {
                 24
             } else if coord.z == 2 {
@@ -795,20 +798,20 @@ impl KamiMap {
             };
             let mesh = self.build_globe_tile_mesh(coord, segs);
             if let Some(gpu_tile) = self.gpu_tiles.get_mut(&coord) {
-                let vertex_buffer = self
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("tile-dem-vb"),
-                        contents: bytemuck::cast_slice(&mesh.vertices),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    });
-                let index_buffer = self
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("tile-dem-ib"),
-                        contents: bytemuck::cast_slice(&mesh.indices),
-                        usage: wgpu::BufferUsages::INDEX,
-                    });
+                let vertex_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("tile-dem-vb"),
+                            contents: bytemuck::cast_slice(&mesh.vertices),
+                            usage: wgpu::BufferUsages::VERTEX,
+                        });
+                let index_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("tile-dem-ib"),
+                            contents: bytemuck::cast_slice(&mesh.indices),
+                            usage: wgpu::BufferUsages::INDEX,
+                        });
                 gpu_tile.geometry = TileGeometry::Globe {
                     vertex_buffer,
                     index_buffer,
@@ -886,14 +889,13 @@ impl KamiMap {
             .gpu_tiles
             .values()
             .map(|gpu_tile| match &gpu_tile.geometry {
-                TileGeometry::Flat { transform } => Some(
-                    self.device
-                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some("tile-instance"),
-                            contents: bytemuck::cast_slice(&transform.to_cols_array()),
-                            usage: wgpu::BufferUsages::VERTEX,
-                        }),
-                ),
+                TileGeometry::Flat { transform } => Some(self.device.create_buffer_init(
+                    &wgpu::util::BufferInitDescriptor {
+                        label: Some("tile-instance"),
+                        contents: bytemuck::cast_slice(&transform.to_cols_array()),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    },
+                )),
                 TileGeometry::Globe { .. } => None,
             })
             .collect();
@@ -962,7 +964,10 @@ impl KamiMap {
                     (TileGeometry::Flat { .. }, Some(inst_buf)) => {
                         pass.set_vertex_buffer(0, self.tile_quad_vb.slice(..));
                         pass.set_vertex_buffer(1, inst_buf.slice(..));
-                        pass.set_index_buffer(self.tile_quad_ib.slice(..), wgpu::IndexFormat::Uint32);
+                        pass.set_index_buffer(
+                            self.tile_quad_ib.slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
                         pass.draw_indexed(0..self.tile_quad_index_count, 0, 0..1);
                     }
                     (
@@ -990,7 +995,9 @@ impl KamiMap {
                 pass.draw_indexed(0..layer.index_count, 0, 0..1);
             }
             for id in &self.layer_order {
-                let Some(layer) = self.named_layers.get(id) else { continue };
+                let Some(layer) = self.named_layers.get(id) else {
+                    continue;
+                };
                 if !layer.visible {
                     continue;
                 }
@@ -1365,15 +1372,9 @@ impl KamiMap {
     /// geometry as JSON `{ lines: [...], polygons: [...], points: [...] }` in
     /// geographic coordinates. The bridge accumulates this across visible tiles
     /// and feeds it back into add_line_layer / add_fill_layer / add_circle_layer.
-    pub fn decode_mvt_layer(
-        &self,
-        z: u32,
-        x: u32,
-        y: u32,
-        layer_name: &str,
-        pbf: &[u8],
-    ) -> String {
-        let features = mvt::decode_layer(pbf, kami_geo::projection::TileCoord { z, x, y }, layer_name);
+    pub fn decode_mvt_layer(&self, z: u32, x: u32, y: u32, layer_name: &str, pbf: &[u8]) -> String {
+        let features =
+            mvt::decode_layer(pbf, kami_geo::projection::TileCoord { z, x, y }, layer_name);
         serde_json::json!({
             "lines": features.lines,
             "polygons": features.polygons,
@@ -1392,8 +1393,11 @@ impl KamiMap {
         layer_name: &str,
         pbf: &[u8],
     ) -> String {
-        let features =
-            mvt::decode_layer_features(pbf, kami_geo::projection::TileCoord { z, x, y }, layer_name);
+        let features = mvt::decode_layer_features(
+            pbf,
+            kami_geo::projection::TileCoord { z, x, y },
+            layer_name,
+        );
         serde_json::to_string(&features).unwrap_or_else(|_| "{\"features\":[]}".into())
     }
 
@@ -1403,11 +1407,7 @@ impl KamiMap {
         let jobs: Vec<(String, LayerSource, [f32; 4])> = self
             .named_layers
             .iter()
-            .filter_map(|(id, l)| {
-                l.source
-                    .as_ref()
-                    .map(|s| (id.clone(), s.clone(), l.color))
-            })
+            .filter_map(|(id, l)| l.source.as_ref().map(|s| (id.clone(), s.clone(), l.color)))
             .collect();
         for (id, src, color) in jobs {
             let (verts, idx) = self.rebuild_mesh_for(&src);
@@ -1440,13 +1440,14 @@ impl KamiMap {
         self.weather.day_night.time = t.fract().abs();
     }
 
-    /// Switch to a named weather preset: "overcast" or "clear". Unknown names are ignored.
+    /// Switch to a named weather preset ("overcast"/"clear"). Loaded from
+    /// kami-atmosphere-scene's `weather.edn` (ADR-0044/0046 executor edge: the runtime sky
+    /// is data, parity-tested there, with the compiled-in builtin only as fallback);
+    /// unknown names leave the weather unchanged.
     pub fn set_weather_preset(&mut self, preset: &str) {
-        self.weather = match preset {
-            "overcast" => Weather::overcast(),
-            "clear" => Weather::clear(),
-            _ => return,
-        };
+        if let Some(w) = kami_atmosphere_scene::resolve_weather(preset) {
+            self.weather = w;
+        }
     }
 }
 
@@ -1462,7 +1463,9 @@ impl KamiMap {
     }
 
     fn orbital_body(&self, body_id: &str) -> Option<&OrbitalBodyConfig> {
-        self.orbital_bodies.iter().find(|body| body.body_id == body_id)
+        self.orbital_bodies
+            .iter()
+            .find(|body| body.body_id == body_id)
     }
 
     fn celestial_object(&self, object_id: &str) -> Option<&CelestialObjectConfig> {
@@ -1631,7 +1634,8 @@ impl KamiMap {
                 self.camera.target = Vec3::ZERO;
                 self.camera.up = Vec3::new(up4.x, up4.y, up4.z).normalize_or_zero();
 
-                let view = Mat4::look_at_rh(self.camera.position, self.camera.target, self.camera.up);
+                let view =
+                    Mat4::look_at_rh(self.camera.position, self.camera.target, self.camera.up);
                 let projection =
                     // Far plane 1e9 (was 100_000) so wide-extent polygons
                     // at high zoom with pitch aren't depth-clipped. At
@@ -1652,7 +1656,11 @@ impl KamiMap {
                 let normal = target.normalize_or_zero();
                 let distance = GLOBE_RADIUS * (1.05 + (4.2 - self.zoom as f32).max(0.0) * 0.45);
                 let eye = normal * distance;
-                let east_seed = if normal.y.abs() > 0.98 { Vec3::Z } else { Vec3::Y };
+                let east_seed = if normal.y.abs() > 0.98 {
+                    Vec3::Z
+                } else {
+                    Vec3::Y
+                };
                 let east = east_seed.cross(normal).normalize_or_zero();
                 let north = normal.cross(east).normalize_or_zero();
 
@@ -1660,7 +1668,8 @@ impl KamiMap {
                 self.camera.target = target;
                 self.camera.up = north;
 
-                let view = Mat4::look_at_rh(self.camera.position, self.camera.target, self.camera.up);
+                let view =
+                    Mat4::look_at_rh(self.camera.position, self.camera.target, self.camera.up);
                 let projection = Mat4::perspective_rh(
                     34.0_f32.to_radians(),
                     self.width as f32 / self.height.max(1) as f32,
@@ -1682,13 +1691,12 @@ impl KamiMap {
                 let solar_blend = self.cosmic_system_blend(-1.2, 1.8);
                 let galaxy_blend = self.cosmic_system_blend(-3.8, 2.6);
                 let universe_blend = self.cosmic_system_blend(-6.4, 3.6);
-                let distance = GLOBE_RADIUS * (
-                    5.6
+                let distance = GLOBE_RADIUS
+                    * (5.6
                         + cosmic_blend * 18.0
                         + solar_blend * 54.0
                         + galaxy_blend * 240.0
-                        + universe_blend * 740.0
-                );
+                        + universe_blend * 740.0);
                 let eye = Vec3::new(
                     distance * pitch.cos() * yaw.sin(),
                     distance * pitch.sin(),
@@ -1697,7 +1705,8 @@ impl KamiMap {
                 self.camera.position = eye;
                 self.camera.target = target;
                 self.camera.up = Vec3::Y;
-                let view = Mat4::look_at_rh(self.camera.position, self.camera.target, self.camera.up);
+                let view =
+                    Mat4::look_at_rh(self.camera.position, self.camera.target, self.camera.up);
                 let projection = Mat4::perspective_rh(
                     38.0_f32.to_radians(),
                     self.width as f32 / self.height.max(1) as f32,
@@ -1795,7 +1804,11 @@ impl KamiMap {
                 let target = globe_position(self.center.lng, self.center.lat, GLOBE_RADIUS);
                 let normal = target.normalize_or_zero();
                 let eye = self.globe_camera_position();
-                let east_seed = if normal.y.abs() > 0.98 { Vec3::Z } else { Vec3::Y };
+                let east_seed = if normal.y.abs() > 0.98 {
+                    Vec3::Z
+                } else {
+                    Vec3::Y
+                };
                 let east = east_seed.cross(normal).normalize_or_zero();
                 let north = normal.cross(east).normalize_or_zero();
                 let view = Mat4::look_at_rh(eye, target, north);
@@ -1844,14 +1857,23 @@ impl KamiMap {
             .unwrap_or(149_597_870_700.0);
         let earth_abs = orbital_scene_position(
             scene_solar_orbit_radius(earth_a_m as f32, earth_a_m as f32, solar_radius),
-            earth_body.as_ref().and_then(|body| body.eccentricity).unwrap_or(0.0167) as f32,
+            earth_body
+                .as_ref()
+                .and_then(|body| body.eccentricity)
+                .unwrap_or(0.0167) as f32,
             earth_body
                 .as_ref()
                 .and_then(|body| body.inclination_deg)
                 .unwrap_or(0.0) as f32,
             orbital_phase_angle(
-                earth_body.as_ref().and_then(|body| body.orbital_period_s).unwrap_or(31_558_149.0) as f32,
-                earth_body.as_ref().and_then(|body| body.mean_longitude_deg).unwrap_or(100.0) as f32,
+                earth_body
+                    .as_ref()
+                    .and_then(|body| body.orbital_period_s)
+                    .unwrap_or(31_558_149.0) as f32,
+                earth_body
+                    .as_ref()
+                    .and_then(|body| body.mean_longitude_deg)
+                    .unwrap_or(100.0) as f32,
                 now_s,
             ),
         );
@@ -1868,15 +1890,28 @@ impl KamiMap {
         let moon_pos = earth_pos
             + orbital_scene_position(
                 scene_cislunar_orbit_radius(
-                    moon_body.as_ref().and_then(|body| body.semi_major_axis_m).unwrap_or(384_400_000.0)
-                        as f32,
+                    moon_body
+                        .as_ref()
+                        .and_then(|body| body.semi_major_axis_m)
+                        .unwrap_or(384_400_000.0) as f32,
                 ),
-                moon_body.as_ref().and_then(|body| body.eccentricity).unwrap_or(0.0549) as f32,
-                moon_body.as_ref().and_then(|body| body.inclination_deg).unwrap_or(5.145) as f32,
+                moon_body
+                    .as_ref()
+                    .and_then(|body| body.eccentricity)
+                    .unwrap_or(0.0549) as f32,
+                moon_body
+                    .as_ref()
+                    .and_then(|body| body.inclination_deg)
+                    .unwrap_or(5.145) as f32,
                 orbital_phase_angle(
-                    moon_body.as_ref().and_then(|body| body.orbital_period_s).unwrap_or(2_360_591.0)
-                        as f32,
-                    moon_body.as_ref().and_then(|body| body.mean_longitude_deg).unwrap_or(218.3) as f32,
+                    moon_body
+                        .as_ref()
+                        .and_then(|body| body.orbital_period_s)
+                        .unwrap_or(2_360_591.0) as f32,
+                    moon_body
+                        .as_ref()
+                        .and_then(|body| body.mean_longitude_deg)
+                        .unwrap_or(218.3) as f32,
                     now_s,
                 ),
             );
@@ -1889,21 +1924,38 @@ impl KamiMap {
                 earth_pos
                     + orbital_scene_position(
                         scene_cislunar_orbit_radius(
-                            iss_body.as_ref().and_then(|body| body.semi_major_axis_m).unwrap_or(6_771_000.0)
-                                as f32,
+                            iss_body
+                                .as_ref()
+                                .and_then(|body| body.semi_major_axis_m)
+                                .unwrap_or(6_771_000.0) as f32,
                         ),
-                        iss_body.as_ref().and_then(|body| body.eccentricity).unwrap_or(0.0005) as f32,
-                        iss_body.as_ref().and_then(|body| body.inclination_deg).unwrap_or(51.64) as f32,
+                        iss_body
+                            .as_ref()
+                            .and_then(|body| body.eccentricity)
+                            .unwrap_or(0.0005) as f32,
+                        iss_body
+                            .as_ref()
+                            .and_then(|body| body.inclination_deg)
+                            .unwrap_or(51.64) as f32,
                         orbital_phase_angle(
-                            iss_body.as_ref().and_then(|body| body.orbital_period_s).unwrap_or(5_570.0) as f32,
-                            iss_body.as_ref().and_then(|body| body.mean_longitude_deg).unwrap_or(0.0) as f32,
+                            iss_body
+                                .as_ref()
+                                .and_then(|body| body.orbital_period_s)
+                                .unwrap_or(5_570.0) as f32,
+                            iss_body
+                                .as_ref()
+                                .and_then(|body| body.mean_longitude_deg)
+                                .unwrap_or(0.0) as f32,
                             now_s,
                         ),
                     )
             });
         let geo_body = self.orbital_body("orbital-body:geo-ring").cloned();
         let geo_ring_radius = scene_cislunar_orbit_radius(
-            geo_body.as_ref().and_then(|body| body.semi_major_axis_m).unwrap_or(42_164_000.0) as f32,
+            geo_body
+                .as_ref()
+                .and_then(|body| body.semi_major_axis_m)
+                .unwrap_or(42_164_000.0) as f32,
         );
         let mercury_pos = orbital_scene_position(
             scene_solar_orbit_radius(57_909_000_000.0, earth_a_m as f32, solar_radius),
@@ -1946,7 +1998,12 @@ impl KamiMap {
             .map(|_| UNIVERSE_RADIUS * (0.26 + universe_blend * 0.74))
             .unwrap_or(UNIVERSE_RADIUS * (0.26 + universe_blend * 0.74));
 
-        let (verts, idx) = sphere_mesh_at(earth_pos, GLOBE_RADIUS * (1.02 + cosmic_blend * 0.04), 24, 32);
+        let (verts, idx) = sphere_mesh_at(
+            earth_pos,
+            GLOBE_RADIUS * (1.02 + cosmic_blend * 0.04),
+            24,
+            32,
+        );
         self.push_transient_mesh(&mut meshes, verts, idx, [0.92, 0.98, 1.0, 0.06]);
         let (verts, idx) = sphere_mesh_at(sun_pos, sun_radius, 14, 18);
         self.push_transient_mesh(
@@ -1997,12 +2054,14 @@ impl KamiMap {
         let tle_bodies: Vec<OrbitalBodyConfig> = self
             .orbital_bodies
             .iter()
-            .filter(|body| body.body_id != "orbital-body:iss" && body.tle_line1.is_some() && body.tle_line2.is_some())
+            .filter(|body| {
+                body.body_id != "orbital-body:iss"
+                    && body.tle_line1.is_some()
+                    && body.tle_line2.is_some()
+            })
             .cloned()
             .collect();
-        for body in tle_bodies
-            .iter()
-        {
+        for body in tle_bodies.iter() {
             if let Some(pos) = self.tle_scene_position(body, now_ms) {
                 let (verts, idx) = sphere_mesh_at(
                     pos,
@@ -2028,12 +2087,35 @@ impl KamiMap {
             }
         }
         let (verts, idx) = ring_mesh(Vec3::ZERO, geo_ring_radius, GLOBE_RADIUS * 0.01, 120);
-        self.push_transient_mesh(&mut meshes, verts, idx, [0.5, 0.7, 1.0, 0.24 + lunar_blend * 0.18]);
-        let (verts, idx) = ring_ribbon_mesh(earth_pos, moon_pos, 160, GLOBE_RADIUS * 0.008, [0.1, 0.6, 0.2]);
+        self.push_transient_mesh(
+            &mut meshes,
+            verts,
+            idx,
+            [0.5, 0.7, 1.0, 0.24 + lunar_blend * 0.18],
+        );
+        let (verts, idx) = ring_ribbon_mesh(
+            earth_pos,
+            moon_pos,
+            160,
+            GLOBE_RADIUS * 0.008,
+            [0.1, 0.6, 0.2],
+        );
         self.push_transient_mesh(&mut meshes, verts, idx, [0.88, 0.9, 0.98, 0.26]);
-        let (verts, idx) = ring_ribbon_mesh(earth_pos, iss_pos, 120, GLOBE_RADIUS * 0.004, [0.4, 0.15, 0.5]);
+        let (verts, idx) = ring_ribbon_mesh(
+            earth_pos,
+            iss_pos,
+            120,
+            GLOBE_RADIUS * 0.004,
+            [0.4, 0.15, 0.5],
+        );
         self.push_transient_mesh(&mut meshes, verts, idx, [0.72, 0.96, 1.0, 0.32]);
-        let (verts, idx) = ring_ribbon_mesh(earth_pos, sun_pos, 320, GLOBE_RADIUS * 0.018, [0.38, 0.6, 1.0]);
+        let (verts, idx) = ring_ribbon_mesh(
+            earth_pos,
+            sun_pos,
+            320,
+            GLOBE_RADIUS * 0.018,
+            [0.38, 0.6, 1.0],
+        );
         self.push_transient_mesh(&mut meshes, verts, idx, [0.45, 0.72, 1.0, 0.6]);
         for (pos, radius, color) in [
             (mercury_pos, GLOBE_RADIUS * 0.05, [0.82, 0.74, 0.62, 0.92]),
@@ -2045,7 +2127,13 @@ impl KamiMap {
             let (verts, idx) = sphere_mesh_at(pos, radius, 10, 12);
             self.push_transient_mesh(&mut meshes, verts, idx, color);
         }
-        let (verts, idx) = spiral_ring_mesh(Vec3::ZERO, galaxy_radius, GLOBE_RADIUS * 0.22, 3.8, phase * 0.03);
+        let (verts, idx) = spiral_ring_mesh(
+            Vec3::ZERO,
+            galaxy_radius,
+            GLOBE_RADIUS * 0.22,
+            3.8,
+            phase * 0.03,
+        );
         self.push_transient_mesh(&mut meshes, verts, idx, [0.78, 0.48, 1.0, 0.28]);
         if let Some(andromeda) = self.celestial_object("celestial-object:andromeda") {
             let anchor_pos = equatorial_anchor(
@@ -2056,7 +2144,10 @@ impl KamiMap {
             let (verts, idx) = sphere_mesh_at(anchor_pos, GLOBE_RADIUS * 0.24, 10, 12);
             self.push_transient_mesh(&mut meshes, verts, idx, [0.72, 0.84, 1.0, 0.75]);
         }
-        if self.celestial_object("celestial-object:sagittarius-a-star").is_some() {
+        if self
+            .celestial_object("celestial-object:sagittarius-a-star")
+            .is_some()
+        {
             let (verts, idx) = sphere_mesh_at(Vec3::ZERO, GLOBE_RADIUS * 0.08, 8, 10);
             self.push_transient_mesh(&mut meshes, verts, idx, [1.0, 0.72, 0.34, 0.84]);
         }
@@ -2141,13 +2232,34 @@ impl KamiMap {
             label: Some("cosmic-bg"),
             layout: &self.material_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: mat_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&self.fallback_white.view) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Sampler(&self.fallback_white.sampler) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&self.fallback_normal.view) },
-                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(&self.fallback_normal.sampler) },
-                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::TextureView(&self.fallback_mr.view) },
-                wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::Sampler(&self.fallback_mr.sampler) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: mat_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&self.fallback_white.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.fallback_white.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&self.fallback_normal.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::Sampler(&self.fallback_normal.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(&self.fallback_mr.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::Sampler(&self.fallback_mr.sampler),
+                },
             ],
         })
     }
@@ -2432,7 +2544,11 @@ impl KamiMap {
                     indices.extend(m.indices);
                 }
             }
-            LayerSource::Extrude { rings, heights, base } => {
+            LayerSource::Extrude {
+                rings,
+                heights,
+                base,
+            } => {
                 for (i, ring) in rings.iter().enumerate() {
                     if ring.len() < 3 {
                         continue;
@@ -2441,9 +2557,8 @@ impl KamiMap {
                     if h <= 0.0 {
                         continue;
                     }
-                    let m = kami_geo::mesh::polygon_to_extrude_earcut(
-                        ring, iz, center_px, *base, h,
-                    );
+                    let m =
+                        kami_geo::mesh::polygon_to_extrude_earcut(ring, iz, center_px, *base, h);
                     let vcount = (m.vertices.len() / 8) as u32;
                     vertices.extend_from_slice(&m.vertices);
                     indices.extend(m.indices.into_iter().map(|i| i + offset));
@@ -2548,7 +2663,9 @@ fn sphere_mesh_at(center: Vec3, radius: f32, stacks: u32, slices: u32) -> (Vec<f
                 center.x + x * radius,
                 center.y + y * radius,
                 center.z + z * radius,
-                x, y, z,
+                x,
+                y,
+                z,
                 j as f32 / slices as f32,
                 i as f32 / stacks as f32,
             ]);
@@ -2586,7 +2703,13 @@ fn ring_mesh(center: Vec3, radius: f32, width: f32, segments: u32) -> (Vec<f32>,
     (vertices, indices)
 }
 
-fn ring_ribbon_mesh(center: Vec3, focus: Vec3, segments: u32, width: f32, tilt: [f32; 3]) -> (Vec<f32>, Vec<u32>) {
+fn ring_ribbon_mesh(
+    center: Vec3,
+    focus: Vec3,
+    segments: u32,
+    width: f32,
+    tilt: [f32; 3],
+) -> (Vec<f32>, Vec<u32>) {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
     let delta = focus - center;
@@ -2597,8 +2720,15 @@ fn ring_ribbon_mesh(center: Vec3, focus: Vec3, segments: u32, width: f32, tilt: 
     for i in 0..=segments {
         let t = i as f32 / segments as f32;
         let ang = t * std::f32::consts::TAU;
-        let pos = center + Vec3::new(radius_x * ang.cos(), 0.0, radius_z * ang.sin()) + tilt * ang.sin() * 0.4;
-        let tangent = Vec3::new(-radius_x * ang.sin(), tilt.y * 0.4 * ang.cos(), radius_z * ang.cos()).normalize_or_zero();
+        let pos = center
+            + Vec3::new(radius_x * ang.cos(), 0.0, radius_z * ang.sin())
+            + tilt * ang.sin() * 0.4;
+        let tangent = Vec3::new(
+            -radius_x * ang.sin(),
+            tilt.y * 0.4 * ang.cos(),
+            radius_z * ang.cos(),
+        )
+        .normalize_or_zero();
         let side = tangent.cross(Vec3::Y).normalize_or_zero();
         let left = pos + side * half;
         let right = pos - side * half;
@@ -2612,7 +2742,13 @@ fn ring_ribbon_mesh(center: Vec3, focus: Vec3, segments: u32, width: f32, tilt: 
     (vertices, indices)
 }
 
-fn spiral_ring_mesh(center: Vec3, radius: f32, width: f32, turns: f32, phase: f32) -> (Vec<f32>, Vec<u32>) {
+fn spiral_ring_mesh(
+    center: Vec3,
+    radius: f32,
+    width: f32,
+    turns: f32,
+    phase: f32,
+) -> (Vec<f32>, Vec<u32>) {
     let segments = 280_u32;
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -2621,7 +2757,12 @@ fn spiral_ring_mesh(center: Vec3, radius: f32, width: f32, turns: f32, phase: f3
         let t = i as f32 / segments as f32;
         let ang = phase + t * std::f32::consts::TAU * turns;
         let local_r = radius * (0.28 + 0.72 * t);
-        let pos = center + Vec3::new(local_r * ang.cos(), (t - 0.5) * GLOBE_RADIUS * 0.16, local_r * 0.55 * ang.sin());
+        let pos = center
+            + Vec3::new(
+                local_r * ang.cos(),
+                (t - 0.5) * GLOBE_RADIUS * 0.16,
+                local_r * 0.55 * ang.sin(),
+            );
         let tangent = Vec3::new(
             -local_r * ang.sin() + radius * 0.72 * ang.cos(),
             GLOBE_RADIUS * 0.16,
@@ -2665,7 +2806,12 @@ fn orbital_phase_angle(period_s: f32, mean_longitude_deg: f32, now_s: f32) -> f3
     mean_longitude_deg.to_radians() + phase
 }
 
-fn orbital_scene_position(radius: f32, eccentricity: f32, inclination_deg: f32, phase: f32) -> Vec3 {
+fn orbital_scene_position(
+    radius: f32,
+    eccentricity: f32,
+    inclination_deg: f32,
+    phase: f32,
+) -> Vec3 {
     let e = eccentricity.clamp(0.0, 0.98);
     let r = radius * (1.0 - e * e) / (1.0 + e * phase.cos()).max(0.2);
     let incl = inclination_deg.to_radians();
@@ -2724,3 +2870,4 @@ fn tle_scene_position_from_cache(cache: &CachedTle, now_ms: f64) -> Option<Vec3>
     let scene_radius = scene_cislunar_orbit_radius((eci.length() * 1000.0).max(6_771_000.0));
     Some(norm * scene_radius)
 }
+
