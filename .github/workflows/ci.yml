@@ -60,3 +60,11 @@ jobs:
         run: |
           cargo test -p kami-vehicle-scene -p kami-atmosphere-scene -p kami-terrain-scene
           cargo test -p kami-webgpu-rs --lib cube_matches sphere_matches cylinder_matches lit_shader_matches shadow_shader_matches 2>/dev/null || true
+      # Web Model-B foundation: the compiled-CLJ gameplay runtime (kami-script-runtime
+      # on the wasmi no-JIT backend) must build for the browser (wasm32), so a
+      # game.wasm can run wasm-in-wasm in-page. Guards "compiled CLJ runs in the browser".
+      - name: Model-B runtime builds for the browser (wasm32 + wasmi)
+        working-directory: kami-engine
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo build -p kami-script-runtime --no-default-features --features backend-wasmi --target wasm32-unknown-unknown
