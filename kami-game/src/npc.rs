@@ -46,11 +46,52 @@ pub struct BrainrotUpdate {
     pub charm_active: bool,
 }
 
+/// Init-time tuning for [`SkibidiBehavior`] — the phase durations + motion rates the hot
+/// `tick` reads each frame. `Default` reproduces the original hardcoded constants exactly;
+/// externalized as parity-tested EDN in `kami-game-scene` (ADR-0046, "needs-refactor" case:
+/// the magic numbers move out of the hot loop into a config struct).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SkibidiTuning {
+    /// Rise phase duration (s).
+    pub rise_dur: f32,
+    /// Hold phase duration (s).
+    pub hold_dur: f32,
+    /// Drop phase duration (s).
+    pub drop_dur: f32,
+    /// Wait phase duration (s).
+    pub wait_dur: f32,
+    /// Upward speed during Rise (units/s).
+    pub rise_dy_rate: f32,
+    /// Head-yaw oscillation frequency (rad/s) while up.
+    pub yaw_freq: f32,
+    /// Head-yaw oscillation amplitude (rad) while up.
+    pub yaw_amp: f32,
+    /// Downward speed during Drop (units/s).
+    pub drop_dy_rate: f32,
+}
+
+impl Default for SkibidiTuning {
+    fn default() -> Self {
+        Self {
+            rise_dur: 1.0,
+            hold_dur: 0.5,
+            drop_dur: 0.5,
+            wait_dur: 2.0,
+            rise_dy_rate: 2.0,
+            yaw_freq: 20.0,
+            yaw_amp: 1.5,
+            drop_dy_rate: 4.0,
+        }
+    }
+}
+
 /// Skibidi: rises up, holds, drops, waits. Head yaw oscillation while up.
 #[derive(Debug, Clone)]
 pub struct SkibidiBehavior {
     pub phase: SkibidiPhase,
     pub timer: f32,
+    /// Phase durations + motion rates (init-time config; see [`SkibidiTuning`]).
+    pub tuning: SkibidiTuning,
 }
 
 impl SkibidiBehavior {
@@ -58,15 +99,16 @@ impl SkibidiBehavior {
         Self {
             phase: SkibidiPhase::Rise,
             timer: 0.0,
+            tuning: SkibidiTuning::default(),
         }
     }
 
     fn phase_duration(&self) -> f32 {
         match self.phase {
-            SkibidiPhase::Rise => 1.0,
-            SkibidiPhase::Hold => 0.5,
-            SkibidiPhase::Drop => 0.5,
-            SkibidiPhase::Wait => 2.0,
+            SkibidiPhase::Rise => self.tuning.rise_dur,
+            SkibidiPhase::Hold => self.tuning.hold_dur,
+            SkibidiPhase::Drop => self.tuning.drop_dur,
+            SkibidiPhase::Wait => self.tuning.wait_dur,
         }
     }
 
@@ -91,16 +133,14 @@ impl SkibidiBehavior {
         u.scale = 1.0;
         match self.phase {
             SkibidiPhase::Rise => {
-                // y += 2.0 over 1s
-                u.dy = 2.0 * dt;
-                u.yaw = (self.timer * 20.0).sin() * 1.5;
+                u.dy = self.tuning.rise_dy_rate * dt;
+                u.yaw = (self.timer * self.tuning.yaw_freq).sin() * self.tuning.yaw_amp;
             }
             SkibidiPhase::Hold => {
-                u.yaw = (self.timer * 20.0).sin() * 1.5;
+                u.yaw = (self.timer * self.tuning.yaw_freq).sin() * self.tuning.yaw_amp;
             }
             SkibidiPhase::Drop => {
-                // y -= 2.0 over 0.5s => rate = 4.0/s
-                u.dy = -4.0 * dt;
+                u.dy = -self.tuning.drop_dy_rate * dt;
             }
             SkibidiPhase::Wait => {
                 let _ = t; // idle

@@ -1,0 +1,11 @@
+;; npc_tuning.edn — canonical CONFIG/DATA for kami-game's brainrot NPC tuning.
+;;
+;; ADR-0046 "needs-refactor" case: the magic numbers that used to live inside the hot
+;; `tick()` loops are extracted into engine tuning structs (e.g. `kami_game::npc::
+;; SkibidiTuning`) whose `Default` reproduces the original constants, and externalized here
+;; as data. The hot per-frame integrator stays native Rust; only the init-time tuning moves
+;; to EDN. kami-game is untouched in behaviour (defaults == these values); `*::default()`
+;; stays the builtin fallback AND the parity oracle (tests/npc_parity.rs).
+{:npc/skibidi
+ {:rise-dur 1.0 :hold-dur 0.5 :drop-dur 0.5 :wait-dur 2.0
+  :rise-dy-rate 2.0 :yaw-freq 20.0 :yaw-amp 1.5 :drop-dy-rate 4.0}}

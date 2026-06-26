@@ -64,6 +64,9 @@ pub mod battle_royale;
 /// Pokoa species dex (`pokoa::pokoa_dex()`) as EDN (owned spec; engine struct is `&'static`).
 pub mod pokoa;
 
+/// Brainrot NPC tuning (`npc::SkibidiTuning`, …) as EDN — the ADR-0046 "needs-refactor" case.
+pub mod npc;
+
 use std::collections::BTreeMap;
 
 use kami_game::animation::{AnimationClip, AnimationState, HeadBobPhase};
