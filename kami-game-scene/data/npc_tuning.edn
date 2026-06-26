@@ -1,11 +1,27 @@
 ;; npc_tuning.edn — canonical CONFIG/DATA for kami-game's brainrot NPC tuning.
 ;;
 ;; ADR-0046 "needs-refactor" case: the magic numbers that used to live inside the hot
-;; `tick()` loops are extracted into engine tuning structs (e.g. `kami_game::npc::
-;; SkibidiTuning`) whose `Default` reproduces the original constants, and externalized here
-;; as data. The hot per-frame integrator stays native Rust; only the init-time tuning moves
-;; to EDN. kami-game is untouched in behaviour (defaults == these values); `*::default()`
-;; stays the builtin fallback AND the parity oracle (tests/npc_parity.rs).
+;; `tick()` loops are extracted into engine tuning structs (`kami_game::npc::*Tuning`) whose
+;; `Default` reproduces the original constants, and externalized here as data. The hot
+;; per-frame integrators stay native Rust; only the init-time tuning moves to EDN. kami-game
+;; is untouched in behaviour (defaults == these values); `*Tuning::default()` stays the
+;; builtin fallback AND the parity oracle (tests/npc_parity.rs).
 {:npc/skibidi
  {:rise-dur 1.0 :hold-dur 0.5 :drop-dur 0.5 :wait-dur 2.0
-  :rise-dy-rate 2.0 :yaw-freq 20.0 :yaw-amp 1.5 :drop-dy-rate 4.0}}
+  :rise-dy-rate 2.0 :yaw-freq 20.0 :yaw-amp 1.5 :drop-dy-rate 4.0}
+
+ :npc/grimace
+ {:speed 0.3 :puddle-interval 5.0 :wobble-rate 2.0 :wobble-amp 0.05}
+
+ :npc/sigma
+ {:nod-trigger-dist 5.0 :nod-duration 0.5 :nod-pitch-deg 15.0}
+
+ :npc/ohio
+ {:yaw-rate 2.0 :teleport-interval 3.0 :teleport-radius 20.0 :damage-cube-dist 10.0}
+
+ :npc/fanum
+ {:steal-cooldown 3.0 :arrive-dist 0.5 :patrol-speed 1.0}
+
+ :npc/rizz
+ {:approach-dist 3.0 :approach-speed 0.5 :charm-pitch-deg 10.0 :charm-duration 2.0
+  :walkaway-radius 10.0 :walkaway-speed 0.5 :walkaway-arrive-dist 0.5}}

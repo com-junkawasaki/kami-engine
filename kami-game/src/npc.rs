@@ -151,10 +151,31 @@ impl SkibidiBehavior {
 }
 
 /// Grimace: slow pursuit + puddle spawning + wobble scale.
+/// Init-time tuning for [`GrimaceBehavior`]. `Default` reproduces the original constants.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GrimaceTuning {
+    /// Pursuit speed toward the target (units/s).
+    pub speed: f32,
+    /// Seconds between puddle spawns.
+    pub puddle_interval: f32,
+    /// Wobble oscillation rate (cycles/s; multiplied by TAU).
+    pub wobble_rate: f32,
+    /// Wobble scale amplitude.
+    pub wobble_amp: f32,
+}
+
+impl Default for GrimaceTuning {
+    fn default() -> Self {
+        Self { speed: 0.3, puddle_interval: 5.0, wobble_rate: 2.0, wobble_amp: 0.05 }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GrimaceBehavior {
     pub puddle_timer: f32,
     pub wobble_phase: f32,
+    /// Pursuit/puddle/wobble tuning (init-time config; see [`GrimaceTuning`]).
+    pub tuning: GrimaceTuning,
 }
 
 impl GrimaceBehavior {
@@ -162,24 +183,25 @@ impl GrimaceBehavior {
         Self {
             puddle_timer: 0.0,
             wobble_phase: 0.0,
+            tuning: GrimaceTuning::default(),
         }
     }
 
     pub fn tick(&mut self, dt: f32, my_pos: Vec3, target_pos: Vec3) -> BrainrotUpdate {
-        let speed = 0.3;
+        let speed = self.tuning.speed;
         let dir = (target_pos - my_pos).normalize_or_zero();
         let vel = dir * speed * dt;
 
         self.puddle_timer += dt;
-        let spawn = if self.puddle_timer >= 5.0 {
-            self.puddle_timer -= 5.0;
+        let spawn = if self.puddle_timer >= self.tuning.puddle_interval {
+            self.puddle_timer -= self.tuning.puddle_interval;
             Some(my_pos)
         } else {
             None
         };
 
-        self.wobble_phase += dt * 2.0 * std::f32::consts::TAU;
-        let scale = 1.0 + 0.05 * self.wobble_phase.sin();
+        self.wobble_phase += dt * self.tuning.wobble_rate * std::f32::consts::TAU;
+        let scale = 1.0 + self.tuning.wobble_amp * self.wobble_phase.sin();
 
         BrainrotUpdate {
             dx: vel.x,
@@ -199,10 +221,29 @@ pub enum SigmaState {
     Nodding,
 }
 
+/// Init-time tuning for [`SigmaBehavior`]. `Default` reproduces the original constants.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SigmaTuning {
+    /// Trigger a nod when a player is within this distance (units).
+    pub nod_trigger_dist: f32,
+    /// Total nod duration (s) — down for the first half, up for the second.
+    pub nod_duration: f32,
+    /// Peak nod pitch (degrees).
+    pub nod_pitch_deg: f32,
+}
+
+impl Default for SigmaTuning {
+    fn default() -> Self {
+        Self { nod_trigger_dist: 5.0, nod_duration: 0.5, nod_pitch_deg: 15.0 }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SigmaBehavior {
     pub state: SigmaState,
     pub nod_timer: f32,
+    /// Nod trigger/duration/pitch tuning (init-time config; see [`SigmaTuning`]).
+    pub tuning: SigmaTuning,
 }
 
 impl SigmaBehavior {
@@ -210,6 +251,7 @@ impl SigmaBehavior {
         Self {
             state: SigmaState::Idle,
             nod_timer: 0.0,
+            tuning: SigmaTuning::default(),
         }
     }
 
@@ -220,20 +262,20 @@ impl SigmaBehavior {
         };
         match self.state {
             SigmaState::Idle => {
-                if nearest_player_dist < 5.0 {
+                if nearest_player_dist < self.tuning.nod_trigger_dist {
                     self.state = SigmaState::Nodding;
                     self.nod_timer = 0.0;
                 }
             }
             SigmaState::Nodding => {
                 self.nod_timer += dt;
-                let nod_duration = 0.5;
+                let nod_duration = self.tuning.nod_duration;
                 if self.nod_timer < nod_duration * 0.5 {
-                    // pitch down 15 degrees
-                    u.pitch = -15.0_f32.to_radians() * 2.0 * dt / nod_duration;
+                    // pitch down
+                    u.pitch = -self.tuning.nod_pitch_deg.to_radians() * 2.0 * dt / nod_duration;
                 } else if self.nod_timer < nod_duration {
                     // pitch back up
-                    u.pitch = 15.0_f32.to_radians() * 2.0 * dt / nod_duration;
+                    u.pitch = self.tuning.nod_pitch_deg.to_radians() * 2.0 * dt / nod_duration;
                 } else {
                     self.state = SigmaState::Idle;
                     self.nod_timer = 0.0;
@@ -245,10 +287,31 @@ impl SigmaBehavior {
 }
 
 /// Ohio Boss: teleports every 3s, slow rotation, spawns damage cubes near player.
+/// Init-time tuning for [`OhioBossBehavior`]. `Default` reproduces the original constants.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OhioTuning {
+    /// Slow constant yaw rate (rad/s).
+    pub yaw_rate: f32,
+    /// Seconds between teleports.
+    pub teleport_interval: f32,
+    /// Max teleport radius from current position (units).
+    pub teleport_radius: f32,
+    /// Spawn damage cubes when a player is within this distance (units).
+    pub damage_cube_dist: f32,
+}
+
+impl Default for OhioTuning {
+    fn default() -> Self {
+        Self { yaw_rate: 2.0, teleport_interval: 3.0, teleport_radius: 20.0, damage_cube_dist: 10.0 }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct OhioBossBehavior {
     pub teleport_timer: f32,
     pub rng: SimpleRng,
+    /// Yaw/teleport/damage tuning (init-time config; see [`OhioTuning`]).
+    pub tuning: OhioTuning,
 }
 
 impl OhioBossBehavior {
@@ -256,6 +319,7 @@ impl OhioBossBehavior {
         Self {
             teleport_timer: 0.0,
             rng: SimpleRng::new(seed),
+            tuning: OhioTuning::default(),
         }
     }
 
@@ -265,18 +329,18 @@ impl OhioBossBehavior {
             scale: 1.0,
             ..Default::default()
         };
-        u.yaw = 2.0 * dt;
+        u.yaw = self.tuning.yaw_rate * dt;
 
-        if self.teleport_timer >= 3.0 {
-            self.teleport_timer -= 3.0;
+        if self.teleport_timer >= self.tuning.teleport_interval {
+            self.teleport_timer -= self.tuning.teleport_interval;
             let angle = self.rng.next_f32() * std::f32::consts::TAU;
-            let radius = self.rng.next_f32() * 20.0;
+            let radius = self.rng.next_f32() * self.tuning.teleport_radius;
             let tx = my_pos.x + angle.cos() * radius;
             let tz = my_pos.z + angle.sin() * radius;
             u.teleport = Some(Vec3::new(tx, my_pos.y, tz));
         }
 
-        if nearest_player_dist < 10.0 {
+        if nearest_player_dist < self.tuning.damage_cube_dist {
             u.spawn_damage_cubes = true;
         }
 
@@ -285,11 +349,30 @@ impl OhioBossBehavior {
 }
 
 /// Fanum: patrols food stalls, steals nearby player items with cooldown.
+/// Init-time tuning for [`FanumBehavior`]. `Default` reproduces the original constants.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FanumTuning {
+    /// Cooldown (s) after stealing before another steal is allowed.
+    pub steal_cooldown: f32,
+    /// Distance to a waypoint at which it counts as reached (units).
+    pub arrive_dist: f32,
+    /// Patrol speed between waypoints (units/s).
+    pub patrol_speed: f32,
+}
+
+impl Default for FanumTuning {
+    fn default() -> Self {
+        Self { steal_cooldown: 3.0, arrive_dist: 0.5, patrol_speed: 1.0 }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FanumBehavior {
     pub waypoint_index: usize,
     pub waypoints: Vec<Vec3>,
     pub steal_cooldown: f32,
+    /// Steal-cooldown/patrol tuning (init-time config; see [`FanumTuning`]).
+    pub tuning: FanumTuning,
 }
 
 impl FanumBehavior {
@@ -298,6 +381,7 @@ impl FanumBehavior {
             waypoint_index: 0,
             waypoints,
             steal_cooldown: 0.0,
+            tuning: FanumTuning::default(),
         }
     }
 
@@ -311,17 +395,17 @@ impl FanumBehavior {
         // Steal if item nearby and cooldown expired.
         if nearby_item && self.steal_cooldown <= 0.0 {
             u.steal_item = true;
-            self.steal_cooldown = 3.0;
+            self.steal_cooldown = self.tuning.steal_cooldown;
         }
 
-        // Patrol between food stalls at speed 1.0.
+        // Patrol between food stalls.
         if !self.waypoints.is_empty() {
             let target = self.waypoints[self.waypoint_index];
             let dir = target - my_pos;
-            if dir.length() < 0.5 {
+            if dir.length() < self.tuning.arrive_dist {
                 self.waypoint_index = (self.waypoint_index + 1) % self.waypoints.len();
             }
-            let vel = dir.normalize_or_zero() * 1.0 * dt;
+            let vel = dir.normalize_or_zero() * self.tuning.patrol_speed * dt;
             u.dx = vel.x;
             u.dy = vel.y;
             u.dz = vel.z;
@@ -339,12 +423,47 @@ pub enum RizzPhase {
     WalkAway,
 }
 
+/// Init-time tuning for [`RizzBehavior`]. `Default` reproduces the original constants.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RizzTuning {
+    /// Switch to Charm when within this distance of the player (units).
+    pub approach_dist: f32,
+    /// Approach walking speed (units/s).
+    pub approach_speed: f32,
+    /// Charm head pitch (degrees, downward).
+    pub charm_pitch_deg: f32,
+    /// Charm duration before walking away (s).
+    pub charm_duration: f32,
+    /// Max walk-away target radius (units).
+    pub walkaway_radius: f32,
+    /// Walk-away speed (units/s).
+    pub walkaway_speed: f32,
+    /// Distance to the walk-away target at which it counts as reached (units).
+    pub walkaway_arrive_dist: f32,
+}
+
+impl Default for RizzTuning {
+    fn default() -> Self {
+        Self {
+            approach_dist: 3.0,
+            approach_speed: 0.5,
+            charm_pitch_deg: 10.0,
+            charm_duration: 2.0,
+            walkaway_radius: 10.0,
+            walkaway_speed: 0.5,
+            walkaway_arrive_dist: 0.5,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RizzBehavior {
     pub phase: RizzPhase,
     pub timer: f32,
     pub walkaway_target: Vec3,
     pub rng: SimpleRng,
+    /// Approach/charm/walk-away tuning (init-time config; see [`RizzTuning`]).
+    pub tuning: RizzTuning,
 }
 
 impl RizzBehavior {
@@ -354,6 +473,7 @@ impl RizzBehavior {
             timer: 0.0,
             walkaway_target: Vec3::ZERO,
             rng: SimpleRng::new(seed),
+            tuning: RizzTuning::default(),
         }
     }
 
@@ -366,12 +486,12 @@ impl RizzBehavior {
 
         match self.phase {
             RizzPhase::Approach => {
-                if dist <= 3.0 {
+                if dist <= self.tuning.approach_dist {
                     self.phase = RizzPhase::Charm;
                     self.timer = 0.0;
                 } else {
                     let dir = (nearest_player_pos - my_pos).normalize_or_zero();
-                    let vel = dir * 0.5 * dt;
+                    let vel = dir * self.tuning.approach_speed * dt;
                     u.dx = vel.x;
                     u.dy = vel.y;
                     u.dz = vel.z;
@@ -379,13 +499,13 @@ impl RizzBehavior {
             }
             RizzPhase::Charm => {
                 self.timer += dt;
-                u.pitch = -10.0_f32.to_radians();
+                u.pitch = -self.tuning.charm_pitch_deg.to_radians();
                 u.charm_active = true;
-                if self.timer >= 2.0 {
+                if self.timer >= self.tuning.charm_duration {
                     self.phase = RizzPhase::WalkAway;
                     self.timer = 0.0;
                     let angle = self.rng.next_f32() * std::f32::consts::TAU;
-                    let r = self.rng.next_f32() * 10.0;
+                    let r = self.rng.next_f32() * self.tuning.walkaway_radius;
                     self.walkaway_target = Vec3::new(
                         my_pos.x + angle.cos() * r,
                         my_pos.y,
@@ -395,11 +515,11 @@ impl RizzBehavior {
             }
             RizzPhase::WalkAway => {
                 let dir = (self.walkaway_target - my_pos).normalize_or_zero();
-                let vel = dir * 0.5 * dt;
+                let vel = dir * self.tuning.walkaway_speed * dt;
                 u.dx = vel.x;
                 u.dy = vel.y;
                 u.dz = vel.z;
-                if my_pos.distance(self.walkaway_target) < 0.5 {
+                if my_pos.distance(self.walkaway_target) < self.tuning.walkaway_arrive_dist {
                     self.phase = RizzPhase::Approach;
                     self.timer = 0.0;
                 }

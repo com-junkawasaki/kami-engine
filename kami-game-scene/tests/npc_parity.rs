@@ -6,14 +6,22 @@
 //! The oracle is the REAL Rust: `SkibidiTuning::default()` (via `builtin_skibidi_tuning`).
 //! `SkibidiTuning` derives `PartialEq`, so the comparison is direct.
 
-use kami_game_scene::npc::{builtin_skibidi_tuning, shipped_skibidi_tuning};
+use kami_game::npc::{
+    FanumTuning, GrimaceTuning, OhioTuning, RizzTuning, SigmaTuning, SkibidiTuning,
+};
+use kami_game_scene::npc::{
+    shipped_fanum_tuning, shipped_grimace_tuning, shipped_ohio_tuning, shipped_rizz_tuning,
+    shipped_sigma_tuning, shipped_skibidi_tuning,
+};
 
+/// Every brainrot npc's shipped EDN tuning == the engine `*Tuning::default()` (the
+/// constants that used to live in the hot `tick()` loop). PartialEq, exact.
 #[test]
-fn skibidi_tuning_edn_matches_builtin() {
-    let edn = shipped_skibidi_tuning().expect("npc_tuning.edn parses");
-    assert_eq!(
-        edn,
-        builtin_skibidi_tuning(),
-        "skibidi tuning is driven by npc_tuning.edn, == SkibidiTuning::default()"
-    );
+fn npc_tuning_edn_matches_builtin() {
+    assert_eq!(shipped_skibidi_tuning().unwrap(), SkibidiTuning::default(), "skibidi");
+    assert_eq!(shipped_grimace_tuning().unwrap(), GrimaceTuning::default(), "grimace");
+    assert_eq!(shipped_sigma_tuning().unwrap(), SigmaTuning::default(), "sigma");
+    assert_eq!(shipped_ohio_tuning().unwrap(), OhioTuning::default(), "ohio");
+    assert_eq!(shipped_fanum_tuning().unwrap(), FanumTuning::default(), "fanum");
+    assert_eq!(shipped_rizz_tuning().unwrap(), RizzTuning::default(), "rizz");
 }
