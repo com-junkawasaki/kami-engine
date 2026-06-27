@@ -64,6 +64,18 @@ pub struct QualityReport {
     pub blocking_issues: Vec<String>,
 }
 
+/// Behavioral liveness signals (Co-Scientist iter-02). Populated from a checked-in
+/// `liveness.edn` sidecar that CI recomputes from a committed `events.edn` fixture, so
+/// `evaluate` stays a pure fn with no network. A TREND monitor — these influence the
+/// Liveness score but are NEVER a hard ship blocker (build-time has no traffic).
+#[derive(Debug, Clone, Default)]
+pub struct LivenessMeta {
+    pub d1_rate: f32,           // day-1 retention (0..1)
+    pub d7_rate: f32,           // day-7 retention (0..1)
+    pub median_fork_depth: f32, // fork-graph lineage depth (virality)
+    pub remix_cta_clicks: u32,  // Remix/fork CTA engagement
+}
+
 /// Game scene metadata extracted for quality evaluation.
 #[derive(Debug, Clone, Default)]
 pub struct GameSceneMeta {
@@ -120,6 +132,17 @@ pub struct GameSceneMeta {
     pub has_mouse_input: bool,
     pub fullscreen_canvas: bool,
     pub responsive_scaling: bool,
+
+    // ── Liveness (AAA live-service / fork-graph flywheel) — Co-Scientist iter-02 ──
+    // Static presence sub-signals, build-checkable from the scene EDN. These HARD-gate the
+    // S/A grade: no scene is "AAA-as-a-service" without the retention+distribution flywheel.
+    pub has_daily_seed: bool,        // a daily-seed.edn return hook (mc-h1)
+    pub has_return_cadence: bool,    // streak / persistent box — a reason to return tomorrow
+    pub has_fork_cta: bool,          // Remix/fork CTA wired in the manifest
+    pub has_replay_proof: bool,      // server re-derives the score (mc-h3) — metrics are honest
+    pub has_collection_spine: bool,  // gacha/collection progression (PANDD-H1)
+    /// Behavioral trend signals (sidecar). None ⇒ scored 0 + a suggestion (never faked).
+    pub liveness: Option<LivenessMeta>,
 }
 
 /// Evaluate game quality against Nintendo-grade standards.
@@ -383,18 +406,82 @@ pub fn evaluate(meta: &GameSceneMeta) -> QualityReport {
         });
     }
 
+    // ── Axis 6: Liveness (15%) — Retention cadence + fork-graph distribution (AAA-as-a-service) ──
+    // The dimension the SDT-5 rubric is blind to: does the game give a reason to return, and
+    // does it propagate as data? Static presence is the hard part of the gate; the sidecar's
+    // behavioral signals are a trend layer that can never block a build.
+    {
+        let mut score = 0.0_f32;
+        let max = 15.0;
+        let mut issues = Vec::new();
+        let mut suggestions = Vec::new();
+
+        // Static presence (0-10, 2 each) — build-checkable.
+        let statics = [
+            (meta.has_daily_seed, "a daily-seed return hook (daily-seed.edn)"),
+            (meta.has_return_cadence, "a return cadence (login streak / persistent box)"),
+            (meta.has_fork_cta, "a Remix/fork CTA in the manifest"),
+            (meta.has_replay_proof, "replay-proof score admission (no spoofable metrics)"),
+            (meta.has_collection_spine, "a collection/gacha progression spine"),
+        ];
+        for (present, label) in statics {
+            if present {
+                score += 2.0
+            } else {
+                suggestions.push(format!("Add {}", label))
+            }
+        }
+
+        // Behavioral trend (0-5) from the sidecar — NEVER a hard blocker.
+        match &meta.liveness {
+            Some(l) => {
+                score += l.d1_rate.clamp(0.0, 1.0) * 2.0; // 0-2
+                score += l.d7_rate.clamp(0.0, 1.0) * 1.5; // 0-1.5
+                score += (l.median_fork_depth / 4.0).clamp(0.0, 1.0) * 1.5; // 0-1.5
+            }
+            None => suggestions
+                .push("No liveness.edn sidecar — D1/D7/fork-depth unmeasured (trend only)".into()),
+        }
+
+        if !meta.has_replay_proof {
+            issues.push("No replay-proof — retention metrics would be spoofable".into());
+        }
+
+        axes.push(AxisResult {
+            name: "Liveness".into(),
+            weight: 0.15,
+            score: score.min(max),
+            max,
+            issues,
+            suggestions,
+        });
+    }
+
     // ── Compute Overall ──
-    let overall: f32 = axes
+    // Normalize by Σweight so adding an axis (Liveness pushes Σweight to 1.15) never inflates
+    // the achievable max past 100 — otherwise every S/A threshold would silently drift.
+    let total_w: f32 = axes.iter().map(|a| a.weight).sum();
+    let overall_raw: f32 = axes
         .iter()
         .map(|a| (a.score / a.max) * a.weight * 100.0)
         .sum();
-    let grade = Grade::from_score(overall);
+    let mut overall = if total_w > 0.0 { overall_raw / total_w } else { 0.0 };
 
-    let blocking_issues: Vec<String> = axes
+    let mut blocking_issues: Vec<String> = axes
         .iter()
         .filter(|a| a.score / a.max < 0.3)
         .map(|a| format!("{}: score {:.0}/{:.0} — BLOCKING", a.name, a.score, a.max))
         .collect();
+
+    // ── Liveness HARD gate ── the static flywheel must be wired to reach S/A. Behavioral
+    // signals never gate; only presence of replay-proof + daily-seed + fork-CTA does.
+    let flywheel_wired = meta.has_replay_proof && meta.has_daily_seed && meta.has_fork_cta;
+    if !flywheel_wired && overall > 74.0 {
+        overall = 74.0;
+        blocking_issues
+            .push("Liveness gate: not S/A without replay-proof + daily-seed + fork-CTA wired".into());
+    }
+    let grade = Grade::from_score(overall);
 
     QualityReport {
         game_name: meta.name.clone(),
@@ -511,6 +598,19 @@ mod tests {
             has_mouse_input: true,
             fullscreen_canvas: true,
             responsive_scaling: true,
+            // Liveness: the retention/distribution substrate (mc-h1/mc-h3/ls-h1/PANDD-H1) is
+            // now shipped, so the reference game wires the flywheel.
+            has_daily_seed: true,
+            has_return_cadence: true,
+            has_fork_cta: true,
+            has_replay_proof: true,
+            has_collection_spine: true,
+            liveness: Some(LivenessMeta {
+                d1_rate: 0.4,
+                d7_rate: 0.2,
+                median_fork_depth: 3.0,
+                remix_cta_clicks: 120,
+            }),
         }
     }
 
@@ -569,6 +669,62 @@ mod tests {
         let report = evaluate(&meta);
         let resilience = report.axes.iter().find(|a| a.name == "Resilience").unwrap();
         assert!(resilience.issues.iter().any(|i| i.contains("touch")));
+    }
+
+    #[test]
+    fn liveness_axis_present_and_overall_capped_at_100() {
+        // Max out every liveness signal; the 6th axis (Σweight now 1.15) must not push the
+        // normalized overall past 100.
+        let mut meta = sabiotoshi_meta();
+        meta.liveness = Some(LivenessMeta {
+            d1_rate: 1.0,
+            d7_rate: 1.0,
+            median_fork_depth: 20.0,
+            remix_cta_clicks: 9999,
+        });
+        let report = evaluate(&meta);
+        assert!(
+            report.axes.iter().any(|a| a.name == "Liveness"),
+            "Liveness axis should be present"
+        );
+        assert!(
+            report.overall_score <= 100.0,
+            "overall {} must stay <= 100 after adding the 0.15 axis",
+            report.overall_score
+        );
+    }
+
+    #[test]
+    fn liveness_gate_blocks_s_a_without_flywheel() {
+        // A game missing replay-proof cannot be AAA-as-a-service, regardless of polish.
+        let mut meta = sabiotoshi_meta();
+        meta.has_replay_proof = false;
+        let report = evaluate(&meta);
+        assert!(
+            report.grade < Grade::A,
+            "must not reach A/S without replay-proof, got {:?} ({:.1})",
+            report.grade,
+            report.overall_score
+        );
+        assert!(
+            report
+                .blocking_issues
+                .iter()
+                .any(|i| i.contains("Liveness gate")),
+            "expected the Liveness gate blocking issue"
+        );
+    }
+
+    #[test]
+    fn liveness_missing_sidecar_degrades_honestly() {
+        let mut meta = sabiotoshi_meta();
+        meta.liveness = None; // no behavioral data
+        let report = evaluate(&meta);
+        let liveness = report.axes.iter().find(|a| a.name == "Liveness").unwrap();
+        assert!(
+            liveness.suggestions.iter().any(|s| s.contains("sidecar")),
+            "should suggest adding the liveness.edn sidecar, not fake the data"
+        );
     }
 
     #[test]
