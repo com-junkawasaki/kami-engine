@@ -146,17 +146,28 @@
 (defn frame->columns
   "Flatten a render-IR frame (`kami.render/frame`) into ordered columns:
   one Mat4 column for the camera (view++proj packed as 2 mat4), then per draw a
-  Mat4 instance-model column (and any extra attribute columns)."
-  [frame]
-  (let [{:keys [view proj]} (:frame/camera frame)
-        cam-col (column :mat4 1 (into (vec view) proj)) ; stride-1, len 2 (view, proj)
-        draw-cols
-        (for [pass (:frame/passes frame)
-              draw (:pass/draws pass)
-              :let [inst (:draw/instances draw)]
-              :when inst]
-          (column :mat4 1 (:model inst)))]
-    (into [cam-col] draw-cols)))
+  Mat4 instance-model column.
+
+  When `tint?` is true (the version-2 layout), each draw additionally gets an f16
+  RGBA tint column right after its model column, so the per-draw column block is
+  `[model-mat4, tint-f16×4]`. Default (`tint?` false) is the version-1 layout —
+  one model column per draw — byte-identical to what the Rust decoder fixture
+  (`kami-clj-host`) currently pins."
+  ([frame] (frame->columns frame false))
+  ([frame tint?]
+   (let [{:keys [view proj]} (:frame/camera frame)
+         cam-col (column :mat4 1 (into (vec view) proj)) ; stride-1, len 2 (view, proj)
+         draw-cols
+         (for [pass (:frame/passes frame)
+               draw (:pass/draws pass)
+               :let [inst (:draw/instances draw)]
+               :when inst
+               col  (if tint?
+                      [(column :mat4 1 (:model inst))
+                       (column :f16  4 (:tint inst))]   ; RGBA half, stride-4
+                      [(column :mat4 1 (:model inst))])]
+           col)]
+     (into [cam-col] draw-cols))))
 
 (defn frame->meta
   "The small, JSON-able draw-table sidecar that travels alongside the columnar
@@ -175,14 +186,27 @@
                   :material (:draw/material draw)
                   :count    (:count (:draw/instances draw))}))})
 
+(def ^:const version-tint
+  "Layout version emitted when `pack` is asked for per-draw tint columns (v2).
+  v1 (`version`) = camera + per-draw model only; v2 = camera + per-draw
+  [model, tint-f16×4]. A decoder selects its draw-column stride from this byte."
+  2)
+
 (defn pack
   "Serialize a render-IR frame into a KamiFrame columnar buffer + draw-table meta.
-  Returns {:buffer <vector of u8> :len n :ncols c :columns [descriptor…]
+  Returns {:buffer <vector of u8> :len n :ncols c :version v :columns [descriptor…]
            :layout [{:dtype .. :len .. :offset ..} …] :meta {…}}.
   Pure and platform-neutral; the browser backend memcpys :buffer into WASM memory
-  and passes :meta (as JSON) to submit-frame."
-  [frame]
-  (let [cols      (frame->columns frame)
+  and passes :meta (as JSON) to submit-frame.
+
+  `opts` may set `:tint?` (default false): when true, emits the version-2 layout
+  with a per-draw f16 RGBA tint column after each model column. The default is the
+  version-1 layout — byte-identical to before — so existing decoders are unaffected
+  until they opt into v2."
+  ([frame] (pack frame nil))
+  ([frame {:keys [tint?]}]
+  (let [cols      (frame->columns frame (boolean tint?))
+        ver       (if tint? version-tint version)
         ncols     (count cols)
         ;; header + column headers, then 16-aligned payloads
         hdr-end   (+ header-bytes (* ncols column-header-bytes))
@@ -200,7 +224,7 @@
         ;; --- emit bytes ---
         frame-hdr (-> []
                       (into (u8s-of-u32 magic))
-                      (into (u8s-of-u16 version))
+                      (into (u8s-of-u16 ver))
                       (into (u8s-of-u16 ncols))
                       (into (u8s-of-u32 (long (:frame/n frame 0))))
                       (into (u8s-of-u32 0)))            ; pad → 16 bytes
@@ -224,8 +248,8 @@
                   (into b1 data)))
               buf0
               (map vector cols layout))]
-    {:buffer (pad-to buf total) :len total :ncols ncols
-     :columns cols :layout layout :meta (frame->meta frame)}))
+    {:buffer (pad-to buf total) :len total :ncols ncols :version ver
+     :columns cols :layout layout :meta (frame->meta frame)})))
 
 ;; ---------------------------------------------------------------------------
 ;; unpack — KamiFrame columnar byte vector → frame header + decoded columns

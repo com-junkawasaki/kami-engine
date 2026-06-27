@@ -200,6 +200,69 @@
       (is (= #?(:clj Double/POSITIVE_INFINITY :cljs js/Infinity) (f16' (f16 1.0e9))))
       (is (= #?(:clj Double/NEGATIVE_INFINITY :cljs (- js/Infinity)) (f16' (f16 -1.0e9)))))))
 
+(deftest ipc-pack-deterministic
+  ;; merge-instances sorts renderables by eid so pack output is byte-reproducible
+  ;; (the record/replay + cross-language golden surface, ARCHITECTURE.md §7/§9).
+  ;; This pins that invariant, which the Rust decoder fixture (gen_fixture) relies on.
+  (let [cam* (nth entities 0)
+        ta   (nth entities 1)                       ; tree-a @ x=-2
+        tb   (nth entities 2)                       ; tree-b @ x=+2
+        buf  (fn [ents]
+               (-> (scene/build-snapshot ents assets {:t 1 :scene "det" :env {}})
+                   ecs/load-snapshot
+                   (render/frame {:n 5 :aspect 1.0})
+                   ipc/pack
+                   :buffer))]
+    (testing "pack is byte-reproducible across repeated calls"
+      (is (= (buf [cam* ta tb]) (buf [cam* ta tb]))))
+    (testing "instance ordering is independent of ECS insertion order (sort-by eid)"
+      (is (= (buf [cam* ta tb])
+             (buf [cam* tb ta])
+             (buf [tb cam* ta]))))
+    (testing "non-vacuous: instance transforms do reach the bytes (so order matters)"
+      (is (not= (buf [cam* ta tb])
+                (buf [cam* (assoc ta :transform/translation [-99.0 0.0 0.0]) tb]))))))
+
+(deftest ipc-pack-tint-v2
+  (let [w  (ecs/load-snapshot snap)
+        fr (render/frame w {:n 3 :aspect 1.0})
+        v1 (ipc/pack fr)
+        v2 (ipc/pack fr {:tint? true})]
+    (testing "default pack is unchanged: version 1, camera + 1 model column"
+      (is (= 1 (:version v1)))
+      (is (= 2 (:ncols v1)))
+      (is (every? #(= :mat4 (:dtype %)) (:columns v1))))
+    (testing "v2 adds an f16 RGBA tint column after each draw's model column"
+      (is (= 2 (:version v2)))
+      (is (= 3 (:ncols v2)))                              ; camera + (model + tint)
+      (is (= [:mat4 :mat4 :f16] (mapv :dtype (:columns v2)))))
+    (testing "v2 buffer round-trips through unpack (version, alignment, tint values)"
+      (let [back (ipc/unpack (:buffer v2))
+            tint (last (:columns back))]
+        (is (= 2 (:version back)))
+        (is (every? #(zero? (mod (:offset %) 16)) (:columns back)))
+        (is (= :f16 (:dtype tint)))
+        (is (= 2 (:len tint)))                             ; 2 instances
+        (is (= 8 (count (:data tint))))                    ; 2 × RGBA
+        (is (every? #(< (abs (- 1.0 (double %))) 1.0e-3) (:data tint))))))) ; default white
+
+(deftest ipc-pack-tint-values
+  ;; per-entity :material/tint flows through render → v2 tint column (not just white).
+  (let [red   [1.0 0.0 0.0 1.0]
+        green [0.0 1.0 0.0 1.0]
+        ents  [(nth entities 0)                                ; camera
+               (assoc (nth entities 1) :material/tint red)     ; tree-a (eid …000a)
+               (assoc (nth entities 2) :material/tint green)]  ; tree-b (eid …000b)
+        snap* (scene/build-snapshot ents assets {:t 1 :scene "tintvals" :env {}})
+        w     (ecs/load-snapshot snap*)
+        v2    (ipc/pack (render/frame w {:n 1 :aspect 1.0}) {:tint? true})
+        back  (ipc/unpack (:buffer v2))
+        tint  (:data (last (:columns back)))]
+    (testing "per-instance tint reaches the v2 column in eid order (a=red, b=green)"
+      (is (= 8 (count tint)))
+      (is (every? true? (map #(< (abs (- (double %1) (double %2))) 1.0e-3)
+                             tint (concat red green)))))))
+
 ;; --- WGSL emission ----------------------------------------------------------
 
 (def ripple-shader
