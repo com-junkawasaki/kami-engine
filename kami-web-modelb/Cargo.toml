@@ -27,3 +27,7 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 bytemuck = { workspace = true }
 console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+# Host preview of the web GPU path's exact pixels (examples/render_png.rs).
+image = { version = "0.25", default-features = false, features = ["png"] }
