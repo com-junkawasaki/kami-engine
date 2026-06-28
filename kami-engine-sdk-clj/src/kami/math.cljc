@@ -45,6 +45,17 @@
      0.0 0.0 (* far nf) -1.0
      0.0 0.0 (* far near nf) 0.0]))
 
+(defn ortho
+  "Right-handed orthographic projection, depth range [0,1] (wgpu/WebGPU NDC),
+  column-major. Maps x∈[l,r]→[-1,1], y∈[b,t]→[-1,1], z∈[n,f]→[0,1]. For a 2D
+  screen-space board pass `(ortho 0 w h 0 near far)` so pixel (0,0) is top-left
+  and y grows downward."
+  [l r b t near far]
+  [(/ 2.0 (- r l)) 0.0 0.0 0.0
+   0.0 (/ 2.0 (- t b)) 0.0 0.0
+   0.0 0.0 (/ 1.0 (- near far)) 0.0
+   (/ (- (+ r l)) (- r l)) (/ (- (+ t b)) (- t b)) (/ near (- near far)) 1.0])
+
 (defn invert-rigid
   "Inverse of a rigid (rotation+translation, no scale) column-major matrix —
   used to turn a camera's world transform into a view matrix. Transpose the

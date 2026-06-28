@@ -34,8 +34,12 @@
     (when-not cam
       (throw (ex-info "camera-ir: no entity with :camera/active? true" {})))
     {:view (m/invert-rigid (model-of cam))
-     :proj (m/perspective (:camera/fov cam 60.0) aspect
-                          (:camera/near cam 0.1) (:camera/far cam 1000.0))}))
+     :proj (if (= :ortho (:camera/projection cam))
+             ;; orthographic screen-space (2D boards, e.g. freeboard ADR-2606280200)
+             (m/ortho 0.0 (double (:camera/ortho-w cam 1280.0)) (double (:camera/ortho-h cam 720.0)) 0.0
+                      (:camera/near cam -1.0) (:camera/far cam 1.0))
+             (m/perspective (:camera/fov cam 60.0) aspect
+                            (:camera/near cam 0.1) (:camera/far cam 1000.0)))}))
 
 (def ^:private builtin-pipelines
   #{:pbr :sky :terrain :vegetation :character :water :voxel :particle :atlas})
