@@ -37,6 +37,9 @@
    {:db/ident :camera/near    :db/valueType :db.type/double  :db/cardinality :db.cardinality/one}
    {:db/ident :camera/far     :db/valueType :db.type/double  :db/cardinality :db.cardinality/one}
    {:db/ident :camera/active? :db/valueType :db.type/boolean :db/cardinality :db.cardinality/one}
+   {:db/ident :camera/projection :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one} ; :perspective (default) / :ortho
+   {:db/ident :camera/ortho-w :db/valueType :db.type/double  :db/cardinality :db.cardinality/one}
+   {:db/ident :camera/ortho-h :db/valueType :db.type/double  :db/cardinality :db.cardinality/one}
    {:db/ident :light/kind      :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one} ; :dir/:point/:spot
    {:db/ident :light/color     :db/valueType :db.type/tuple :db/tupleType :db.type/double :db/cardinality :db.cardinality/one}
    {:db/ident :light/intensity :db/valueType :db.type/double  :db/cardinality :db.cardinality/one}
