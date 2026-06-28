@@ -1,0 +1,61 @@
+(ns kami.mangaka.text-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [kami.mangaka.hiccup :as h]
+            [kami.mangaka.text :as t]))
+
+(deftest hiccup-ssr
+  (is (= "<div>hi</div>" (h/->html [:div "hi"])))
+  (is (= "<div class=\"a b\" id=\"x\">hi</div>" (h/->html [:div.a.b#x "hi"])))
+  (is (= "<img src=\"u\">" (h/->html [:img {:src "u"}])) "void tag, no close")
+  (is (= "<p>a&amp;b &lt;c&gt;</p>" (h/->html [:p "a&b <c>"])) "escaping")
+  (is (= "<ul><li>1</li><li>2</li></ul>"
+         (h/->html [:ul (for [n [1 2]] [:li n])])) "seq children flatten")
+  (is (= "<div class=\"a b\"></div>" (h/->html [:div.a {:class "b"}])) "class merge")
+  (is (= "<span>x</span>" (h/->html [:hiccup/raw "<span>x</span>"])) "raw passthrough"))
+
+(deftest localize-test
+  (is (= "よし。" (t/localize {:ja "よし。" :en "OK."} :ja)))
+  (is (= "OK." (t/localize {:ja "よし。" :en "OK."} :en)))
+  (testing "bare string coerces to :ja"
+    (is (= "やあ" (t/localize "やあ" :ja)))
+    (is (= "やあ" (t/localize "やあ" :en)) "falls back to the only value"))
+  (testing "missing locale falls back through order"
+    (is (= "よし。" (t/localize {:ja "よし。"} :en)))))
+
+(deftest panel->elements-test
+  (let [els (t/panel->elements
+             {:narration "今朝も、運河は青い。"
+              :dialogue [{:speaker "tamaki" :text "よし。行こう。"}]
+              :gh/sfx [{:text {:ja "ちゃぷ" :en "splash"}}]})]
+    (is (= [:narration :dialogue :sfx] (map :kind els)))
+    (is (= {:ja "よし。行こう。"} (:text (second els))) "bare dialogue string coerced")
+    (is (= :oval (:bubble (second els))) "default bubble"))
+  (testing "explicit :text-layer wins verbatim"
+    (is (= [{:kind :sfx :text {:ja "ゴゴゴ"}}]
+           (t/panel->elements {:text-layer [{:kind :sfx :text {:ja "ゴゴゴ"}}]
+                               :narration "ignored"})))))
+
+(deftest overlay-and-render
+  (let [els (t/panel->elements
+             {:narration {:ja "ナレ" :en "Narr"}
+              :dialogue [{:speaker "a" :text {:ja "い" :en "A"}}
+                         {:speaker "b" :text {:ja "ろ" :en "B"}}]
+              :sfx [{:text {:ja "ザァ" :en "SPLASH"}}]})
+        ja (h/->html (t/overlay :ja els))
+        en (h/->html (t/overlay :en els))]
+    (testing "JA render: vertical class on bubbles/sfx, JA text present"
+      (is (str/includes? ja "mk-vert"))
+      (is (str/includes? ja "ナレ"))
+      (is (str/includes? ja "ザァ"))
+      (is (str/includes? ja "mk-l")) (is (str/includes? ja "mk-r")) "bubbles alternate sides")
+    (testing "EN render: no vertical, EN text, same structure"
+      (is (not (str/includes? en "mk-vert")))
+      (is (str/includes? en "SPLASH"))
+      (is (str/includes? en "Narr")))
+    (testing "image stays language-neutral — only the overlay changes per locale"
+      (is (not= ja en)))
+    (is (nil? (t/overlay :ja [])) "empty → nil")))
+
+(deftest locales-test
+  (is (= [:ja :en] (t/locales [{:text {:ja "x" :en "y"}} {:text "z"}]))))
