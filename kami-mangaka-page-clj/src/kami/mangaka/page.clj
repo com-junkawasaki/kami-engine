@@ -7,11 +7,14 @@
   boxes — turning isolated panels into a readable graphic-novel page.
 
   Generic: a `page` is just {:layout str :panels [{:id :size :narration :dialogue}…]}
-  and `img-of` maps a panel-id → image File (or nil → placeholder). No story,
-  character, or world. JVM/Java2D headless — no Canvas-2D, no GPU (page DTP, not
-  the engine's wgpu render path)."
+  and `img-of` maps a panel-id → image File (or nil → placeholder). The text layer
+  is the shared locale-keyed MangaText (kami.mangaka.text): `compose-page!` takes a
+  `:locale`, so the baked page (EPUB/KDP/print) is multilingual from the same data
+  the web reader uses — image stays language-neutral. No story, character, or world.
+  JVM/Java2D headless — no Canvas-2D, no GPU (page DTP, not the wgpu render path)."
   (:require [clojure.java.io :as io]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [kami.mangaka.text :as t])
   (:import [java.awt Color Font BasicStroke RenderingHints GraphicsEnvironment]
            [java.awt.geom RoundRectangle2D$Double]
            [java.awt.image BufferedImage]
@@ -198,15 +201,36 @@
                      (int (+ by pad (* (inc i) lh) -8))))
       (+ by bh 30))))
 
+(defn- draw-sfx
+  "SFX (擬音) → bold white text with a black stroke, tilted, upper-right of the
+  panel. The locale-resolved string (e.g. ちゃぷ / lap…)."
+  [g text x y w]
+  (when (and text (seq (str text)))
+    (let [g2 (.create g)]
+      (try
+        (let [fsz (int (max 30 (* w 0.16)))
+              sx  (int (+ x (* w 0.5))) sy (int (+ y (* w 0.3)))]
+          (.setFont g2 (font Font/BOLD fsz))
+          (.rotate g2 (Math/toRadians -8) sx sy)
+          (.setColor g2 Color/BLACK)
+          (doseq [dx [-3 -2 2 3] dy [-3 -2 2 3]]
+            (.drawString g2 ^String (str text) (+ sx (int dx)) (+ sy (int dy))))
+          (.setColor g2 Color/WHITE)
+          (.drawString g2 ^String (str text) sx sy))
+        (finally (.dispose g2))))))
+
 ;; --- page composition --------------------------------------------------------
 
 (def PAGE-W 1075) (def PAGE-H 1518)   ; B5 @ ~150dpi
 (def MARGIN 38) (def GUTTER 16)
 
 (defn compose-page!
-  "Compose one storyboard `page` ({:layout :panels [{:id :size :narration :dialogue}…]})
-  into a B5 PNG at `out`. `img-of` maps a panel-id → image File (or nil → placeholder)."
-  [page img-of out]
+  "Compose one storyboard `page` ({:layout :panels […]}) into a B5 PNG at `out`.
+  `img-of` maps a panel-id → image File (or nil → placeholder). The text layer
+  (narration caption + dialogue bubbles + SFX) is derived from each panel via
+  kami.mangaka.text and rendered in `:locale` (default :ja) — the image is the
+  same regardless of language."
+  [page img-of out & {:keys [locale] :or {locale :ja}}]
   (let [{:keys [bleed pairs]} (layout-page page)
         canvas (BufferedImage. PAGE-W PAGE-H BufferedImage/TYPE_INT_RGB)
         g (.createGraphics canvas)
@@ -228,14 +252,20 @@
         ;; confident black frame (heavier on a bleed splash)
         (doto g (.setColor Color/BLACK) (.setStroke (BasicStroke. (float (if bleed 10 5))))
                 (.drawRect (int x) (int y) (int w) (int h)))
-        (caption-box g (:narration panel) x y w)
-        ;; alternate bubble side per panel for rhythm; keep inside the panel
-        (let [side (if (even? idx) :l :r)
-              cx (+ x (* w (if (= side :l) 0.42 0.58)))]
-          (loop [ds (:dialogue panel) top (+ y 22)]
-            (when (seq ds)
-              (let [nt (bubble g (:text (first ds)) cx top w side)]
-                (recur (rest ds) (or nt (+ top 96)))))))))
+        ;; text layer (shared, locale-keyed): narration caption + bubbles + SFX
+        (let [els  (t/panel->elements panel)
+              narr (some #(when (= :narration (:kind %)) (t/localize (:text %) locale)) els)
+              dlgs (filter #(= :dialogue (:kind %)) els)
+              sfxs (filter #(= :sfx (:kind %)) els)]
+          (caption-box g narr x y w)
+          ;; alternate bubble side per panel for rhythm; keep inside the panel
+          (let [side (if (even? idx) :l :r)
+                cx (+ x (* w (if (= side :l) 0.42 0.58)))]
+            (loop [ds dlgs top (+ y 22)]
+              (when (seq ds)
+                (let [nt (bubble g (t/localize (:text (first ds)) locale) cx top w side)]
+                  (recur (rest ds) (or nt (+ top 96)))))))
+          (doseq [s sfxs] (draw-sfx g (t/localize (:text s) locale) x y w)))))
     (.dispose g)
     (io/make-parents out)
     (ImageIO/write canvas "png" (File. ^String out))
