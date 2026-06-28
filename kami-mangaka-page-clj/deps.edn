@@ -8,7 +8,9 @@
 ;; Sibling of kami-mangaka-render-clj (2D panels) and kami-mangaka-scene (3D).
 {:paths ["src"]
 
- :deps {org.clojure/clojure {:mvn/version "1.12.0"}}
+ :deps {org.clojure/clojure        {:mvn/version "1.12.0"}
+        ;; shared multilingual lettering layer (locale-keyed MangaText)
+        gftd/kami-mangaka-text-clj {:local/root "../kami-mangaka-text-clj"}}
 
  :aliases
  {:test {:extra-paths ["test"]

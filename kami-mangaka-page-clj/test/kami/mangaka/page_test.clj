@@ -34,6 +34,22 @@
       (is (= (nth ys 0) (nth ys 1)))
       (is (> (nth ys 2) (nth ys 0))))))
 
+(deftest compose-page!-multilingual-bake
+  (testing "bake consumes the shared MangaText layer + renders the chosen locale"
+    (let [page {:layout "splash"
+                :panels [{:id "p" :size "full-page"
+                          :narration {:ja "今朝も、運河は青い。" :en "Canal's blue again."}
+                          :dialogue [{:speaker "tamaki" :text {:ja "やあ。" :en "Hi."}}]
+                          :gh/sfx [{:text {:ja "ちゃぷ" :en "lap"}}]}]}
+          ja (str (System/getProperty "java.io.tmpdir") "/mk-bake-ja.png")
+          en (str (System/getProperty "java.io.tmpdir") "/mk-bake-en.png")]
+      (io/delete-file ja true) (io/delete-file en true)
+      (is (= ja (page/compose-page! page (constantly nil) ja :locale :ja)))
+      (is (= en (page/compose-page! page (constantly nil) en :locale :en)))
+      (is (.exists (io/file ja))) (is (.exists (io/file en)))
+      (testing "same image source, different lettering → different PNG bytes"
+        (is (not= (.length (io/file ja)) (.length (io/file en))))))))
+
 (deftest compose-page!-writes-a-png
   (testing "headless Java2D composes a page (placeholders, no source images)"
     (let [out (str (System/getProperty "java.io.tmpdir") "/mangaka-page-test.png")
