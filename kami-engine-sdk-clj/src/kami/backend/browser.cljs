@@ -28,6 +28,8 @@
     (.register_material ^js host id (->f32 (or params []))))
   (register-shader! [_ id wgsl layout]
     (.register_shader ^js host id wgsl (or layout "")))
+  (register-texture! [_ id width height rgba]
+    (.register_texture ^js host id width height (->u8 rgba)))
   (submit-frame! [_ packed]
     ;; packed = {:buffer :len :meta …}; meta travels as JSON, buffer as bytes.
     (.submit_frame ^js host

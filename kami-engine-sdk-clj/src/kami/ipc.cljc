@@ -126,10 +126,11 @@
    :draws (vec (for [pass (:frame/passes frame)
                      draw (:pass/draws pass)
                      :when (:draw/instances draw)]
-                 {:pipeline (:draw/pipeline draw)
-                  :mesh     (:draw/mesh draw)
-                  :material (:draw/material draw)
-                  :count    (:count (:draw/instances draw))}))})
+                 (cond-> {:pipeline (:draw/pipeline draw)
+                          :mesh     (:draw/mesh draw)
+                          :material (:draw/material draw)
+                          :count    (:count (:draw/instances draw))}
+                   (:draw/texture draw) (assoc :texture (:draw/texture draw)))))})
 
 (defn pack
   "Serialize a render-IR frame into a KamiFrame columnar buffer + draw-table meta.
