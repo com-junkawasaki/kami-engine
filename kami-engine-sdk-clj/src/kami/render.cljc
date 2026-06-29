@@ -50,6 +50,11 @@
   [e]
   (if-let [s (:shader/asset e)] (asset-id s) :pbr))
 
+(defn- texture-of
+  "Texture asset id for an entity (a sampled image / glyph atlas), or nil."
+  [e]
+  (when-let [t (:texture/asset e)] (asset-id t)))
+
 (defn merge-instances
   "Group renderable entities (those carrying a :mesh/asset) sharing
   (pipeline, mesh, material) into a single instanced draw. Returns a seq of
@@ -64,17 +69,19 @@
                             (map second (ecs/query world #{:mesh/asset})))
         groups (group-by (juxt pipeline-of
                                #(asset-id (:mesh/asset %))
-                               #(asset-id (:material/asset %)))
+                               #(asset-id (:material/asset %))
+                               texture-of)
                          renderable)]
-    (for [[[pipeline mesh material] ents] (sort-by (comp str first) groups)
+    (for [[[pipeline mesh material texture] ents] (sort-by (comp str first) groups)
           :let [models (vec (mapcat model-of ents))
                 tints  (vec (mapcat #(get-in % [:material/params :tint] [1.0 1.0 1.0 1.0]) ents))]]
-      {:draw/pipeline pipeline
-       :draw/mesh     mesh
-       :draw/material material
-       :draw/instances {:count (count ents)
-                        :model models
-                        :tint  tints}})))
+      (cond-> {:draw/pipeline pipeline
+               :draw/mesh     mesh
+               :draw/material material
+               :draw/instances {:count (count ents)
+                                :model models
+                                :tint  tints}}
+        texture (assoc :draw/texture texture)))))
 
 (defn draws-for
   "Build the draw-list for one render pass. Currently the single :main pass holds

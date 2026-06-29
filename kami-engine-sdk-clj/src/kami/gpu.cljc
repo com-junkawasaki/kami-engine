@@ -17,6 +17,8 @@
     "Upload material params (f32 vector) under asset `id`.")
   (register-shader!   [backend id wgsl layout]
     "Register clj-authored WGSL (from `kami.wgsl/emit`) as a pipeline under `id`.")
+  (register-texture!  [backend id width height rgba]
+    "Upload an RGBA8 texture (row-major, 4 B/px) under asset `id` (image / glyph atlas).")
   (submit-frame!      [backend packed]
     "Submit one packed KAMI columnar frame (from `kami.ipc/pack`) for this frame.")
   (resize!            [backend w h]
@@ -50,7 +52,7 @@
          :mesh     (register-mesh! backend id (:vertices data) (:indices data))
          :material (register-material! backend id (:params data))
          :shader   (register-shader! backend id (:wgsl data) (:layout data))
-         :texture  nil ; textures handled by material upload for now
+         :texture  (register-texture! backend id (:width data) (:height data) (:rgba data))
          nil)
        (conj done id)))
    #{}
