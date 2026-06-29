@@ -19,6 +19,8 @@
     "Register clj-authored WGSL (from `kami.wgsl/emit`) as a pipeline under `id`.")
   (register-texture!  [backend id width height rgba]
     "Upload an RGBA8 texture (row-major, 4 B/px) under asset `id` (image / glyph atlas).")
+  (register-text!     [backend id text size]
+    "Lay `text` into a glyph-quad mesh under `id` (sampled against the host glyph atlas).")
   (submit-frame!      [backend packed]
     "Submit one packed KAMI columnar frame (from `kami.ipc/pack`) for this frame.")
   (resize!            [backend w h]

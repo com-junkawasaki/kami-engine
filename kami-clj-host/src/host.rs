@@ -63,6 +63,9 @@ pub struct KamiCljHost {
     texture_bgl: wgpu::BindGroupLayout,
     tex_pipeline: wgpu::RenderPipeline,
     textures: HashMap<String, wgpu::BindGroup>,
+    /// SDF glyph atlas (uploaded once as texture "kami:glyph-atlas"); `register_text`
+    /// lays a string into a glyph-quad mesh whose UVs index this atlas.
+    glyph_atlas: kami_text::FontAtlas,
 }
 
 #[wasm_bindgen]
@@ -156,7 +159,13 @@ impl KamiCljHost {
         );
         let depth = make_depth(&ctx.device, width, height);
 
-        Ok(KamiCljHost {
+        // Real glyphs from kami-text's bundled Poppins font (printable ASCII);
+        // fall back to the procedural box atlas if the font fails to load.
+        let charset: String = (32u8..=126).map(|c| c as char).collect();
+        let glyph_atlas = kami_text::FontAtlas::from_default_font_stack(48.0, &charset)
+            .unwrap_or_else(|_| kami_text::FontAtlas::ascii_procedural(48.0));
+
+        let mut host = KamiCljHost {
             ctx,
             pipeline,
             camera_bgl,
@@ -170,7 +179,19 @@ impl KamiCljHost {
             texture_bgl,
             tex_pipeline,
             textures: HashMap::new(),
-        })
+            glyph_atlas,
+        };
+        // Upload the SDF glyph atlas once as an RGBA texture (single-channel
+        // alpha -> white RGB + alpha) so `register_text` meshes can sample it.
+        let (aw, ah) = (host.glyph_atlas.width, host.glyph_atlas.height);
+        let rgba: Vec<u8> = host
+            .glyph_atlas
+            .sdf_data
+            .iter()
+            .flat_map(|&a| [255u8, 255, 255, a])
+            .collect();
+        host.register_texture("kami:glyph-atlas".to_string(), aw, ah, &rgba);
+        Ok(host)
     }
 
     /// Upload a mesh once under `id`. `vertices` is interleaved pos3+norm3+uv2.
@@ -285,6 +306,57 @@ impl KamiCljHost {
             ],
         });
         self.textures.insert(id, bg);
+    }
+
+    /// Lay `text` into a glyph-quad mesh (interleaved pos3+norm3+uv2 in local
+    /// pixel coords, pen advancing right) whose UVs index the glyph atlas, stored
+    /// under `id`. Draw with the "kami:glyph-atlas" texture.
+    pub fn register_text(&mut self, id: String, text: String, _size: f32) {
+        let (aw, ah) = (self.glyph_atlas.width as f32, self.glyph_atlas.height as f32);
+        let mut verts: Vec<f32> = Vec::new();
+        let mut idx: Vec<u32> = Vec::new();
+        let mut pen_x = 0.0f32;
+        for ch in text.chars() {
+            if let Some(g) = self.glyph_atlas.glyph(ch) {
+                let gw = g.atlas_w as f32;
+                let gh = g.atlas_h as f32;
+                let gx = pen_x + g.bearing_x;
+                let (u0, v0) = (g.atlas_x as f32 / aw, g.atlas_y as f32 / ah);
+                let (u1, v1) = ((g.atlas_x as f32 + gw) / aw, (g.atlas_y as f32 + gh) / ah);
+                let base = (verts.len() / 8) as u32;
+                for (px, py, u, v) in [
+                    (gx, 0.0, u0, v0),
+                    (gx + gw, 0.0, u1, v0),
+                    (gx + gw, gh, u1, v1),
+                    (gx, gh, u0, v1),
+                ] {
+                    verts.extend_from_slice(&[px, py, 0.0, 0.0, 0.0, 1.0, u, v]);
+                }
+                idx.extend_from_slice(&[base, base + 2, base + 1, base, base + 3, base + 2]);
+                pen_x += if g.advance > 0.0 { g.advance } else { gw };
+            }
+        }
+        if verts.is_empty() {
+            return;
+        }
+        let vertex = self.ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("kami-clj-text-v"),
+            contents: bytemuck_cast_f32(&verts),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let index = self.ctx.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("kami-clj-text-i"),
+            contents: bytemuck_cast_u32(&idx),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        self.meshes.insert(
+            id,
+            GpuMesh {
+                vertex,
+                index,
+                index_count: idx.len() as u32,
+            },
+        );
     }
 
     /// Register a clj-authored WGSL shader (from `kami.wgsl/emit`) as a pipeline
