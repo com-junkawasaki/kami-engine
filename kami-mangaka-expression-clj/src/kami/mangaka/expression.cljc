@@ -191,9 +191,11 @@
       {:archetype arch
        :register reg
        :expression (:expression style)}
-      ;; the authored line (explicit values win over style defaults)…
-      line
-      ;; …but fill bubble/weight/scale from style when the line didn't set them
+      ;; the authored line (explicit values win over style defaults) — but a key
+      ;; carried as an *explicit nil* (e.g. an adapter that emits :register nil for
+      ;; "unset") must NOT clobber the resolved default, so drop nils first.
+      (prune line)
+      ;; …and fill bubble/weight/scale from style when the line didn't set them
       {:bubble (or (:bubble line) (:bubble style))
        :weight (or (:weight line) (:weight style))
        :scale  (or (:scale line)  (:scale style))}))))

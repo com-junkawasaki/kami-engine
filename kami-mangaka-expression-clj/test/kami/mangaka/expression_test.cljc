@@ -81,7 +81,12 @@
         (is (= :jagged (:bubble l))) (is (= :regular (:weight l)))))
     (testing "calm strategist speech stays oval/regular"
       (let [l (e/analyze-line P cast {:speaker "ナイベイン" :text "こちらは構わないが。"})]
-        (is (= :oval (:bubble l))) (is (= :regular (:weight l)))))))
+        (is (= :oval (:bubble l))) (is (= :regular (:weight l)))))
+    (testing "an explicit nil (adapter 'unset') does NOT clobber the resolved default"
+      (let [l (e/analyze-line P cast {:speaker "ガター" :text "バカな！！"
+                                      :bubble nil :register nil :expression nil :intensity 1.0})]
+        (is (= :shout (:register l))) (is (= :spike (:bubble l)))
+        (is (= "Angry" (:expression l)))))))
 
 (deftest analyze-panel+page
   (let [cast {"ガター" :hot-blooded "スラッカ" :energetic}
