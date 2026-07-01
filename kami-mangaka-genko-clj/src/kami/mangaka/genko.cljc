@@ -1,6 +1,6 @@
 (ns kami.mangaka.genko
   "原稿 (genko) manga-editor DOCUMENT MODEL + pure logic — cljc SSoT
-  (ADR-2607020100). genko-embed.ts (kami-engine-sdk の WebGPU pentab エディタ) が
+  (ADR-2607020200). genko-embed.ts (kami-engine-sdk の WebGPU pentab エディタ) が
   inline JS に持っていた doc/page/node モデル・node-tree ops・oplog(event-sourcing)・
   serialize を、忠実に純 cljc へ切り出したもの。
 

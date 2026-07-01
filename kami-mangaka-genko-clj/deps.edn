@@ -2,7 +2,7 @@
 ;;
 ;; genko-embed.ts（kami-engine-sdk の WebGPU pentab エディタ）が持っていた
 ;; document/page/node モデル + node-tree ops + oplog + serialize を、純 cljc の
-;; 単一ソースに切り出したもの（ADR-2607020100）。node の text/tone/fukidashi は
+;; 単一ソースに切り出したもの（ADR-2607020200）。node の text/tone/fukidashi は
 ;; kami.mangaka.expression の語彙（bubble/tone/weight/register）を共有し、genko doc ⇄
 ;; storyboard(kami.mangaka.text panel) を橋渡しする。
 ;;
