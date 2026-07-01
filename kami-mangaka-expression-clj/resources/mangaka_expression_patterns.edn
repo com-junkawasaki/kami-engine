@@ -1,0 +1,89 @@
+;; kami-mangaka-expression — 生成パターン (SSoT / data). ADR-2607012100.
+;;
+;; 「キャラクターごとに、表情・姿勢・吹き出しの形・文字の薄さ・大きさ・背景トーンを
+;;  変える」という漫画的表現を、data として宣言したもの。HUNTER×HUNTER 王位継承戦編
+;; （冨樫義博）のコマ観察を出典にする(:observations 参照)。
+;;
+;; 使い方: kami.mangaka.expression/resolve-style は
+;;   archetype(キャラ類型) ← register(セリフ種別) ← expression-cue(感情) ← intensity(強度)
+;; の順に merge して 1 行分のスタイルを決める。純データ — code から独立。
+;; 語彙は他モジュールと整合: :bubble は kami.mangaka.text、:expression は
+;; kami.mangaka.scene(Rust Expression)、:font-role は ai-gftd-mangaka の
+;; manga-font-palette(ai.gftd.mangaka.page#fontRole) に対応。
+{:version 1
+ :context "https://kami.etzhayyim.com/mangaka-expression/v1"
+ :source
+ "HUNTER×HUNTER 王位継承戦編（冨樫義博）のコマ観察。抽出した漫画文法:
+  (1) モブ群衆の“ざわめき”= 薄い小さな手書き文字＋小さな雲形吹き出し＋群衆シルエット背景(:chatter),
+  (2) キャラ名札 = 黒箱に白抜きゴシック(:nameplate),
+  (3) 割り込み/元気 = 挙手＋放射状の集中線背景＋太く大きなトゲ/バースト吹き出し(:energetic + :shout),
+  (4) 激昂アップ = 前傾＋歯剥き＋黒トゲ/フラッシュ背景＋汗・怒張, 太く大きい(:hot-blooded + :shout),
+  (5) 冷酷/威圧 = 直立＋重い影(暗いビネット)＋太明朝の決め台詞(:cold-menace),
+  (6) 独白/地の文 = 明朝の囲み(:monologue/:narration)。"
+
+ ;; ── 語彙 (vocabulary) — kami.mangaka.expression の def と lock-step (test で検証)
+ :vocab
+ {:register    #{:speech :shout :whisper :thought :monologue :narration :chatter :nameplate :sfx}
+  :bubble      #{:oval :jagged :cloud :square :wavy :spike :burst}
+  :expression  #{"Neutral" "Happy" "Angry" "Sad" "Surprised" "Determined" "Pained" "Smirk"}
+  :font-role   #{:antigochi :gothic :mincho :bold-mincho :maru :kyokasho :brush :handwritten :digital :horror}
+  :weight      [:faint :light :regular :bold :heavy]   ; 薄→濃 (index が太さの段数 = 文字の薄さ)
+  :tone        #{:none :flat-white :dot :gradient :focus-lines :radial-burst :flash
+                 :vignette-dark :hatching :crowd-silhouette}
+  :posture     #{:upright :lean-in :arm-raised :recoil :slump :point :cross-arms :turn-away}
+  :mark        #{:sweat :anger-vein :shock :tear :sparkle :question :exclaim}}
+
+ ;; ── archetype: 「キャラクターごと」の芯（既定の表情/書体/太さ/姿勢/吹き出し/トーン）
+ :archetypes
+ {:strategist  {:expression "Determined" :font-role :mincho      :weight :regular :posture :upright    :bubble :oval  :tone :flat-white}
+  :hot-blooded {:expression "Angry"      :font-role :gothic      :weight :bold    :posture :lean-in    :bubble :jagged :tone :focus-lines}
+  :cold-menace {:expression "Smirk"      :font-role :bold-mincho :weight :bold    :posture :cross-arms :bubble :oval  :tone :vignette-dark}
+  :energetic   {:expression "Happy"      :font-role :gothic      :weight :bold    :posture :arm-raised :bubble :burst :tone :radial-burst}
+  :gentle      {:expression "Neutral"    :font-role :maru        :weight :regular :posture :upright    :bubble :oval  :tone :flat-white}
+  :stoic       {:expression "Neutral"    :font-role :gothic      :weight :regular :posture :upright    :bubble :oval  :tone :none}
+  :mob         {:expression "Neutral"    :font-role :handwritten :weight :faint   :posture :upright    :bubble :cloud :tone :crowd-silhouette}}
+ :default-archetype :stoic
+
+ ;; ── register: セリフ種別の上書き（吹き出しの形・文字の薄さ・大きさ の主因）
+ :registers
+ {:speech    {:bubble :oval   :weight :regular :scale 1.0}
+  :shout     {:bubble :spike  :weight :heavy   :scale 1.6  :tone :flash :fx [:speed-lines] :marks [:anger-vein :sweat]}
+  :whisper   {:bubble :oval   :weight :light   :scale 0.8  :font-role :handwritten}
+  :thought   {:bubble :cloud  :weight :light   :scale 0.95 :font-role :mincho :dashed true}
+  :monologue {:bubble :square :weight :regular :scale 0.95 :font-role :mincho}
+  :narration {:bubble :square :weight :regular :scale 0.95 :font-role :mincho}
+  :chatter   {:bubble :cloud  :weight :faint   :scale 0.7  :font-role :handwritten :tone :crowd-silhouette}
+  :nameplate {:bubble :square :weight :bold    :scale 0.9  :font-role :gothic :invert true}
+  :sfx       {:weight :heavy  :scale 1.8  :font-role :brush :rotate -8}}
+ :default-register :speech
+
+ ;; ── expression-cue: 感情による姿勢・描き文字マーク・背景トーン傾向の補正
+ :expression-cues
+ {"Neutral"    {:posture :upright    :marks []                  :tone-bias :none}
+  "Happy"      {:posture :arm-raised :marks [:sparkle]          :tone-bias :flat-white}
+  "Angry"      {:posture :lean-in    :marks [:anger-vein :sweat] :tone-bias :focus-lines}
+  "Sad"        {:posture :turn-away  :marks [:tear]             :tone-bias :gradient}
+  "Surprised"  {:posture :recoil     :marks [:shock :exclaim]   :tone-bias :flash}
+  "Determined" {:posture :upright    :marks []                  :tone-bias :focus-lines}
+  "Pained"     {:posture :slump      :marks [:sweat]            :tone-bias :hatching}
+  "Smirk"      {:posture :cross-arms :marks []                  :tone-bias :vignette-dark}}
+
+ ;; ── intensity(0.0..1.0): 大きさ/太さ/トーンの増幅
+ :intensity
+ {:scale-gain     0.6                 ; scale *= (1 + scale-gain*intensity), clamp ≤ scale-max
+  :scale-max      2.4
+  :weight-steps   [[0.66 1] [0.9 2]]  ; intensity≥.66 で太さ +1 段, ≥.9 で +2 段 (:weight index)
+  :tone-threshold 0.4                 ; intensity<threshold は劇的トーンを :subtle-tone に減衰
+  :subtle-tone    :dot}
+
+ ;; ── 観察メモ（参照コマ → パターンのトレーサビリティ）
+ :observations
+ [{:panel "election-guards"
+   :who   ["ナイベイン" "トアアスタ" "リズルタ" "ガター"]
+   :note  "名札=黒箱に白抜きゴシック(:nameplate)。背景のモブは群衆シルエット＋薄い小雲(:chatter, weight :faint, scale 0.7)。ガターの激昂アップは黒トゲ背景(:hot-blooded + :shout → :focus-lines/:flash)＋汗・怒張。"}
+  {:panel "slakka-interrupt"
+   :who   ["スラッカ"]
+   :note  "挙手＋放射状集中線(:energetic archetype → :radial-burst)。割り込み『ちょっといいかな?』は太く大きなトゲ/バースト(:shout / :burst)。"}
+  {:panel "standoff"
+   :who   []
+   :note  "対峙アップはグラデ/ビネットでテンション。『バカな!!』は :shout(spike, :heavy, scale 1.6, :flash)。冷酷側は :cold-menace(暗ビネット, 太明朝)。"}]}

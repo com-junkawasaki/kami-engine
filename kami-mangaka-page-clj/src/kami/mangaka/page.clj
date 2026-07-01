@@ -15,8 +15,9 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [kami.mangaka.text :as t])
-  (:import [java.awt Color Font BasicStroke RenderingHints GraphicsEnvironment]
-           [java.awt.geom RoundRectangle2D$Double]
+  (:import [java.awt Color Font BasicStroke RenderingHints GraphicsEnvironment
+                     RadialGradientPaint GradientPaint]
+           [java.awt.geom RoundRectangle2D$Double Point2D$Float]
            [java.awt.image BufferedImage]
            [javax.imageio ImageIO]
            [java.io File]))
@@ -115,6 +116,96 @@
 (defn- font [style size]
   (Font. (or jp-font-family Font/SANS_SERIF) style (int size)))
 
+;; --- manga-expression → Java2D mapping (kami.mangaka.expression tags) ---------
+;; 文字の薄さ (:weight) → 色/太さ, 文字の大きさ (:scale) → フォントサイズ,
+;; 背景トーン (:tone) → コマ背景の効果, :nameplate/:chatter register → 専用描画。
+
+(defn- weight->color [w]
+  (case w
+    :faint (Color. 140 140 140)   ; 薄いグレー (モブのざわめき)
+    :light (Color. 85 85 85)
+    Color/BLACK))
+
+(defn- weight->style [w] (case w (:bold :heavy) Font/BOLD Font/PLAIN))
+
+(defn- scaled [base scale] (int (Math/round (* (double base) (double (or scale 1.0))))))
+
+(defn- tone-bg!
+  "Draw a panel background TONE over the image (under the text): screentone /
+  focus-lines / flash / vignette / crowd-silhouette — the 背景トーン device that
+  keys mood to emotion (kami.mangaka.expression :tone)."
+  [g tone x y w h]
+  (when (and tone (not (#{:none :flat-white} tone)))
+    (let [g2 (.create g)
+          x (double x) y (double y) w (double w) h (double h)
+          cx (+ x (/ w 2.0)) cy (+ y (/ h 2.0))]
+      (try
+        (.setClip g2 (int x) (int y) (int w) (int h))   ; g2 inherits g's AA (RenderingHints copied by .create)
+        (case tone
+          (:focus-lines :radial-burst)
+          (do (.setColor g2 (Color. 0 0 0 150)) (.setStroke g2 (BasicStroke. 2.0))
+              (doseq [a (range 0 360 6)]
+                (let [r (Math/toRadians a)]
+                  (.drawLine g2 (int cx) (int cy)
+                             (int (+ cx (* (Math/cos r) w 1.3)))
+                             (int (+ cy (* (Math/sin r) h 1.3)))))))
+          :flash
+          (do (.setColor g2 (Color. 0 0 0 205)) (.setStroke g2 (BasicStroke. 3.5))
+              (doseq [a (range 0 360 13)]
+                (let [r (Math/toRadians a)]
+                  (.drawLine g2 (int cx) (int cy)
+                             (int (+ cx (* (Math/cos r) w 1.3)))
+                             (int (+ cy (* (Math/sin r) h 1.3)))))))
+          :vignette-dark
+          (do (.setPaint g2 (RadialGradientPaint.
+                             (Point2D$Float. (float cx) (float cy)) (float (max w h))
+                             (float-array [0.5 1.0])
+                             (into-array Color [(Color. 0 0 0 0) (Color. 0 0 0 190)])))
+              (.fillRect g2 (int x) (int y) (int w) (int h)))
+          :gradient
+          (do (.setPaint g2 (GradientPaint. (float x) (float y) (Color. 0 0 0 0)
+                                            (float x) (float (+ y h)) (Color. 0 0 0 130)))
+              (.fillRect g2 (int x) (int y) (int w) (int h)))
+          :dot
+          (do (.setColor g2 (Color. 0 0 0 55))
+              (doseq [yy (range (int y) (int (+ y h)) 11) xx (range (int x) (int (+ x w)) 11)]
+                (.fillOval g2 xx yy 3 3)))
+          :hatching
+          (do (.setColor g2 (Color. 0 0 0 75)) (.setStroke g2 (BasicStroke. 1.0))
+              (doseq [d (range (int (- x h)) (int (+ x w)) 8)]
+                (.drawLine g2 d (int y) (int (+ d h)) (int (+ y h)))))
+          :crowd-silhouette
+          (do (.setColor g2 (Color. 0 0 0 95))
+              (doseq [i (range 0 (inc (int (/ w 40.0))))]
+                (let [hx (+ x 8 (* i 40.0)) hy (+ y (* h 0.5))]
+                  (.fillOval g2 (int hx) (int hy) 28 28)
+                  (.fillRect g2 (int (- hx 5)) (int (+ hy 22)) 38 (int (max 0 (- (+ y h) (+ hy 22))))))))
+          nil)
+        (finally (.dispose g2))))))
+
+(defn- nameplate!
+  "キャラ名札 → 黒箱に白抜きゴシック, コマ左下 (HxH の従事兵ラベル)."
+  [g text x y w h]
+  (when (and text (seq (str text)))
+    (.setFont g (font Font/BOLD 20))
+    (let [fm (.getFontMetrics g) pad 8
+          tw (.stringWidth fm (str text))
+          bw (+ (* 2 pad) tw) bh (+ (* 2 pad) (.getHeight fm))
+          bx (int (+ x 12)) by (int (- (+ y h) bh 12))]
+      (doto g (.setColor Color/BLACK) (.fillRect bx by bw bh)
+              (.setColor Color/WHITE))
+      (.drawString g ^String (str text) (int (+ bx pad)) (int (+ by pad (.getAscent fm)))))))
+
+(defn- chatter!
+  "モブのざわめき → 薄いグレーの小さな独白, コマ上部に散らす."
+  [g texts x y w]
+  (doseq [[i s] (map-indexed vector (filter #(seq (str %)) texts))]
+    (.setFont g (font Font/PLAIN 16))
+    (.setColor g (Color. 140 140 140))
+    (.drawString g ^String (str s)
+                 (int (+ x 14 (* i (* w 0.24))))
+                 (int (+ y 26 (* (mod i 2) 22))))))
+
 ;; --- text wrapping (CJK: break by char to fit width) -------------------------
 
 (defn- wrap [g text max-w]
@@ -154,10 +245,11 @@
   (.drawString g (str id) (int (+ x 14)) (int (+ y 30))))
 
 (defn- caption-box
-  "Narration → a small caption box at the panel's top-left (serif, white)."
-  [g text x y w]
+  "Narration → a small caption box at the panel's top-left (serif, white). The
+  optional style map carries :weight (薄さ→色/太さ) + :scale (大きさ→フォント)."
+  [g text x y w & [{:keys [weight scale]}]]
   (when (and text (seq (str text)))
-    (.setFont g (font Font/PLAIN 22))
+    (.setFont g (font (weight->style weight) (scaled 22 scale)))
     (let [pad 10 maxw (int (- (* w 0.62) (* 2 pad)))
           lines (wrap g text maxw)
           fm (.getFontMetrics g) lh (+ 4 (.getHeight fm))
@@ -168,33 +260,38 @@
               (.fillRect bx by bw bh)
               (.setColor (Color. 60 60 56)) (.setStroke (BasicStroke. 1.5))
               (.drawRect bx by bw bh))
-      (.setColor g (Color. 40 40 38))
+      (.setColor g (if (#{:faint :light} weight) (weight->color weight) (Color. 40 40 38)))
       (doseq [[i ln] (map-indexed vector lines)]
         (.drawString g ^String ln (int (+ bx pad)) (int (+ by pad (* (inc i) lh) -6)))))))
 
 (defn- bubble
   "Dialogue → a white rounded speech bubble with a tail + black outline + JP text.
-  `cx` is the desired bubble centre; `side` (:l/:r) aims the tail. Returns bottom-y."
-  [g text cx top w side]
+  `cx` is the desired bubble centre; `side` (:l/:r) aims the tail. The optional
+  style map carries :weight (薄さ→色/太さ), :scale (大きさ→フォント), and :shape
+  (:spike/:jagged/:burst の叫び系は太い輪郭で強調 — full clip-path は web reader 側).
+  Returns bottom-y."
+  [g text cx top w side & [{:keys [weight scale shape]}]]
   (when (and text (seq (str text)))
-    (.setFont g (font Font/PLAIN 25))
-    (let [pad 17 maxw (int (* w 0.46))
+    (.setFont g (font (weight->style weight) (scaled 25 scale)))
+    (let [shout? (boolean (#{:spike :jagged :burst} shape))
+          pad 17 maxw (int (* w 0.46))
           lines (wrap g text maxw)
           fm (.getFontMetrics g) lh (+ 6 (.getHeight fm))
           tw (reduce max 1 (map #(.stringWidth fm %) lines))
           bw (+ (* 2 pad) tw) bh (+ (* 2 pad) (* lh (count lines)))
           bx (- cx (/ bw 2.0)) by top
-          rr (RoundRectangle2D$Double. bx by bw bh 38 38)
+          rad (if shout? 8 38)
+          rr (RoundRectangle2D$Double. bx by bw bh rad rad)
           ;; tail: a small triangle dropping from the bubble toward the speaker
           tailx (if (= side :r) (- (+ bx bw) (* bw 0.28)) (+ bx (* bw 0.16)))
           txs (int-array [(int tailx) (int (+ tailx 26)) (int (+ tailx (if (= side :r) -2 28)))])
           tys (int-array [(int (+ by bh -4)) (int (+ by bh -4)) (int (+ by bh 24))])]
       (doto g (.setColor Color/WHITE) (.fillPolygon txs tys 3) (.fill rr)
-              (.setColor Color/BLACK) (.setStroke (BasicStroke. 3.0))
+              (.setColor Color/BLACK) (.setStroke (BasicStroke. (float (if shout? 5.0 3.0))))
               (.drawPolygon txs tys 3) (.draw rr)
               ;; paint over the seam where the tail meets the bubble
               (.setColor Color/WHITE) (.fillRect (int (+ tailx 2)) (int (+ by bh -7)) 22 6))
-      (.setColor g Color/BLACK)
+      (.setColor g (weight->color weight))
       (doseq [[i ln] (map-indexed vector lines)]
         (.drawString g ^String ln
                      (int (- cx (/ (.stringWidth fm ln) 2.0)))
@@ -204,11 +301,11 @@
 (defn- draw-sfx
   "SFX (擬音) → bold white text with a black stroke, tilted, upper-right of the
   panel. The locale-resolved string (e.g. ちゃぷ / lap…)."
-  [g text x y w]
+  [g text x y w & [scale]]
   (when (and text (seq (str text)))
     (let [g2 (.create g)]
       (try
-        (let [fsz (int (max 30 (* w 0.16)))
+        (let [fsz (int (max 30 (* w 0.16 (double (or scale 1.0)))))
               sx  (int (+ x (* w 0.5))) sy (int (+ y (* w 0.3)))]
           (.setFont g2 (font Font/BOLD fsz))
           (.rotate g2 (Math/toRadians -8) sx sy)
@@ -249,23 +346,34 @@
         (if (and f (.exists ^File f))
           (draw-cover g (ImageIO/read ^File f) x y w h)
           (placeholder g x y w h (:id panel)))
+        ;; 背景トーン (kami.mangaka.expression :tone) — 画像の上, フレーム/文字の下
+        (tone-bg! g (:tone panel) x y w h)
         ;; confident black frame (heavier on a bleed splash)
         (doto g (.setColor Color/BLACK) (.setStroke (BasicStroke. (float (if bleed 10 5))))
                 (.drawRect (int x) (int y) (int w) (int h)))
-        ;; text layer (shared, locale-keyed): narration caption + bubbles + SFX
-        (let [els  (t/panel->elements panel)
-              narr (some #(when (= :narration (:kind %)) (t/localize (:text %) locale)) els)
-              dlgs (filter #(= :dialogue (:kind %)) els)
-              sfxs (filter #(= :sfx (:kind %)) els)]
-          (caption-box g narr x y w)
+        ;; text layer (shared, locale-keyed): nameplate + chatter + caption + bubbles + SFX
+        (let [els     (t/panel->elements panel)
+              narr-el (some #(when (= :narration (:kind %)) %) els)
+              dlgs    (filter #(= :dialogue (:kind %)) els)
+              sfxs    (filter #(= :sfx (:kind %)) els)
+              nps     (filter #(= :nameplate (:kind %)) els)
+              chat    (filter #(= :chatter (:kind %)) els)]
+          (when (seq chat)
+            (chatter! g (map #(t/localize (:text %) locale) chat) x y w))
+          (when narr-el
+            (caption-box g (t/localize (:text narr-el) locale) x y w
+                         {:weight (:weight narr-el) :scale (:scale narr-el)}))
           ;; alternate bubble side per panel for rhythm; keep inside the panel
           (let [side (if (even? idx) :l :r)
                 cx (+ x (* w (if (= side :l) 0.42 0.58)))]
             (loop [ds dlgs top (+ y 22)]
               (when (seq ds)
-                (let [nt (bubble g (t/localize (:text (first ds)) locale) cx top w side)]
+                (let [d  (first ds)
+                      nt (bubble g (t/localize (:text d) locale) cx top w side
+                                 {:weight (:weight d) :scale (:scale d) :shape (:bubble d)})]
                   (recur (rest ds) (or nt (+ top 96)))))))
-          (doseq [s sfxs] (draw-sfx g (t/localize (:text s) locale) x y w)))))
+          (doseq [s sfxs] (draw-sfx g (t/localize (:text s) locale) x y w (:scale s)))
+          (doseq [np nps] (nameplate! g (t/localize (:text np) locale) x y w h)))))
     (.dispose g)
     (io/make-parents out)
     (ImageIO/write canvas "png" (File. ^String out))

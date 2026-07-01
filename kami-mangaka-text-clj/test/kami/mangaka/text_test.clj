@@ -59,3 +59,39 @@
 
 (deftest locales-test
   (is (= [:ja :en] (t/locales [{:text {:ja "x" :en "y"}} {:text "z"}]))))
+
+(deftest expression-tags-render
+  (testing ":weight (薄さ) → class, :scale (大きさ) → size class, :bubble :spike → clip"
+    (let [html (h/->html (t/element->hiccup
+                          :ja {:kind :dialogue :speaker "a" :text {:ja "バカな！！"}
+                               :bubble :spike :weight :heavy :scale 1.6} :l))]
+      (is (str/includes? html "mk-w-heavy"))
+      (is (str/includes? html "mk-sz-xl"))
+      (is (str/includes? html "mk-fuki-spike"))))
+  (testing ":nameplate register → 黒箱白抜きラベル"
+    (let [html (h/->html (t/element->hiccup
+                          :ja {:register :nameplate :text {:ja "第7王子親衛兵 ガター"}} :l))]
+      (is (str/includes? html "mk-nameplate"))
+      (is (str/includes? html "ガター"))))
+  (testing ":chatter register → 薄いざわめき"
+    (let [html (h/->html (t/element->hiccup
+                          :ja {:register :chatter :text {:ja "ざわ…"} :weight :faint :scale 0.7} :l))]
+      (is (str/includes? html "mk-chatter"))
+      (is (str/includes? html "mk-w-faint"))
+      (is (str/includes? html "mk-sz-xs"))))
+  (testing "plain narration keeps its class (mk-cap) with no empty class attr"
+    (let [html (h/->html (t/element->hiccup :ja {:kind :narration :text {:ja "その頃"}} :l))]
+      (is (str/includes? html "mk-cap"))
+      (is (not (str/includes? html "class=\"\""))))))
+
+(deftest panel->elements-expression
+  (let [els (t/panel->elements
+             {:nameplate "スラッカ"
+              :dialogue [{:speaker "s" :text "！！" :bubble :spike :weight :heavy :scale 1.6 :register :shout}]
+              :chatter ["ざわ" {:text "ざわ" :weight :faint}]})]
+    (is (= :nameplate (:kind (first els))) "nameplate は先頭")
+    (is (= 2 (count (filter #(= :chatter (:kind %)) els))))
+    (let [d (some #(when (= :dialogue (:kind %)) %) els)]
+      (is (= :heavy (:weight d)) "expression tags ride onto the element")
+      (is (= :shout (:register d)))
+      (is (= :spike (:bubble d))))))
