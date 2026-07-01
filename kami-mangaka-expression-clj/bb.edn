@@ -1,0 +1,7 @@
+;; kami-mangaka-expression-clj — task runner. Pure pattern library; bb runs tests.
+{:min-bb-version "1.0.0"
+ :paths ["src" "test" "resources"]
+ :tasks
+ {:requires ([babashka.process :as p])
+  test {:doc "Run the expression-pattern tests (vocab lock-step / resolve / analyze)"
+        :task (p/shell "clojure -M:test")}}}

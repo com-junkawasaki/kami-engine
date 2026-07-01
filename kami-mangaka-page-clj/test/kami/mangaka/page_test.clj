@@ -50,6 +50,22 @@
       (testing "same image source, different lettering → different PNG bytes"
         (is (not= (.length (io/file ja)) (.length (io/file en))))))))
 
+(deftest compose-page!-expression-bake
+  (testing "背景トーン・薄さ・大きさ・名札・ざわめき を焼き込む (全 tone の描画経路が例外なく走る)"
+    (let [panels (for [[i tone] (map-indexed vector
+                                             [:focus-lines :flash :vignette-dark :gradient
+                                              :dot :hatching :crowd-silhouette])]
+                   {:id (str "p" i) :size "half" :tone tone
+                    :nameplate (str "第" i "王子親衛兵")
+                    :dialogue [{:text "バカな！！" :bubble :spike :weight :heavy :scale 1.6}]
+                    :chatter ["ざわ" "ざわ"]})
+          out (str (System/getProperty "java.io.tmpdir") "/mangaka-expr-bake.png")]
+      (io/delete-file out true)
+      (is (= out (page/compose-page! {:layout "grid" :panels (vec panels)}
+                                     (constantly nil) out)))
+      (is (.exists (io/file out)))
+      (is (pos? (.length (io/file out)))))))
+
 (deftest compose-page!-writes-a-png
   (testing "headless Java2D composes a page (placeholders, no source images)"
     (let [out (str (System/getProperty "java.io.tmpdir") "/mangaka-page-test.png")
