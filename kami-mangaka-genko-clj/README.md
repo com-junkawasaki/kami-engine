@@ -1,7 +1,7 @@
 # kami-mangaka-genko-clj
 
 原稿 (**genko**) manga-editor の **document model + 純ロジック**を cljc SSoT に切り出した
-モジュール (ADR-2607020100)。`kami-engine-sdk` の `genko-embed.ts`（WebGPU pentab
+モジュール (ADR-2607020200)。`kami-engine-sdk` の `genko-embed.ts`（WebGPU pentab
 エディタ = 自己完結 HTML を返す 2500 行の関数）が inline JS に抱えていた
 
 - doc / page / node **データモデル**（`{:pages [{:nodes [{:id :type :visible :data}]}]}`）
