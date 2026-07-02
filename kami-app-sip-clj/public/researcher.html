@@ -5,15 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Spirit in Physics — Researcher</title>
   <meta name="description" content="n=1000 study — read-only researcher dashboard (participants & session emotion summaries).">
-  <style>* { margin: 0; box-sizing: border-box; } html, body { background: #faf8fd; }</style>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body { min-height: 100vh; display: grid; place-items: center; background: #faf8fd;
+           color: #4f4564; font: 15px/1.6 ui-sans-serif, system-ui, "Hiragino Sans", sans-serif; }
+    main { max-width: 520px; padding: 32px; text-align: center; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p { color: #766c88; }
+  </style>
 </head>
 <body>
-  <!-- P3-A read-only dashboard. The cljs build (shadow :researcher) exposes
-       window.sip.researcher.mount. Data source: Kotoba Datomic XRPC when
-       window.SIP_KOTOBA_URL is set, else bundled seed. -->
-  <script type="module">
-    import './js/researcher.js?b=1';
-    window.addEventListener('load', () => window.sip.researcher.mount());
-  </script>
+  <main>
+    <h1>Spirit in Physics — Researcher</h1>
+    <p>The read-only dashboard data model remains in this repo; the browser dashboard is now supplied by a host adapter.</p>
+  </main>
 </body>
 </html>

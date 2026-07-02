@@ -9,7 +9,7 @@
   `datomic.q` for read), see docs/p2-shared-index.md and docs/p3b-data-collection.md.
 
   PRIVACY: PII (email / medical history) is stored access-controlled and is NEVER
-  surfaced by the read-only dashboard (`sip.researcher` lists `isPublic`
+  surfaced by a read-only dashboard adapter (`:isPublic`
   participants by demographics only). Real collection requires consent + the
   write-auth/Datomic-Cloud decisions in the P3-B design doc — this ns is the
   data foundation, not a consent-bearing collector."
